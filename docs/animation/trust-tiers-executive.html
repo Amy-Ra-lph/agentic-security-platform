@@ -134,15 +134,14 @@
     border: 1px solid var(--layer-border);
     border-radius: 6px;
     background: var(--card);
-    color: var(--text);
+    color: var(--text-dim);
     cursor: pointer;
     font-size: 14px;
     transition: all 0.2s;
   }
 
-  .controls button:hover { border-color: #555; }
-  .controls button.active { border-color: var(--pass); color: var(--pass); }
-  .controls button.scenario-breach { border-color: var(--deny); color: var(--deny); }
+  .controls button:hover { border-color: #555; color: var(--text); }
+  .controls button.active { border-color: var(--accent); color: var(--accent); background: rgba(122, 162, 247, 0.08); }
 
   .main {
     display: flex;
@@ -260,7 +259,7 @@
   }
 
   .outcome-card.active-signal { border-color: var(--pass); }
-  .outcome-card.alert-signal { border-color: var(--deny); }
+  .outcome-card.alert-signal { border-color: var(--throttle); }
 
   .outcome-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
   .outcome-card p { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
@@ -947,7 +946,7 @@
 
       setNarration('Layer 5: Behavioral detector triggers circuit breaker. <strong>Stage 1: THROTTLE</strong> — all agents of this type are rate-limited. Token revocation fires immediately. The compromised agent\'s credential and all sub-delegated credentials are invalidated.', d * 5.5);
       setLayer('l5', 'deny', 'CIRCUIT BREAKER', d * 5.5);
-      setOutcome('time', 'red', '< 60 SECONDS', d * 5.5);
+      setOutcome('time', 'orange', '< 60 SECONDS', d * 5.5);
 
       setNarration('Anomaly sustained → <strong>Stage 2: HALT</strong> → <strong>Stage 3: BLOCK.</strong> Agent demoted to blocked tier. All access revoked. Automated alert fires to security operations. <strong>Admin must manually re-enroll to restore access.</strong>', d * 7);
       setOutcome('blast', 'green', '0 ADMIN OPS, 2 WRITES', d * 7);
