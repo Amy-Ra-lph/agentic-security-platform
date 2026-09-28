@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Securing Your AI Agent Fleet — Executive Overview</title>
+<style>
+  :root {
+    --blocked: #880044;
+    --sovereign: #1a7a3a;
+    --verified: #0066cc;
+    --untrusted: #cc4400;
+    --layer-bg: #1a1a2e;
+    --layer-border: #2a2a4e;
+    --pass: #00cc66;
+    --deny: #ee3333;
+    --throttle: #ff9900;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --bg: #0d0d1a;
+    --card: #16162a;
+    --accent: #7aa2f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 32px 20px 12px;
+  }
+
+  .header h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .header .tagline {
+    color: var(--accent);
+    font-size: 15px;
+    margin-top: 12px;
+    font-weight: 500;
+  }
+
+  .problem-strip {
+    max-width: 1100px;
+    margin: 16px auto 0;
+    padding: 0 20px;
+  }
+
+  .problem-box {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    transition: max-height 0.4s, opacity 0.4s, padding 0.4s;
+    overflow: hidden;
+  }
+
+  .problem-box.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 24px;
+    border: none;
+  }
+
+  .problem-col h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--layer-border);
+    padding-bottom: 6px;
+  }
+
+  .problem-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .problem-item .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .problem-item .desc { color: var(--text-dim); }
+  .problem-item strong { color: var(--text); font-weight: 600; }
+
+  .toggle-strip {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+  }
+
+  .toggle-strip button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 12px;
+  }
+
+  .toggle-strip button:hover { color: var(--text); }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+
+  .controls button {
+    padding: 10px 24px;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+
+  .controls button:hover { border-color: #555; }
+  .controls button.active { border-color: var(--pass); color: var(--pass); }
+  .controls button.scenario-breach { border-color: var(--deny); color: var(--deny); }
+
+  .main {
+    display: flex;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    gap: 24px;
+  }
+
+  .stack-area { flex: 1; min-width: 0; }
+  .sidebar { width: 260px; flex-shrink: 0; }
+
+  .layer {
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    transition: all 0.4s;
+    overflow: hidden;
+  }
+
+  .layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+
+  .layer.pass::before { background: rgba(0, 204, 102, 0.08); opacity: 1; border: 1px solid var(--pass); border-radius: 10px; }
+  .layer.deny::before { background: rgba(238, 51, 51, 0.08); opacity: 1; border: 1px solid var(--deny); border-radius: 10px; }
+  .layer.throttle::before { background: rgba(255, 153, 0, 0.08); opacity: 1; border: 1px solid var(--throttle); border-radius: 10px; }
+
+  .layer-id {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+  }
+
+  .layer-info { flex: 1; min-width: 0; }
+  .layer-name { font-size: 15px; font-weight: 600; }
+  .layer-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .layer-result {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .layer-result.visible { opacity: 1; }
+  .layer-result.pass { color: var(--pass); background: rgba(0, 204, 102, 0.15); }
+  .layer-result.deny { color: var(--deny); background: rgba(238, 51, 51, 0.15); }
+  .layer-result.throttle { color: var(--throttle); background: rgba(255, 153, 0, 0.15); }
+
+  .connector { width: 2px; height: 8px; background: var(--layer-border); margin: 0 auto; }
+  .flow-arrow { text-align: center; color: var(--text-dim); font-size: 10px; margin: 2px 0; }
+
+  .narration {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 14px;
+    min-height: 70px;
+  }
+
+  .narration h3 {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .narration p {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .sidebar-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--layer-border);
+  }
+
+  .outcome-card {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    transition: all 0.4s;
+  }
+
+  .outcome-card.active-signal { border-color: var(--pass); }
+  .outcome-card.alert-signal { border-color: var(--deny); }
+
+  .outcome-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .outcome-card p { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+  .outcome-card .metric {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  .metric.green { background: rgba(0, 204, 102, 0.15); color: var(--pass); }
+  .metric.red { background: rgba(238, 51, 51, 0.15); color: var(--deny); }
+  .metric.orange { background: rgba(255, 153, 0, 0.15); color: var(--throttle); }
+  .metric.dim { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  @media (max-width: 800px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; }
+    .problem-box { grid-template-columns: 1fr; }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 4px currentColor; }
+    50% { box-shadow: 0 0 16px currentColor; }
+  }
+
+  .layer.active-anim { animation: pulse-glow 0.6s ease; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Securing Your AI Agent Fleet</h1>
+  <p class="subtitle">Five Layers of Defense — From Identity to Audit</p>
+  <p class="tagline">Every agent earns its access. Every action is verified. Every breach is contained in seconds.</p>
+</div>
+
+<div class="problem-strip" id="problem-section">
+  <div class="problem-box" id="problem-box">
+    <div class="problem-col">
+      <h3>The Problem</h3>
+      <div class="problem-item">
+        <span class="icon">&#x26A0;</span>
+        <div><strong>Over-privileged agents</strong> — <span class="desc">Most AI agents run with the same credentials as the humans who launched them. One compromised agent = full lateral access.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x1F6AB;</span>
+        <div><strong>No identity lifecycle</strong> — <span class="desc">Agents are born anonymous. No enrollment, no attestation, no revocation. You can't manage what you can't see.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x1F4A3;</span>
+        <div><strong>Unlimited blast radius</strong> — <span class="desc">A misbehaving agent can read, write, and delete across your entire estate before anyone notices.</span></div>
+      </div>
+    </div>
+    <div class="problem-col">
+      <h3>Our Approach</h3>
+      <div class="problem-item">
+        <span class="icon">&#x1F6E1;</span>
+        <div><strong>Trust tiers</strong> — <span class="desc">Four access levels: Blocked, Untrusted, Verified, Sovereign. Every agent starts low and earns its way up.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x1F512;</span>
+        <div><strong>Defense in depth</strong> — <span class="desc">Five enforcement layers, any of which can independently deny a request. No single point of failure.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x26A1;</span>
+        <div><strong>Automated containment</strong> — <span class="desc">Behavioral anomaly detection + circuit breaker. Seconds to contain, not hours.</span></div>
+      </div>
+    </div>
+    <div class="problem-col">
+      <h3>Business Outcomes</h3>
+      <div class="problem-item">
+        <span class="icon">&#x2705;</span>
+        <div><strong>Zero lateral movement</strong> — <span class="desc">Compromised agent can never escalate beyond its assigned tier ceiling.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x1F4CB;</span>
+        <div><strong>Audit-ready from day one</strong> — <span class="desc">Every action logged in standard format. Full delegation chain traceable. Compliance-ready.</span></div>
+      </div>
+      <div class="problem-item">
+        <span class="icon">&#x1F4B0;</span>
+        <div><strong>Productivity preserved</strong> — <span class="desc">Trusted agents get full access. Only unknown agents face restrictions. Security without slowdown.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toggle-strip">
+  <button onclick="toggleProblem()">&#x25B2; Hide Overview</button>
+</div>
+
+<div class="controls">
+  <button id="btn-trusted" onclick="runScenario('trusted')">Trusted Agent</button>
+  <button id="btn-unknown" onclick="runScenario('unknown')">Unknown Agent</button>
+  <button id="btn-breach" class="scenario-breach" onclick="runScenario('breach')">Breach Contained</button>
+  <button id="btn-risk" onclick="runScenario('risk')">Risk Containment</button>
+  <button id="btn-compliance" onclick="runScenario('compliance')">Compliance Proof</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--pass)"></div> Allowed</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--deny)"></div> Denied</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--throttle)"></div> Restricted</div>
+</div>
+
+<div class="main">
+  <div class="stack-area">
+    <div class="layer" id="layer-1">
+      <div class="layer-id">&#x1F511;</div>
+      <div class="layer-info">
+        <div class="layer-name">Identity Verification</div>
+        <div class="layer-desc">Is this agent who it claims to be? Device-bound credentials with human confirmation.</div>
+      </div>
+      <div class="layer-result" id="l1-result"></div>
+    </div>
+
+    <div class="connector"></div>
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <div class="layer" id="layer-2">
+      <div class="layer-id">&#x1F3AF;</div>
+      <div class="layer-info">
+        <div class="layer-name">Access Scoping</div>
+        <div class="layer-desc">What is this agent allowed to do? Ceiling set by role profile. Delegation never widens.</div>
+      </div>
+      <div class="layer-result" id="l2-result"></div>
+    </div>
+
+    <div class="connector"></div>
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <div class="layer" id="layer-3">
+      <div class="layer-id">&#x1F4DC;</div>
+      <div class="layer-info">
+        <div class="layer-name">Policy Enforcement</div>
+        <div class="layer-desc">Is this action allowed right now? Context-aware rules: time, severity, rate, resource sensitivity.</div>
+      </div>
+      <div class="layer-result" id="l3-result"></div>
+    </div>
+
+    <div class="connector"></div>
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <div class="layer" id="layer-4">
+      <div class="layer-id">&#x1F6E1;</div>
+      <div class="layer-info">
+        <div class="layer-name">Execution Confinement</div>
+        <div class="layer-desc">Two stacked walls: namespace isolation + mandatory access control. Limits what agent code can touch.</div>
+      </div>
+      <div class="layer-result" id="l4-result"></div>
+    </div>
+
+    <div class="connector"></div>
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <div class="layer" id="layer-5">
+      <div class="layer-id">&#x1F4CA;</div>
+      <div class="layer-info">
+        <div class="layer-name">Continuous Monitoring</div>
+        <div class="layer-desc">Is this agent behaving normally? Behavioral analysis, anomaly detection, automatic circuit breaker.</div>
+      </div>
+      <div class="layer-result" id="l5-result"></div>
+    </div>
+
+    <div class="narration" id="narration-box">
+      <h3>Scenario</h3>
+      <p id="narration-text">Select a scenario above to see how the five layers work together.</p>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-label">Risk Outcomes</div>
+
+    <div class="outcome-card" id="oc-blast">
+      <h3>Blast Radius</h3>
+      <p>Maximum damage a compromised agent can do before containment.</p>
+      <div class="metric dim" id="blast-metric">SELECT SCENARIO</div>
+    </div>
+
+    <div class="outcome-card" id="oc-time">
+      <h3>Time to Contain</h3>
+      <p>From anomaly detection to full token revocation and tier demotion.</p>
+      <div class="metric dim" id="time-metric">SELECT SCENARIO</div>
+    </div>
+
+    <div class="outcome-card" id="oc-lateral">
+      <h3>Lateral Movement</h3>
+      <p>Can a compromised agent access systems beyond its assigned scope?</p>
+      <div class="metric dim" id="lateral-metric">SELECT SCENARIO</div>
+    </div>
+
+    <div class="outcome-card" id="oc-audit">
+      <h3>Audit Trail</h3>
+      <p>Every action logged with agent identity, delegation chain, and policy decision.</p>
+      <div class="metric dim" id="audit-metric">SELECT SCENARIO</div>
+    </div>
+
+    <div class="outcome-card" id="oc-productivity">
+      <h3>Productivity Impact</h3>
+      <p>Effect on agent operations and developer workflow.</p>
+      <div class="metric dim" id="productivity-metric">SELECT SCENARIO</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentTimeout = [];
+  const d = 1800;
+
+  function reset() {
+    currentTimeout.forEach(clearTimeout);
+    currentTimeout = [];
+    document.querySelectorAll('.layer').forEach(l => {
+      l.classList.remove('pass', 'deny', 'throttle', 'active-anim');
+    });
+    document.querySelectorAll('.layer-result').forEach(r => {
+      r.classList.remove('visible', 'pass', 'deny', 'throttle');
+      r.textContent = '';
+    });
+    document.querySelectorAll('.outcome-card').forEach(c => {
+      c.classList.remove('active-signal', 'alert-signal');
+    });
+    document.querySelectorAll('.metric').forEach(m => {
+      m.className = 'metric dim';
+      m.textContent = '—';
+    });
+    document.querySelectorAll('.controls button').forEach(b => {
+      b.classList.remove('active');
+    });
+    document.getElementById('narration-text').innerHTML = '';
+  }
+
+  function setLayer(id, status, text, delay) {
+    currentTimeout.push(setTimeout(() => {
+      const layer = document.getElementById('layer-' + id.replace('l', ''));
+      const result = document.getElementById(id + '-result');
+      layer.classList.add(status, 'active-anim');
+      result.textContent = text;
+      result.classList.add('visible', status);
+    }, delay));
+  }
+
+  function setNarration(html, delay) {
+    currentTimeout.push(setTimeout(() => {
+      document.getElementById('narration-text').innerHTML = html;
+    }, delay));
+  }
+
+  function setOutcome(id, cls, text, delay) {
+    currentTimeout.push(setTimeout(() => {
+      const card = document.getElementById('oc-' + id);
+      const metric = document.getElementById(id + '-metric');
+      card.classList.add(cls === 'green' || cls === 'dim' ? 'active-signal' : 'alert-signal');
+      metric.className = 'metric ' + cls;
+      metric.textContent = text;
+    }, delay));
+  }
+
+  function toggleProblem() {
+    const box = document.getElementById('problem-box');
+    const btn = document.querySelector('.toggle-strip button');
+    box.classList.toggle('collapsed');
+    btn.innerHTML = box.classList.contains('collapsed') ? '&#x25BC; Show Overview' : '&#x25B2; Hide Overview';
+  }
+
+  function runScenario(type) {
+    reset();
+    document.getElementById('btn-' + type).classList.add('active');
+
+    if (type === 'trusted') {
+      setNarration('<strong>Scenario: Trusted internal agent performs routine operations.</strong><br>An internal DevOps agent, enrolled on a managed host with verified software supply chain, needs to write an incident report and trigger a remediation playbook.', 0);
+
+      setNarration('Layer 1: Agent presents device-bound credential. Platform verifies the host is managed, software signature is valid, and human operator confirmed enrollment. <strong>Identity verified.</strong>', d);
+      setLayer('l1', 'pass', 'VERIFIED', d);
+
+      setNarration('Layer 2: Agent\'s role profile grants incident management and infrastructure read access. Admin operations are explicitly denied — the agent can never escalate beyond its ceiling, even if compromised.', d * 2.5);
+      setLayer('l2', 'pass', 'FULL SCOPE', d * 2.5);
+
+      setNarration('Layer 3: Policy engine evaluates the request in context. P3 incident write during business hours — within normal parameters. <strong>Approved in under 10 microseconds.</strong>', d * 4);
+      setLayer('l3', 'pass', 'POLICY OK', d * 4);
+
+      setNarration('Layer 4: Trusted agents run with standard mandatory access control — kernel-level enforcement that restricts file and network access to declared paths. No sandbox overhead, but still confined.', d * 5.5);
+      setLayer('l4', 'pass', 'STANDARD CONFINEMENT', d * 5.5);
+
+      setNarration('Layer 5: Action logged with full identity chain. Behavioral baseline updated. <strong>Trusted agents work at full speed — security is invisible until something goes wrong.</strong>', d * 7);
+      setLayer('l5', 'pass', 'LOGGED', d * 7);
+
+      setOutcome('blast', 'green', 'CONTAINED BY ROLE', d * 2.5);
+      setOutcome('time', 'green', 'N/A — NORMAL OPS', d * 4);
+      setOutcome('lateral', 'green', 'IMPOSSIBLE', d * 2.5);
+      setOutcome('audit', 'green', 'FULL CHAIN', d * 7);
+      setOutcome('productivity', 'green', 'ZERO OVERHEAD', d * 5.5);
+
+    } else if (type === 'unknown') {
+      setNarration('<strong>Scenario: Unknown third-party plugin requests access.</strong><br>A new agent plugin from an unknown vendor wants to read your incident data. No track record, no verified supply chain. How do you safely evaluate it?', 0);
+
+      setNarration('Layer 1: Agent has no device binding and no human confirmation. System assigns lowest trust tier — read-only access only. <strong>No credentials can be requested beyond read.</strong>', d);
+      setLayer('l1', 'pass', 'READ-ONLY ONLY', d);
+
+      setNarration('Layer 2: Restricted profile applied. All write, delete, and admin scopes are explicitly denied. Delegation depth is zero — this agent cannot pass credentials to sub-agents.', d * 2.5);
+      setLayer('l2', 'throttle', 'RESTRICTED PROFILE', d * 2.5);
+
+      setNarration('Layer 3: Read request passes policy, but with rate limiting — max 10 requests per minute. Prevents data harvesting and reconnaissance at scale.', d * 4);
+      setLayer('l3', 'pass', 'RATE LIMITED', d * 4);
+
+      setNarration('Layer 4: Double confinement. First wall: namespace isolation blocks all network access, restricts filesystem to read-only bind mounts, blocks process spawning. Second wall: mandatory access control denies all sockets, IPC, and cross-process communication. <strong>Exfiltration is physically impossible.</strong>', d * 5.5);
+      setLayer('l4', 'throttle', 'STRICT (BOTH WALLS)', d * 5.5);
+
+      setNarration('Layer 5: Every action fully traced with correlation IDs. Behavioral baseline being established. <strong>The plugin reads data safely — fully confined and monitored. You evaluate without risk.</strong>', d * 7);
+      setLayer('l5', 'pass', 'FULL TRACE', d * 7);
+
+      setOutcome('blast', 'green', 'READ-ONLY', d * 2.5);
+      setOutcome('time', 'green', 'INSTANT (PRE-CONFINED)', d * 5.5);
+      setOutcome('lateral', 'green', 'IMPOSSIBLE', d * 2.5);
+      setOutcome('audit', 'green', 'EVERY ACTION TRACED', d * 7);
+      setOutcome('productivity', 'orange', 'READ-ONLY, RATE LIMITED', d * 4);
+
+    } else if (type === 'breach') {
+      setNarration('<strong>Scenario: Trusted agent gets compromised mid-session.</strong><br>A verified DevOps agent is hijacked by an attacker. It attempts privilege escalation, rapid-fire requests, and credential theft. How fast can we contain it?', 0);
+
+      setNarration('Layer 1: Compromised agent still has a valid session credential from before the attack. Initial request passes identity check. <strong>This is exactly why you need more than one layer.</strong>', d);
+      setLayer('l1', 'pass', 'VALID SESSION', d);
+
+      setNarration('Layer 2: Attacker tries to request admin access — <strong>DENIED.</strong> The agent\'s role profile has a hard ceiling. No amount of exploitation can grant scopes the profile doesn\'t include. The ceiling is set at enrollment, not at runtime.', d * 2.5);
+      setLayer('l2', 'deny', 'ADMIN → DENIED', d * 2.5);
+      setOutcome('lateral', 'green', 'CEILING HELD', d * 2.5);
+
+      setNarration('Layer 3: Rapid-fire requests detected — 3+ denied actions in 10 seconds. Sequence anomaly flagged: writes without preceding reads. Rate spike with no orchestrator-registered intent. <strong>This is not normal agent behavior.</strong>', d * 4);
+      setLayer('l3', 'deny', 'ANOMALY DETECTED', d * 4);
+
+      setNarration('Layer 5: Behavioral detector triggers circuit breaker. <strong>Stage 1: THROTTLE</strong> — all agents of this type are rate-limited. Token revocation fires immediately. The compromised agent\'s credential and all sub-delegated credentials are invalidated.', d * 5.5);
+      setLayer('l5', 'deny', 'CIRCUIT BREAKER', d * 5.5);
+      setOutcome('time', 'red', '< 60 SECONDS', d * 5.5);
+
+      setNarration('Anomaly sustained → <strong>Stage 2: HALT</strong> → <strong>Stage 3: BLOCK.</strong> Agent demoted to blocked tier. All access revoked. Automated alert fires to security operations. <strong>Admin must manually re-enroll to restore access.</strong>', d * 7);
+      setOutcome('blast', 'green', '0 ADMIN OPS, 2 WRITES', d * 7);
+
+      setNarration('<strong>Containment complete.</strong> Zero admin operations succeeded. Two low-severity writes occurred within existing policy. All tokens revoked. Agent permanently blocked until human review. Automated remediation playbook triggered. <strong>Breach contained in seconds — not hours, not days.</strong>', d * 8.5);
+      setLayer('l4', 'deny', 'ACCESS REVOKED', d * 8.5);
+
+      setOutcome('audit', 'green', 'FULL FORENSIC TRAIL', d * 8.5);
+      setOutcome('productivity', 'orange', 'ONE AGENT TYPE PAUSED', d * 7);
+
+    } else if (type === 'risk') {
+      setNarration('<strong>Scenario: How does each layer reduce your risk exposure?</strong><br>Walk through the five layers and see exactly which risks each one mitigates — from credential theft to data exfiltration to compliance gaps.', 0);
+
+      setNarration('<strong>Risk: Credential theft and impersonation.</strong><br>Layer 1 mitigates this. Credentials are bound to specific devices with hardware attestation. A stolen token is useless on a different host. Human confirmation prevents automated credential farming. <strong>Risk reduction: eliminates remote credential replay attacks.</strong>', d);
+      setLayer('l1', 'pass', 'CREDENTIAL THEFT → BLOCKED', d);
+      setOutcome('blast', 'green', 'DEVICE-BOUND', d);
+
+      setNarration('<strong>Risk: Privilege escalation and lateral movement.</strong><br>Layer 2 mitigates this. Every agent has a hard scope ceiling set at enrollment — not at runtime. Even a fully compromised agent cannot request scopes outside its profile. Delegation always narrows, never widens. <strong>Risk reduction: eliminates privilege escalation paths.</strong>', d * 2.5);
+      setLayer('l2', 'pass', 'ESCALATION → CEILING', d * 2.5);
+      setOutcome('lateral', 'green', 'HARD CEILING', d * 2.5);
+
+      setNarration('<strong>Risk: Unauthorized actions in sensitive contexts.</strong><br>Layer 3 mitigates this. Even if an agent has the right credentials and scope, policy evaluates the full context: time of day, resource sensitivity, action severity, request rate. A DevOps agent writing a P1 incident at 3 AM triggers a deny — credentials don\'t override context. <strong>Risk reduction: prevents credential misuse in high-risk windows.</strong>', d * 4.5);
+      setLayer('l3', 'pass', 'CONTEXT ABUSE → DENIED', d * 4.5);
+
+      setNarration('<strong>Risk: Data exfiltration and system tampering.</strong><br>Layer 4 mitigates this with two independent walls. Namespace isolation prevents network egress — agents can\'t call home. Mandatory access control prevents filesystem writes outside declared paths. Even if Layers 1-3 are bypassed, the agent is physically contained. <strong>Risk reduction: makes exfiltration physically impossible for restricted agents.</strong>', d * 6.5);
+      setLayer('l4', 'pass', 'EXFILTRATION → IMPOSSIBLE', d * 6.5);
+      setOutcome('time', 'green', 'PREVENT, NOT DETECT', d * 6.5);
+
+      setNarration('<strong>Risk: Undetected compromise and slow-burn attacks.</strong><br>Layer 5 mitigates this. Behavioral analysis detects patterns that pass all other checks — an agent doing permitted actions in an abnormal sequence or at abnormal volume. The circuit breaker automatically contains the agent before human review. <strong>Risk reduction: catches "low and slow" attacks that evade rule-based defenses.</strong>', d * 8.5);
+      setLayer('l5', 'pass', 'SLOW BURN → DETECTED', d * 8.5);
+      setOutcome('audit', 'green', 'BEHAVIORAL BASELINE', d * 8.5);
+      setOutcome('productivity', 'green', 'SURGICAL CONTAINMENT', d * 8.5);
+
+    } else if (type === 'compliance') {
+      setNarration('<strong>Scenario: Auditor asks "Who did what, when, and with whose authority?"</strong><br>A compliance audit requires full traceability of every agent action, every delegation, and every policy decision.', 0);
+
+      setNarration('Layer 1: Every agent enrollment is logged with timestamp, device attestation level, and human approver identity. <strong>You know exactly who authorized each agent to operate.</strong>', d);
+      setLayer('l1', 'pass', 'ENROLLMENT RECORD', d);
+
+      setNarration('Layer 2: Every credential exchange is logged with scope, delegation chain, and narrowing. When Agent A delegates to Agent B, the full chain is recorded: human → Agent A → Agent B. <strong>No anonymous delegations.</strong>', d * 2.5);
+      setLayer('l2', 'pass', 'DELEGATION CHAIN', d * 2.5);
+
+      setNarration('Layer 3: Every policy decision is logged — allowed and denied. You can replay any request and see exactly which rule triggered, what context was evaluated, and why the decision was made.', d * 4);
+      setLayer('l3', 'pass', 'DECISION LOG', d * 4);
+
+      setNarration('Layer 4: Confinement state is recorded per agent execution. Which isolation profile was applied, which filesystem paths were accessible, which network connections were blocked.', d * 5.5);
+      setLayer('l4', 'pass', 'CONFINEMENT RECORD', d * 5.5);
+
+      setNarration('Layer 5: All events in a standardized security format. Correlation IDs link related actions across the five layers. Anomaly detection history shows behavioral baselines and deviations. <strong>Your auditor gets a single, queryable timeline of everything.</strong>', d * 7);
+      setLayer('l5', 'pass', 'COMPLETE TIMELINE', d * 7);
+
+      setOutcome('blast', 'green', 'FULLY DOCUMENTED', d);
+      setOutcome('time', 'green', 'REAL-TIME VISIBILITY', d * 2.5);
+      setOutcome('lateral', 'green', 'CHAIN TRACEABLE', d * 2.5);
+      setOutcome('audit', 'green', 'STANDARDS-BASED', d * 7);
+      setOutcome('productivity', 'green', 'ZERO OVERHEAD', d * 5.5);
+    }
+  }
+</script>
+
+</body>
+</html>
