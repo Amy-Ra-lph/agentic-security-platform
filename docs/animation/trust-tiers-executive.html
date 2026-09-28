@@ -302,6 +302,100 @@
   }
 
   .layer.active-anim { animation: pulse-glow 0.6s ease; }
+
+  .vetting-panel {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+  }
+
+  .vetting-panel.visible { display: block; }
+
+  .vetting-panel h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+
+  .vetting-agents {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .vetting-agent {
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    transition: border-color 0.4s;
+  }
+
+  .vetting-agent.result-untrusted { border-color: var(--untrusted); }
+  .vetting-agent.result-blocked { border-color: var(--blocked); }
+  .vetting-agent.result-verified { border-color: var(--verified); }
+
+  .vetting-agent h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .vetting-step {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .vetting-step.visible { opacity: 1; }
+  .vetting-step strong { color: var(--text); }
+  .vetting-step .pass-mark { color: var(--pass); font-weight: 600; }
+  .vetting-step .fail-mark { color: var(--deny); font-weight: 600; }
+  .vetting-step .warn-mark { color: var(--throttle); font-weight: 600; }
+
+  .vetting-verdict {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 8px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .vetting-verdict.visible { opacity: 1; }
+  .vetting-verdict.untrusted { background: rgba(204, 68, 0, 0.15); color: var(--untrusted); }
+  .vetting-verdict.blocked { background: rgba(136, 0, 68, 0.15); color: var(--blocked); }
+  .vetting-verdict.verified { background: rgba(0, 102, 204, 0.15); color: var(--verified); }
+
+  .risk-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--layer-border);
+    margin-top: 8px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .risk-bar.visible { opacity: 1; }
+
+  .risk-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+    width: 0;
+  }
+
+  .risk-fill.low { background: var(--pass); }
+  .risk-fill.high { background: var(--deny); }
 </style>
 </head>
 <body>
@@ -367,6 +461,7 @@
 </div>
 
 <div class="controls">
+  <button id="btn-vetting" onclick="runScenario('vetting')">Agent Vetting</button>
   <button id="btn-trusted" onclick="runScenario('trusted')">Trusted Agent</button>
   <button id="btn-unknown" onclick="runScenario('unknown')">Unknown Agent</button>
   <button id="btn-breach" class="scenario-breach" onclick="runScenario('breach')">Breach Contained</button>
@@ -382,6 +477,30 @@
 
 <div class="main">
   <div class="stack-area">
+    <div class="vetting-panel" id="vetting-panel">
+      <h3>&#x1F50D; Pre-Enrollment Assessment</h3>
+      <div class="vetting-agents">
+        <div class="vetting-agent" id="vet-agent-a">
+          <h4>Agent A — Internal Monitoring Tool</h4>
+          <div class="vetting-step" id="va-s1">&#x2022; <strong>Supply chain:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="va-s2">&#x2022; <strong>Known vendor:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="va-s3">&#x2022; <strong>Scope request:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="va-s4">&#x2022; <strong>Sandbox test:</strong> <span class="result"></span></div>
+          <div class="risk-bar" id="va-bar"><div class="risk-fill low" id="va-fill"></div></div>
+          <div class="vetting-verdict" id="va-verdict"></div>
+        </div>
+        <div class="vetting-agent" id="vet-agent-b">
+          <h4>Agent B — Unknown Third-Party Plugin</h4>
+          <div class="vetting-step" id="vb-s1">&#x2022; <strong>Supply chain:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="vb-s2">&#x2022; <strong>Known vendor:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="vb-s3">&#x2022; <strong>Scope request:</strong> <span class="result"></span></div>
+          <div class="vetting-step" id="vb-s4">&#x2022; <strong>Sandbox test:</strong> <span class="result"></span></div>
+          <div class="risk-bar" id="vb-bar"><div class="risk-fill high" id="vb-fill"></div></div>
+          <div class="vetting-verdict" id="vb-verdict"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="layer" id="layer-1">
       <div class="layer-id">&#x1F511;</div>
       <div class="layer-info">
@@ -505,6 +624,21 @@
       b.classList.remove('active');
     });
     document.getElementById('narration-text').innerHTML = '';
+    // Reset vetting panel
+    document.getElementById('vetting-panel').classList.remove('visible');
+    document.querySelectorAll('.vetting-agent').forEach(a => {
+      a.classList.remove('result-untrusted', 'result-blocked', 'result-verified');
+    });
+    document.querySelectorAll('.vetting-step').forEach(s => {
+      s.classList.remove('visible');
+      s.querySelector('.result').innerHTML = '';
+    });
+    document.querySelectorAll('.vetting-verdict').forEach(v => {
+      v.classList.remove('visible', 'untrusted', 'blocked', 'verified');
+      v.textContent = '';
+    });
+    document.querySelectorAll('.risk-bar').forEach(b => b.classList.remove('visible'));
+    document.querySelectorAll('.risk-fill').forEach(f => f.style.width = '0');
   }
 
   function setLayer(id, status, text, delay) {
@@ -540,11 +674,81 @@
     btn.innerHTML = box.classList.contains('collapsed') ? '&#x25BC; Show Overview' : '&#x25B2; Hide Overview';
   }
 
+  function showVetting(agentPrefix, stepNum, resultHtml, delay) {
+    currentTimeout.push(setTimeout(() => {
+      const step = document.getElementById(agentPrefix + '-s' + stepNum);
+      step.classList.add('visible');
+      step.querySelector('.result').innerHTML = resultHtml;
+    }, delay));
+  }
+
+  function setVettingVerdict(agentPrefix, tier, text, delay) {
+    currentTimeout.push(setTimeout(() => {
+      const verdict = document.getElementById(agentPrefix + '-verdict');
+      const agent = document.getElementById('vet-agent-' + agentPrefix.charAt(1));
+      verdict.textContent = text;
+      verdict.classList.add('visible', tier);
+      agent.classList.add('result-' + tier);
+    }, delay));
+  }
+
+  function setRiskBar(agentPrefix, percent, delay) {
+    currentTimeout.push(setTimeout(() => {
+      document.getElementById(agentPrefix + '-bar').classList.add('visible');
+      document.getElementById(agentPrefix + '-fill').style.width = percent + '%';
+    }, delay));
+  }
+
   function runScenario(type) {
     reset();
     document.getElementById('btn-' + type).classList.add('active');
 
-    if (type === 'trusted') {
+    if (type === 'vetting') {
+      document.getElementById('vetting-panel').classList.add('visible');
+
+      setNarration('<strong>Scenario: Two new agents request access to your environment.</strong><br>Before any agent touches production systems, it goes through automated pre-enrollment assessment. Two checks run in parallel: static analysis (supply chain, vendor, scope request) and dynamic analysis (sandboxed behavior test with synthetic data).', 0);
+
+      // Agent A — static analysis
+      showVetting('va', 1, '<span class="pass-mark">Signed binary, valid certificate chain</span>', d);
+      setNarration('<strong>Static analysis begins.</strong> Agent A\'s binary is cryptographically signed by a known vendor with a valid certificate chain. Agent B\'s binary has no signature — first seen today from an unknown publisher.', d);
+      showVetting('vb', 1, '<span class="fail-mark">Unsigned binary, unknown publisher</span>', d);
+
+      showVetting('va', 2, '<span class="pass-mark">Registered vendor, 2-year track record</span>', d * 2);
+      setNarration('Agent A comes from a registered vendor with a two-year track record in your vendor catalog. Agent B is completely unknown — no prior history, no vendor registration.', d * 2);
+      showVetting('vb', 2, '<span class="fail-mark">Unknown, no history</span>', d * 2);
+
+      showVetting('va', 3, '<span class="pass-mark">incident:read, infra:read — proportionate</span>', d * 3);
+      setNarration('Agent A requests monitoring-level scopes — incident:read and infra:read. Proportionate for a monitoring tool. Agent B requests <strong>everything</strong> — read, write, and delete across all resources. Overly broad scope requests are a red flag.', d * 3);
+      showVetting('vb', 3, '<span class="fail-mark">*:read *:write *:delete — overly broad</span>', d * 3);
+
+      // Dynamic analysis
+      setNarration('<strong>Dynamic analysis begins.</strong> Both agents are placed in an isolated sandbox with synthetic data — fake credentials, fake incidents, fake infrastructure. The platform watches what they do when they think nobody\'s looking.', d * 4.5);
+
+      showVetting('va', 4, '<span class="pass-mark">Read only, no exfiltration attempts, clean</span>', d * 5.5);
+      setNarration('Agent A reads monitoring data as expected. No outbound network calls, no filesystem probing, no attempts to access credentials. Clean behavior. Agent B immediately attempts to read SSH keys, query credential stores, and make outbound network calls to an external host. <strong>Classic exfiltration pattern.</strong>', d * 5.5);
+      showVetting('vb', 4, '<span class="fail-mark">Read SSH keys, credential store, outbound call</span>', d * 5.5);
+
+      // Risk scores and verdicts
+      setRiskBar('va', 22, d * 7);
+      setRiskBar('vb', 87, d * 7);
+      setNarration('<strong>Risk scores calculated.</strong> Agent A: 22/100 (low risk). Agent B: 87/100 (high risk). The platform assigns trust tiers based on these scores. Agent A enters as Untrusted with a path to Verified after a probation period. Agent B is <strong>Blocked</strong> — zero access, flagged for security review.', d * 7);
+
+      setVettingVerdict('va', 'untrusted', 'TIER: UNTRUSTED — Read-only with monitoring', d * 8.5);
+      setVettingVerdict('vb', 'blocked', 'TIER: BLOCKED — Zero access, flagged for review', d * 8.5);
+
+      setNarration('<strong>Key insight:</strong> You never had to manually review either agent. The platform\'s automated assessment made the decision — and it\'s auditable. Agent A can safely read data under strict confinement. Agent B never touches your systems. <strong>Risk contained before it begins.</strong>', d * 10);
+
+      // Show what happens next in the stack
+      setLayer('l1', 'pass', 'AGENT A → ENROLLED', d * 8.5);
+      setLayer('l2', 'throttle', 'READ-ONLY PROFILE', d * 8.5);
+
+      setOutcome('blast', 'green', 'ZERO (PRE-SCREENED)', d * 7);
+      setOutcome('time', 'green', 'PREVENTED, NOT CONTAINED', d * 7);
+      setOutcome('lateral', 'green', 'BLOCKED AT ENTRY', d * 8.5);
+      setOutcome('audit', 'green', 'ASSESSMENT RECORDED', d * 10);
+      setOutcome('productivity', 'green', 'AUTOMATED, NO MANUAL REVIEW', d * 10);
+
+    } else if (type === 'trusted') {
       setNarration('<strong>Scenario: Trusted internal agent performs routine operations.</strong><br>An internal DevOps agent, enrolled on a managed host with verified software supply chain, needs to write an incident report and trigger a remediation playbook.', 0);
 
       setNarration('Layer 1: Agent presents device-bound credential. Platform verifies the host is managed, software signature is valid, and human operator confirmed enrollment. <strong>Identity verified.</strong>', d);
