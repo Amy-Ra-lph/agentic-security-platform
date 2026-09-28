@@ -337,7 +337,7 @@
 
 <div class="header">
   <h1><span class="rh">Red Hat</span> Portfolio — Agentic Security</h1>
-  <div class="subtitle">17 products across 6 layers — every integration point mapped</div>
+  <div class="subtitle">18 products across 6 layers — every integration point mapped</div>
   <div class="tagline">From image scan to AI-assisted fleet management, every layer is a Red Hat product</div>
 </div>
 
@@ -354,7 +354,7 @@
 
   <!-- Stats -->
   <div class="stats-bar">
-    <div class="stat-card"><div class="stat-num rh">17</div><div class="stat-label">Products Mapped</div></div>
+    <div class="stat-card"><div class="stat-num rh">18</div><div class="stat-label">Products Mapped</div></div>
     <div class="stat-card"><div class="stat-num">6</div><div class="stat-label">Enforcement Layers</div></div>
     <div class="stat-card"><div class="stat-num">4</div><div class="stat-label">Trust Tiers</div></div>
     <div class="stat-card"><div class="stat-num">0</div><div class="stat-label">New Products Required</div></div>
@@ -393,6 +393,7 @@
       <div class="product-grid">
         <div class="product-chip" data-product="idm"><span class="chip-icon">◆</span>IdM / FreeIPA</div>
         <div class="product-chip" data-product="keycloak"><span class="chip-icon">◆</span>Keycloak / SSO</div>
+        <div class="product-chip" data-product="ahdapa"><span class="chip-icon">◆</span>ahdapa (OAuth2 AS)</div>
         <div class="product-chip" data-product="rhcs"><span class="chip-icon">◆</span>Certificate System</div>
       </div>
     </div>
@@ -402,6 +403,7 @@
       <div class="product-grid">
         <div class="product-chip" data-product="idm"><span class="chip-icon">◆</span>IdM / FreeIPA</div>
         <div class="product-chip" data-product="keycloak"><span class="chip-icon">◆</span>Keycloak / SSO</div>
+        <div class="product-chip" data-product="ahdapa"><span class="chip-icon">◆</span>ahdapa (OBO Delegation)</div>
         <div class="product-chip" data-product="service-mesh"><span class="chip-icon">◆</span>Service Mesh</div>
       </div>
     </div>
@@ -409,6 +411,7 @@
     <div class="layer-row" id="layer-3" data-layer="3">
       <div class="layer-label">Policy<span class="layer-num">Layer 3 — Cedar</span></div>
       <div class="product-grid">
+        <div class="product-chip" data-product="ahdapa"><span class="chip-icon">◆</span>ahdapa (Access Policy)</div>
         <div class="product-chip" data-product="aap"><span class="chip-icon">◆</span>Ansible Platform</div>
         <div class="product-chip" data-product="acs"><span class="chip-icon">◆</span>Adv Cluster Security</div>
         <div class="product-chip" data-product="service-mesh"><span class="chip-icon">◆</span>Service Mesh</div>
@@ -472,6 +475,7 @@ const PRODUCTS = {
   'lightspeed-advisor':    { name: 'Lightspeed Advisor', layers: [0, 5] },
   'idm':                   { name: 'IdM / FreeIPA', layers: [1, 2] },
   'keycloak':              { name: 'Keycloak / SSO', layers: [1, 2] },
+  'ahdapa':                { name: 'ahdapa', layers: [1, 2, 3] },
   'service-mesh':          { name: 'Service Mesh', layers: [2, 3] },
   'aap':                   { name: 'Ansible Platform', layers: [3, 5] },
   'acs':                   { name: 'Adv Cluster Security', layers: [3, 4] },
@@ -509,8 +513,8 @@ const SCENARIOS = {
       { journey: 'scan',      layers: [0],          products: ['quay'],                    title: 'Image Scan',        text: '<strong>Quay</strong> scans the agent container image for known CVEs and verifies Cosign signatures. Unsigned or vulnerable images are blocked before enrollment begins.' },
       { journey: 'build',     layers: [0],          products: ['rhtap', 'rhtpa'],          title: 'Build & Attest',    text: '<strong>RHTAP</strong> builds the agent with Tekton Chains attestation and SBOM generation. <strong>RHTPA</strong> analyzes the SBOM for dependency risk. Build provenance feeds the L0 risk score.' },
       { journey: 'deploy',    layers: ['platform'], products: ['satellite'],               title: 'Deploy at Scale',   text: '<strong>Satellite</strong> deploys the agent to target hosts. Trust tier assignment maps to host group policy. Content views restrict available packages per tier — Sovereign gets full repos, Untrusted gets minimal.' },
-      { journey: 'enroll',    layers: [1, 2],       products: ['idm', 'keycloak', 'rhcs'], title: 'Enroll & Credential', text: '<strong>IdM</strong> assigns the agent to a trust tier group with HBAC rules. <strong>Keycloak</strong> issues OAuth2 tokens with scope ceilings per tier. <strong>Certificate System</strong> provides the X.509 identity.' },
-      { journey: 'authorize', layers: [3],          products: ['lightspeed-policy', 'acs'],title: 'Authorize',         text: '<strong>Cedar sidecar</strong> evaluates runtime authorization. <strong>Lightspeed</strong> lets operators write policies in natural language. <strong>ACS</strong> extends admission control to containerized agents on OpenShift.' },
+      { journey: 'enroll',    layers: [1, 2],       products: ['idm', 'keycloak', 'ahdapa', 'rhcs'], title: 'Enroll & Credential', text: '<strong>IdM</strong> assigns the agent to a trust tier group with HBAC rules. <strong>ahdapa</strong> issues DARC credentials and handles OBO token delegation with scope ceilings per tier. <strong>Keycloak</strong> provides the OAuth2 authorization server. <strong>Certificate System</strong> provides the X.509 identity.' },
+      { journey: 'authorize', layers: [3],          products: ['ahdapa', 'lightspeed-policy', 'acs'], title: 'Authorize', text: '<strong>ahdapa</strong> enforces access policy — token introspection, scope validation, and consent decisions per trust tier. <strong>Cedar sidecar</strong> evaluates fine-grained runtime authorization. <strong>Lightspeed</strong> lets operators write policies in natural language. <strong>ACS</strong> extends admission control to containerized agents on OpenShift.' },
       { journey: 'confine',   layers: [4],          products: ['podman', 'selinux', 'image-builder'], title: 'Confine', text: '<strong>Podman rootless</strong> runs the agent in user namespaces. <strong>SELinux/Blastwall</strong> enforces MAC with MLS/MCS labels per tier. <strong>Image Builder</strong> pre-bakes confinement profiles into RHEL images.' },
       { journey: 'connect',   layers: [2, 3],       products: ['service-mesh'],            title: 'Network Enforce',   text: '<strong>Service Mesh</strong> enforces mTLS between agents. Traffic policies prevent Untrusted agents from calling Sovereign endpoints. AuthorizationPolicy mirrors Cedar decisions at the network level.' },
       { journey: 'monitor',   layers: [5],          products: ['insights', 'oshift-obs', 'openscap'], title: 'Monitor', text: '<strong>Insights</strong> tracks agent fleet health — trust tier distribution, anomaly rates, circuit breaker frequency. <strong>OpenSCAP</strong> verifies compliance against STIG/CIS benchmarks. <strong>OCP Observability</strong> correlates cluster telemetry.' },
@@ -520,16 +524,16 @@ const SCENARIOS = {
   },
   identity: {
     title: 'Identity & Credential — L0 through L2',
-    body: 'From supply chain verification to token issuance, five products secure the agent identity lifecycle. <strong>IdM</strong> provides the Kerberos/PKINIT foundation. <strong>Keycloak</strong> handles OAuth2 token exchange with scope ceilings per tier. <strong>Certificate System</strong> issues X.509 identities. <strong>Quay</strong> and <strong>RHTPA</strong> verify the agent image before it ever enrolls.',
+    body: 'From supply chain verification to token issuance, six products secure the agent identity lifecycle. <strong>IdM</strong> provides the Kerberos/PKINIT foundation. <strong>ahdapa</strong> handles DARC credential issuance, OBO token delegation, and access policy enforcement. <strong>Keycloak</strong> provides the OAuth2 authorization server. <strong>Certificate System</strong> issues X.509 identities. <strong>Quay</strong> and <strong>RHTPA</strong> verify the agent image before it ever enrolls.',
     layers: [0, 1, 2],
-    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'keycloak'],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'keycloak', 'ahdapa'],
     journey: ['scan', 'build', 'enroll']
   },
   confinement: {
     title: 'Execution Confinement — L3 & L4',
     body: 'Six products enforce what agents can do and where they can run. <strong>Cedar + Lightspeed</strong> handle policy (NL authoring lowers the barrier). <strong>Podman rootless + SELinux/Blastwall</strong> provide defense-in-depth on RHEL. <strong>OpenShift</strong> maps trust tiers to Pod Security Standards. <strong>ACS</strong> adds admission control. <strong>Device Edge</strong> extends confinement to constrained environments.',
     layers: [3, 4],
-    products: ['aap', 'acs', 'service-mesh', 'lightspeed-policy', 'podman', 'selinux', 'openshift', 'device-edge', 'image-builder'],
+    products: ['ahdapa', 'aap', 'acs', 'service-mesh', 'lightspeed-policy', 'podman', 'selinux', 'openshift', 'device-edge', 'image-builder'],
     journey: ['authorize', 'confine', 'connect']
   },
   monitoring: {
@@ -631,7 +635,7 @@ function runLifecycle(steps) {
       document.querySelectorAll('.journey-step').forEach(el => el.classList.add('done'));
       activateLayers([0, 1, 2, 3, 4, 5, 'platform']);
       lightProducts(Object.keys(PRODUCTS));
-      setNarration('Complete Agent Lifecycle', 'Every stage mapped. Every layer covered. <strong>17 Red Hat products, zero gaps, zero new SKUs.</strong> The agentic security platform is a composition of products Red Hat already ships — integrated through the five-layer trust tier enforcement stack.', '10 / 10');
+      setNarration('Complete Agent Lifecycle', 'Every stage mapped. Every layer covered. <strong>18 Red Hat products, zero gaps, zero new SKUs.</strong> The agentic security platform is a composition of products Red Hat already ships — integrated through the five-layer trust tier enforcement stack.', '10 / 10');
       return;
     }
 
