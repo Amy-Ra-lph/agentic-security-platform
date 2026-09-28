@@ -344,6 +344,8 @@
 <div class="scenarios">
   <button class="scenario-btn active" onclick="showScenario('overview')">Portfolio Map</button>
   <button class="scenario-btn" onclick="showScenario('lifecycle')">Agent Lifecycle</button>
+  <button class="scenario-btn" onclick="showScenario('rhel')">RHEL Flow</button>
+  <button class="scenario-btn" onclick="showScenario('ocp')">OpenShift Flow</button>
   <button class="scenario-btn" onclick="showScenario('identity')">Identity &amp; Credential</button>
   <button class="scenario-btn" onclick="showScenario('confinement')">Confinement</button>
   <button class="scenario-btn" onclick="showScenario('monitoring')">Monitoring &amp; AI</button>
@@ -549,6 +551,20 @@ const SCENARIOS = {
     layers: ['platform', 4, 5],
     products: ['satellite', 'lightspeed-satellite', 'rhel-ai', 'device-edge', 'image-builder', 'selinux'],
     journey: ['deploy', 'confine', 'manage']
+  },
+  rhel: {
+    title: 'RHEL — Native Agent Enforcement',
+    body: 'On bare-metal or VM RHEL hosts, agents run as systemd services or <strong>Podman rootless</strong> containers. Identity through <strong>IdM/FreeIPA</strong> Kerberos enrollment. <strong>ahdapa</strong> handles DARC credential issuance, OBO delegation, and access policy. <strong>SELinux/Blastwall</strong> provides L4 MAC confinement with MLS/MCS labels. <strong>Satellite</strong> deploys and manages trust tier policy at scale. <strong>Insights</strong> + <strong>OpenSCAP</strong> monitor fleet health and compliance. <strong>Lightspeed in Satellite</strong> keeps management air-gapped.',
+    layers: [0, 1, 2, 3, 4, 5, 'platform'],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'ahdapa', 'podman', 'selinux', 'image-builder', 'satellite', 'lightspeed-satellite', 'insights', 'openscap', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation', 'lightspeed-policy'],
+    journey: ['scan', 'build', 'deploy', 'enroll', 'authorize', 'confine', 'monitor', 'respond', 'manage']
+  },
+  ocp: {
+    title: 'OpenShift — Container Platform Enforcement',
+    body: 'On OpenShift, agents run as pods. <strong>Keycloak</strong> provides the OAuth2 authorization server. <strong>ahdapa</strong> handles DARC credentials and OBO delegation. <strong>Service Mesh</strong> enforces mTLS and traffic policy per trust tier. <strong>ACS</strong> adds admission control — Untrusted agents get restricted Pod Security, Sovereign gets baseline. <strong>OCP Observability</strong> correlates OCSF events with cluster telemetry. <strong>Quay</strong> is both registry and image scanner.',
+    layers: [0, 1, 2, 3, 4, 5],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'keycloak', 'ahdapa', 'service-mesh', 'acs', 'openshift', 'lightspeed-policy', 'oshift-obs', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation', 'device-edge'],
+    journey: ['scan', 'build', 'enroll', 'authorize', 'confine', 'connect', 'monitor', 'respond', 'manage']
   }
 };
 
