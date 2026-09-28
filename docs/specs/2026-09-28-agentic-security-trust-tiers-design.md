@@ -967,6 +967,82 @@ Policy layer adds <1ms. Indistinguishable from total request time.
 - CC Validated Pattern (Azure) — Keylime + Trustee KBS, Sovereign attestation backend
 - Security Requirements Paper — UC-8 supply chain (Sigstore → Keylime → SPIRE → IPA)
 
+### 10.5 Security Ecosystem Partnerships
+
+L5 emits OCSF-formatted events, making integration with EDR/SIEM/XDR platforms a standards-based exercise. Priority partnerships by strategic value:
+
+**Tier 1 — Open source aligned (PoC-ready)**
+
+| Partner | Integration Point | Value |
+|---------|-------------------|-------|
+| Elastic Security | OCSF → Elasticsearch ingestion. Elastic Agent on RHEL for host-level telemetry feeding L5 behavioral detector | Open source SIEM. Kibana dashboards for trust tier visibility. Closest to RH values |
+| Falco (Sysdig) | eBPF runtime detection feeds L5 anomaly detector with syscall-level signals from L4 confinement layer | Cloud-native runtime security. Already popular in OpenShift. Validates L4 enforcement |
+| Event-Driven Ansible | L5 OCSF webhook → EDA rulebook → remediation playbook. Circuit breaker Stage 2/3 triggers automated response | Internal RH. Closes the loop from detection to remediation without human intervention |
+
+**Tier 2 — Enterprise EDR (customer credibility)**
+
+| Partner | Integration Point | Value |
+|---------|-------------------|-------|
+| CrowdStrike Falcon | Falcon LogScale ingests OCSF events. CrowdStrike marketplace integration module for trust tier telemetry | Dominant EDR. Enterprise SOC teams already use it. Validates platform for regulated industries |
+| SentinelOne Singularity | DataSet backend for OCSF event volume. Purple AI for automated investigation of L5 anomalies | Strong Linux agent. AI-driven investigation aligns with agentic security narrative |
+| Splunk (Cisco) | Direct OCSF ingestion (co-founded the standard). Splunk SOAR for orchestrated response alongside EDA | Largest SIEM install base. OCSF co-creator — our format is their native language |
+
+**Tier 3 — Standards and frameworks**
+
+| Body | Alignment | Value |
+|------|-----------|-------|
+| OCSF Consortium | Contribute agent identity event schemas. Propose trust tier and delegation chain extensions to the standard | Shape the standard our L5 emits. Credibility with security ecosystem |
+| MITRE ATT&CK | Map L5 behavioral anomaly patterns to ATT&CK techniques (T1078 credential access, T1021 lateral movement, T1567 exfiltration) | SOC teams evaluate detections by ATT&CK coverage. Makes our detection story actionable |
+| OpenTelemetry | Bridge OCSF security events with OTel operational telemetry. Unified observability across security and ops | Single pane for security + performance. Grafana/Prometheus ecosystem |
+
+**Recommendation:** Start with Elastic + EDA + Falco (all open source, all on RHEL). Pursue CrowdStrike as enterprise EDR partner for regulated customer credibility. OCSF output format means any SIEM can consume events without lock-in.
+
+### 10.6 Red Hat Portfolio Integration
+
+The five-layer stack maps to products across the Red Hat portfolio. Each layer has a natural portfolio touchpoint that extends the PoC toward productization.
+
+**Identity and Access (L1 + L2)**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| Red Hat IdM / FreeIPA | Trust tier groups (`agent-tier-sovereign`, etc.), agent role profiles in LDAP, HBAC rules for deny zones, OTP/PKINIT for DARC enrollment | L1, L2 |
+| Red Hat SSO / Keycloak | OAuth2 AS for token issuance, OBO token exchange, CAEP revocation streams. Client policies per trust tier | L1, L2 |
+| Red Hat Certificate System | Agent certificate issuance, Sigstore integration for supply chain verification in pre-enrollment assessment | L1, L0 |
+
+**Policy and Governance (L3)**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| Ansible Automation Platform | EDA rulebooks for L5 circuit breaker remediation. Playbooks for tier promotion/demotion. Bulk agent enrollment automation | L3, L5 |
+| Red Hat Advanced Cluster Security (ACS) | Extend trust tier policy to containerized agent workloads on OpenShift. ACS admission control enforces tier-based deployment rules | L3, L4 |
+| Red Hat Trusted Profile Analyzer (RHTPA) | SBOM analysis for pre-enrollment assessment (Layer 0). CVE scanning of agent dependencies feeds risk score | L0 |
+
+**Execution and Confinement (L4)**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| RHEL (SELinux / Blastwall) | L4b mandatory access control. MLS/MCS labels per trust tier. Type enforcement policy modules per agent role | L4 |
+| OpenShift (Pod Security) | Trust tier → Pod Security Standard mapping. Sovereign = privileged, Verified = baseline, Untrusted = restricted, Blocked = not scheduled | L4 |
+| Red Hat Device Edge / MicroShift | Trust tiers for edge agent fleets. Constrained environments where L4 confinement is critical (limited network, air-gapped) | L4 |
+
+**Monitoring and Response (L5)**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| Ansible Automation Platform (EDA) | Circuit breaker → EDA webhook → remediation rulebook → containment playbook. Automated tier demotion and token revocation | L5 |
+| Red Hat Insights | Agent fleet health dashboard. Trust tier distribution, anomaly rates, circuit breaker frequency as Insights rules | L5 |
+| OpenShift Logging + Observability | OCSF event pipeline via Vector/Loki. Correlation with cluster-level telemetry for containerized agents | L5 |
+
+**Platform and Deployment**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| Red Hat Satellite | Agent enrollment at scale. Trust tier assignment as host group policy. Content views per tier (Sovereign gets all repos, Untrusted gets minimal) | All |
+| Image Builder (bootc) | Pre-baked agent confinement profiles in RHEL images. Sovereign image vs Untrusted image with different SELinux modules | L4 |
+| Red Hat Trusted Application Pipeline (RHTAP) | CI/CD pipeline for agent software. Build-time signing (Sigstore/Tekton Chains) feeds L0 pre-enrollment supply chain check | L0 |
+
+**Cross-portfolio story:** An agent built in RHTAP (signed, SBOM'd) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by SELinux + OpenShell → monitored by Insights → remediated by EDA. Every layer maps to an existing product. The PoC proves the integration points; productization extends them.
+
 ## 11. Risks and Mitigations
 
 | Risk | Impact | Mitigation |
