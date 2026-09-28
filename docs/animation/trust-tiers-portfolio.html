@@ -417,7 +417,6 @@
         <div class="product-chip" data-product="aap"><span class="chip-icon">◆</span>Ansible Platform</div>
         <div class="product-chip" data-product="acs"><span class="chip-icon">◆</span>Adv Cluster Security</div>
         <div class="product-chip" data-product="service-mesh"><span class="chip-icon">◆</span>Service Mesh</div>
-        <div class="product-chip" data-product="lightspeed-policy"><span class="chip-icon">◆</span>Lightspeed Policy</div>
       </div>
     </div>
 
@@ -481,7 +480,6 @@ const PRODUCTS = {
   'service-mesh':          { name: 'Service Mesh', layers: [2, 3] },
   'aap':                   { name: 'Ansible Platform', layers: [3, 5] },
   'acs':                   { name: 'Adv Cluster Security', layers: [3, 4] },
-  'lightspeed-policy':     { name: 'Lightspeed Policy', layers: [3] },
   'podman':                { name: 'Podman', layers: [4] },
   'selinux':               { name: 'RHEL SELinux', layers: [4] },
   'openshift':             { name: 'OpenShift', layers: [4] },
@@ -516,7 +514,7 @@ const SCENARIOS = {
       { journey: 'build',     layers: [0],          products: ['rhtap', 'rhtpa'],          title: 'Build & Attest',    text: '<strong>RHTAP</strong> builds the agent with Tekton Chains attestation and SBOM generation. <strong>RHTPA</strong> analyzes the SBOM for dependency risk. Build provenance feeds the L0 risk score.' },
       { journey: 'deploy',    layers: ['platform'], products: ['satellite'],               title: 'Deploy at Scale',   text: '<strong>Satellite</strong> deploys the agent to target hosts. Trust tier assignment maps to host group policy. Content views restrict available packages per tier — Sovereign gets full repos, Untrusted gets minimal.' },
       { journey: 'enroll',    layers: [1, 2],       products: ['idm', 'keycloak', 'ahdapa', 'rhcs'], title: 'Enroll & Credential', text: '<strong>IdM</strong> assigns the agent to a trust tier group with HBAC rules. <strong>ahdapa</strong> issues DARC credentials and handles OBO token delegation with scope ceilings per tier. <strong>Keycloak</strong> provides the OAuth2 authorization server. <strong>Certificate System</strong> provides the X.509 identity.' },
-      { journey: 'authorize', layers: [3],          products: ['ahdapa', 'lightspeed-policy', 'acs'], title: 'Authorize', text: '<strong>ahdapa</strong> enforces access policy — token introspection, scope validation, and consent decisions per trust tier. <strong>Cedar sidecar</strong> evaluates fine-grained runtime authorization. <strong>Lightspeed</strong> lets operators write policies in natural language. <strong>ACS</strong> extends admission control to containerized agents on OpenShift.' },
+      { journey: 'authorize', layers: [3],          products: ['ahdapa', 'acs', 'service-mesh'], title: 'Authorize', text: '<strong>ahdapa</strong> enforces access policy — token introspection, scope validation, and consent decisions per trust tier. <strong>Cedar sidecar</strong> evaluates fine-grained runtime authorization. <strong>ACS</strong> extends admission control to containerized agents on OpenShift. <strong>Service Mesh</strong> mirrors authorization decisions at the network level.' },
       { journey: 'confine',   layers: [4],          products: ['podman', 'selinux', 'image-builder'], title: 'Confine', text: '<strong>Podman rootless</strong> runs the agent in user namespaces. <strong>SELinux/Blastwall</strong> enforces MAC with MLS/MCS labels per tier. <strong>Image Builder</strong> pre-bakes confinement profiles into RHEL images.' },
       { journey: 'connect',   layers: [2, 3],       products: ['service-mesh'],            title: 'Network Enforce',   text: '<strong>Service Mesh</strong> enforces mTLS between agents. Traffic policies prevent Untrusted agents from calling Sovereign endpoints. AuthorizationPolicy mirrors Cedar decisions at the network level.' },
       { journey: 'monitor',   layers: [5],          products: ['insights', 'oshift-obs', 'openscap'], title: 'Monitor', text: '<strong>Insights</strong> tracks agent fleet health — trust tier distribution, anomaly rates, circuit breaker frequency. <strong>OpenSCAP</strong> verifies compliance against STIG/CIS benchmarks. <strong>OCP Observability</strong> correlates cluster telemetry.' },
@@ -533,9 +531,9 @@ const SCENARIOS = {
   },
   confinement: {
     title: 'Execution Confinement — L3 & L4',
-    body: 'Six products enforce what agents can do and where they can run. <strong>Cedar + Lightspeed</strong> handle policy (NL authoring lowers the barrier). <strong>Podman rootless + SELinux/Blastwall</strong> provide defense-in-depth on RHEL. <strong>OpenShift</strong> maps trust tiers to Pod Security Standards. <strong>ACS</strong> adds admission control. <strong>Device Edge</strong> extends confinement to constrained environments.',
+    body: 'Six products enforce what agents can do and where they can run. <strong>ahdapa</strong> enforces access policy and scope validation. <strong>Cedar sidecar</strong> evaluates fine-grained authorization. <strong>Podman rootless + SELinux/Blastwall</strong> provide defense-in-depth on RHEL. <strong>OpenShift</strong> maps trust tiers to Pod Security Standards. <strong>ACS</strong> adds admission control. <strong>Device Edge</strong> extends confinement to constrained environments.',
     layers: [3, 4],
-    products: ['ahdapa', 'aap', 'acs', 'service-mesh', 'lightspeed-policy', 'podman', 'selinux', 'openshift', 'device-edge', 'image-builder'],
+    products: ['ahdapa', 'aap', 'acs', 'service-mesh', 'podman', 'selinux', 'openshift', 'device-edge', 'image-builder'],
     journey: ['authorize', 'confine', 'connect']
   },
   monitoring: {
@@ -556,14 +554,14 @@ const SCENARIOS = {
     title: 'RHEL — Native Agent Enforcement',
     body: 'On bare-metal or VM RHEL hosts, agents run as systemd services or <strong>Podman rootless</strong> containers. Identity through <strong>IdM/FreeIPA</strong> Kerberos enrollment. <strong>ahdapa</strong> handles DARC credential issuance, OBO delegation, and access policy. <strong>SELinux/Blastwall</strong> provides L4 MAC confinement with MLS/MCS labels. <strong>Satellite</strong> deploys and manages trust tier policy at scale. <strong>Insights</strong> + <strong>OpenSCAP</strong> monitor fleet health and compliance. <strong>Lightspeed in Satellite</strong> keeps management air-gapped.',
     layers: [0, 1, 2, 3, 4, 5, 'platform'],
-    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'ahdapa', 'podman', 'selinux', 'image-builder', 'satellite', 'lightspeed-satellite', 'insights', 'openscap', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation', 'lightspeed-policy'],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'ahdapa', 'podman', 'selinux', 'image-builder', 'satellite', 'lightspeed-satellite', 'insights', 'openscap', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation'],
     journey: ['scan', 'build', 'deploy', 'enroll', 'authorize', 'confine', 'monitor', 'respond', 'manage']
   },
   ocp: {
     title: 'OpenShift — Container Platform Enforcement',
     body: 'On OpenShift, agents run as pods. <strong>Keycloak</strong> provides the OAuth2 authorization server. <strong>ahdapa</strong> handles DARC credentials and OBO delegation. <strong>Service Mesh</strong> enforces mTLS and traffic policy per trust tier. <strong>ACS</strong> adds admission control — Untrusted agents get restricted Pod Security, Sovereign gets baseline. <strong>OCP Observability</strong> correlates OCSF events with cluster telemetry. <strong>Quay</strong> is both registry and image scanner.',
     layers: [0, 1, 2, 3, 4, 5],
-    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'keycloak', 'ahdapa', 'service-mesh', 'acs', 'openshift', 'lightspeed-policy', 'oshift-obs', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation', 'device-edge'],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'keycloak', 'ahdapa', 'service-mesh', 'acs', 'openshift', 'oshift-obs', 'eda', 'aap', 'rhel-ai', 'lightspeed-remediation', 'device-edge'],
     journey: ['scan', 'build', 'enroll', 'authorize', 'confine', 'connect', 'monitor', 'respond', 'manage']
   }
 };
