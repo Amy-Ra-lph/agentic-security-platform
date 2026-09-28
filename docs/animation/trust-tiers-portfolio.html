@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red Hat Portfolio — Agentic Security Platform</title>
+<style>
+  :root {
+    --blocked: #880044;
+    --sovereign: #1a7a3a;
+    --verified: #0066cc;
+    --untrusted: #cc4400;
+    --layer-bg: #1a1a2e;
+    --layer-border: #2a2a4e;
+    --pass: #00cc66;
+    --deny: #ee3333;
+    --throttle: #ff9900;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --bg: #0d0d1a;
+    --card: #16162a;
+    --accent: #7aa2f7;
+    --rh-red: #ee0000;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 28px 20px 8px;
+  }
+
+  .header h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .header h1 .rh { color: var(--rh-red); }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .header .tagline {
+    color: var(--accent);
+    font-size: 15px;
+    margin-top: 10px;
+    font-weight: 500;
+  }
+
+  /* Scenario buttons */
+  .scenarios {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 20px 8px;
+    flex-wrap: wrap;
+  }
+
+  .scenario-btn {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .scenario-btn:hover { border-color: var(--accent); color: var(--text); }
+  .scenario-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(122, 162, 247, 0.08); }
+
+  /* Main layout */
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 20px 40px;
+  }
+
+  /* Layer stack */
+  .layer-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .layer-row {
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 16px;
+    align-items: center;
+    transition: all 0.4s;
+    opacity: 0.4;
+  }
+
+  .layer-row.active {
+    opacity: 1;
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(122, 162, 247, 0.15);
+  }
+
+  .layer-row.active .layer-label { color: var(--accent); }
+
+  .layer-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    transition: color 0.4s;
+  }
+
+  .layer-label .layer-num {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 400;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+
+  .product-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .product-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: all 0.4s;
+    cursor: default;
+    position: relative;
+  }
+
+  .product-chip.lit {
+    background: rgba(122, 162, 247, 0.12);
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.2);
+  }
+
+  .product-chip.lit-red {
+    background: rgba(238, 0, 0, 0.1);
+    border-color: var(--rh-red);
+    color: #ff6666;
+    box-shadow: 0 0 8px rgba(238, 0, 0, 0.2);
+  }
+
+  .product-chip .chip-icon {
+    margin-right: 4px;
+    font-size: 11px;
+  }
+
+  /* Narration panel */
+  .narration {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-top: 12px;
+    min-height: 100px;
+    transition: opacity 0.3s;
+  }
+
+  .narration h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--accent);
+  }
+
+  .narration p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .narration p strong { color: var(--text); }
+
+  .narration .step-counter {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  /* Lifecycle journey */
+  .journey-bar {
+    display: flex;
+    gap: 2px;
+    margin-top: 12px;
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    overflow-x: auto;
+  }
+
+  .journey-step {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.4s;
+    min-width: 80px;
+    position: relative;
+  }
+
+  .journey-step::after {
+    content: '→';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    opacity: 0.3;
+    font-size: 10px;
+  }
+
+  .journey-step:last-child::after { display: none; }
+
+  .journey-step.active {
+    background: rgba(122, 162, 247, 0.15);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.2);
+  }
+
+  .journey-step.done {
+    background: rgba(0, 204, 102, 0.1);
+    color: var(--pass);
+  }
+
+  .journey-step .j-label {
+    display: block;
+    font-size: 10px;
+    margin-top: 3px;
+    opacity: 0.7;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat-card .stat-num {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-card .stat-num.rh { color: var(--rh-red); }
+
+  .stat-card .stat-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Overview grid for portfolio view */
+  .overview-message {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  .overview-message strong { color: var(--text); }
+  .overview-message .highlight { color: var(--accent); font-weight: 500; }
+
+  /* Meta-recursive callout */
+  .meta-callout {
+    background: linear-gradient(135deg, rgba(122, 162, 247, 0.08), rgba(238, 0, 0, 0.05));
+    border: 1px solid rgba(122, 162, 247, 0.3);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .meta-callout h4 {
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .meta-callout p {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="rh">Red Hat</span> Portfolio — Agentic Security</h1>
+  <div class="subtitle">17 products across 6 layers — every integration point mapped</div>
+  <div class="tagline">From image scan to AI-assisted fleet management, every layer is a Red Hat product</div>
+</div>
+
+<div class="scenarios">
+  <button class="scenario-btn active" onclick="showScenario('overview')">Portfolio Map</button>
+  <button class="scenario-btn" onclick="showScenario('lifecycle')">Agent Lifecycle</button>
+  <button class="scenario-btn" onclick="showScenario('identity')">Identity &amp; Credential</button>
+  <button class="scenario-btn" onclick="showScenario('confinement')">Confinement</button>
+  <button class="scenario-btn" onclick="showScenario('monitoring')">Monitoring &amp; AI</button>
+  <button class="scenario-btn" onclick="showScenario('sovereignty')">Sovereignty</button>
+</div>
+
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-num rh">17</div><div class="stat-label">Products Mapped</div></div>
+    <div class="stat-card"><div class="stat-num">6</div><div class="stat-label">Enforcement Layers</div></div>
+    <div class="stat-card"><div class="stat-num">4</div><div class="stat-label">Trust Tiers</div></div>
+    <div class="stat-card"><div class="stat-num">0</div><div class="stat-label">New Products Required</div></div>
+  </div>
+
+  <!-- Journey bar -->
+  <div class="journey-bar" id="journey-bar">
+    <div class="journey-step" data-step="scan">Scan<span class="j-label">Quay</span></div>
+    <div class="journey-step" data-step="build">Build<span class="j-label">RHTAP</span></div>
+    <div class="journey-step" data-step="deploy">Deploy<span class="j-label">Satellite</span></div>
+    <div class="journey-step" data-step="enroll">Enroll<span class="j-label">IdM</span></div>
+    <div class="journey-step" data-step="authorize">Authorize<span class="j-label">Cedar</span></div>
+    <div class="journey-step" data-step="confine">Confine<span class="j-label">SELinux</span></div>
+    <div class="journey-step" data-step="connect">Connect<span class="j-label">Mesh</span></div>
+    <div class="journey-step" data-step="monitor">Monitor<span class="j-label">Insights</span></div>
+    <div class="journey-step" data-step="respond">Respond<span class="j-label">EDA</span></div>
+    <div class="journey-step" data-step="manage">Manage<span class="j-label">Lightspeed</span></div>
+  </div>
+
+  <!-- Layer stack -->
+  <div class="layer-stack" id="layer-stack">
+
+    <div class="layer-row" id="layer-0" data-layer="0">
+      <div class="layer-label">Pre-Enrollment<span class="layer-num">Layer 0</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="quay"><span class="chip-icon">◆</span>Quay</div>
+        <div class="product-chip" data-product="rhtap"><span class="chip-icon">◆</span>RHTAP</div>
+        <div class="product-chip" data-product="rhtpa"><span class="chip-icon">◆</span>RHTPA</div>
+        <div class="product-chip" data-product="rhcs"><span class="chip-icon">◆</span>Certificate System</div>
+        <div class="product-chip" data-product="lightspeed-advisor"><span class="chip-icon">◆</span>Lightspeed Advisor</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-1" data-layer="1">
+      <div class="layer-label">Credential<span class="layer-num">Layer 1 — DARC</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="idm"><span class="chip-icon">◆</span>IdM / FreeIPA</div>
+        <div class="product-chip" data-product="keycloak"><span class="chip-icon">◆</span>Keycloak / SSO</div>
+        <div class="product-chip" data-product="rhcs"><span class="chip-icon">◆</span>Certificate System</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-2" data-layer="2">
+      <div class="layer-label">Token Lifecycle<span class="layer-num">Layer 2 — WID/OBO</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="idm"><span class="chip-icon">◆</span>IdM / FreeIPA</div>
+        <div class="product-chip" data-product="keycloak"><span class="chip-icon">◆</span>Keycloak / SSO</div>
+        <div class="product-chip" data-product="service-mesh"><span class="chip-icon">◆</span>Service Mesh</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-3" data-layer="3">
+      <div class="layer-label">Policy<span class="layer-num">Layer 3 — Cedar</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="aap"><span class="chip-icon">◆</span>Ansible Platform</div>
+        <div class="product-chip" data-product="acs"><span class="chip-icon">◆</span>Adv Cluster Security</div>
+        <div class="product-chip" data-product="service-mesh"><span class="chip-icon">◆</span>Service Mesh</div>
+        <div class="product-chip" data-product="lightspeed-policy"><span class="chip-icon">◆</span>Lightspeed Policy</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-4" data-layer="4">
+      <div class="layer-label">Confinement<span class="layer-num">Layer 4 — OpenShell + Blastwall</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="podman"><span class="chip-icon">◆</span>Podman</div>
+        <div class="product-chip" data-product="selinux"><span class="chip-icon">◆</span>RHEL SELinux</div>
+        <div class="product-chip" data-product="openshift"><span class="chip-icon">◆</span>OpenShift</div>
+        <div class="product-chip" data-product="acs"><span class="chip-icon">◆</span>Adv Cluster Security</div>
+        <div class="product-chip" data-product="device-edge"><span class="chip-icon">◆</span>Device Edge</div>
+        <div class="product-chip" data-product="image-builder"><span class="chip-icon">◆</span>Image Builder</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-5" data-layer="5">
+      <div class="layer-label">Audit &amp; Response<span class="layer-num">Layer 5 — OCSF</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="eda"><span class="chip-icon">◆</span>EDA</div>
+        <div class="product-chip" data-product="insights"><span class="chip-icon">◆</span>Insights</div>
+        <div class="product-chip" data-product="oshift-obs"><span class="chip-icon">◆</span>OCP Observability</div>
+        <div class="product-chip" data-product="openscap"><span class="chip-icon">◆</span>OpenSCAP</div>
+        <div class="product-chip" data-product="rhel-ai"><span class="chip-icon">◆</span>RHEL AI</div>
+        <div class="product-chip" data-product="lightspeed-remediation"><span class="chip-icon">◆</span>Lightspeed</div>
+      </div>
+    </div>
+
+    <div class="layer-row" id="layer-platform" data-layer="platform">
+      <div class="layer-label">Platform<span class="layer-num">Cross-cutting</span></div>
+      <div class="product-grid">
+        <div class="product-chip" data-product="satellite"><span class="chip-icon">◆</span>Satellite</div>
+        <div class="product-chip" data-product="lightspeed-satellite"><span class="chip-icon">◆</span>Lightspeed in Satellite</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Narration -->
+  <div class="narration" id="narration">
+    <h3 id="narr-title">Every Layer, a Red Hat Product</h3>
+    <p id="narr-body">The agentic security platform maps entirely to the existing Red Hat portfolio. <strong>No new products required</strong> — every enforcement layer, from pre-enrollment image scanning to AI-assisted fleet management, is delivered by a product Red Hat already ships. Click a view above to explore each integration domain.</p>
+  </div>
+
+  <div class="meta-callout" id="meta-callout">
+    <h4>AI Managing AI</h4>
+    <p>Lightspeed and RHEL AI are both managed agents <em>and</em> management tools — enrolled, confined, and audited by the same five-layer stack they help operate. The platform proves it can secure the AI that secures AI.</p>
+  </div>
+
+</div>
+
+<script>
+const PRODUCTS = {
+  'quay':                  { name: 'Quay', layers: [0] },
+  'rhtap':                 { name: 'RHTAP', layers: [0] },
+  'rhtpa':                 { name: 'RHTPA', layers: [0] },
+  'rhcs':                  { name: 'Certificate System', layers: [0, 1] },
+  'lightspeed-advisor':    { name: 'Lightspeed Advisor', layers: [0, 5] },
+  'idm':                   { name: 'IdM / FreeIPA', layers: [1, 2] },
+  'keycloak':              { name: 'Keycloak / SSO', layers: [1, 2] },
+  'service-mesh':          { name: 'Service Mesh', layers: [2, 3] },
+  'aap':                   { name: 'Ansible Platform', layers: [3, 5] },
+  'acs':                   { name: 'Adv Cluster Security', layers: [3, 4] },
+  'lightspeed-policy':     { name: 'Lightspeed Policy', layers: [3] },
+  'podman':                { name: 'Podman', layers: [4] },
+  'selinux':               { name: 'RHEL SELinux', layers: [4] },
+  'openshift':             { name: 'OpenShift', layers: [4] },
+  'device-edge':           { name: 'Device Edge', layers: [4] },
+  'image-builder':         { name: 'Image Builder', layers: [4] },
+  'eda':                   { name: 'EDA', layers: [5] },
+  'insights':              { name: 'Insights', layers: [5] },
+  'oshift-obs':            { name: 'OCP Observability', layers: [5] },
+  'openscap':              { name: 'OpenSCAP', layers: [5] },
+  'rhel-ai':               { name: 'RHEL AI', layers: [5] },
+  'lightspeed-remediation':{ name: 'Lightspeed', layers: [5] },
+  'satellite':             { name: 'Satellite', layers: ['platform'] },
+  'lightspeed-satellite':  { name: 'Lightspeed in Satellite', layers: ['platform'] }
+};
+
+const SCENARIOS = {
+  overview: {
+    title: 'Every Layer, a Red Hat Product',
+    body: 'The agentic security platform maps entirely to the existing Red Hat portfolio. <strong>No new products required</strong> — every enforcement layer, from pre-enrollment image scanning to AI-assisted fleet management, is delivered by a product Red Hat already ships. Click a view above to explore each integration domain.',
+    layers: [0, 1, 2, 3, 4, 5, 'platform'],
+    products: Object.keys(PRODUCTS),
+    journey: []
+  },
+  lifecycle: {
+    title: 'Agent Lifecycle Journey',
+    body: 'Follow an agent from first scan to ongoing management. Each step lights up the Red Hat product that delivers it. <strong>10 stages, 10 products, zero gaps.</strong>',
+    layers: [],
+    products: [],
+    journey: ['scan', 'build', 'deploy', 'enroll', 'authorize', 'confine', 'connect', 'monitor', 'respond', 'manage'],
+    steps: [
+      { journey: 'scan',      layers: [0],          products: ['quay'],                    title: 'Image Scan',        text: '<strong>Quay</strong> scans the agent container image for known CVEs and verifies Cosign signatures. Unsigned or vulnerable images are blocked before enrollment begins.' },
+      { journey: 'build',     layers: [0],          products: ['rhtap', 'rhtpa'],          title: 'Build & Attest',    text: '<strong>RHTAP</strong> builds the agent with Tekton Chains attestation and SBOM generation. <strong>RHTPA</strong> analyzes the SBOM for dependency risk. Build provenance feeds the L0 risk score.' },
+      { journey: 'deploy',    layers: ['platform'], products: ['satellite'],               title: 'Deploy at Scale',   text: '<strong>Satellite</strong> deploys the agent to target hosts. Trust tier assignment maps to host group policy. Content views restrict available packages per tier — Sovereign gets full repos, Untrusted gets minimal.' },
+      { journey: 'enroll',    layers: [1, 2],       products: ['idm', 'keycloak', 'rhcs'], title: 'Enroll & Credential', text: '<strong>IdM</strong> assigns the agent to a trust tier group with HBAC rules. <strong>Keycloak</strong> issues OAuth2 tokens with scope ceilings per tier. <strong>Certificate System</strong> provides the X.509 identity.' },
+      { journey: 'authorize', layers: [3],          products: ['lightspeed-policy', 'acs'],title: 'Authorize',         text: '<strong>Cedar sidecar</strong> evaluates runtime authorization. <strong>Lightspeed</strong> lets operators write policies in natural language. <strong>ACS</strong> extends admission control to containerized agents on OpenShift.' },
+      { journey: 'confine',   layers: [4],          products: ['podman', 'selinux', 'image-builder'], title: 'Confine', text: '<strong>Podman rootless</strong> runs the agent in user namespaces. <strong>SELinux/Blastwall</strong> enforces MAC with MLS/MCS labels per tier. <strong>Image Builder</strong> pre-bakes confinement profiles into RHEL images.' },
+      { journey: 'connect',   layers: [2, 3],       products: ['service-mesh'],            title: 'Network Enforce',   text: '<strong>Service Mesh</strong> enforces mTLS between agents. Traffic policies prevent Untrusted agents from calling Sovereign endpoints. AuthorizationPolicy mirrors Cedar decisions at the network level.' },
+      { journey: 'monitor',   layers: [5],          products: ['insights', 'oshift-obs', 'openscap'], title: 'Monitor', text: '<strong>Insights</strong> tracks agent fleet health — trust tier distribution, anomaly rates, circuit breaker frequency. <strong>OpenSCAP</strong> verifies compliance against STIG/CIS benchmarks. <strong>OCP Observability</strong> correlates cluster telemetry.' },
+      { journey: 'respond',   layers: [5],          products: ['eda', 'aap'],              title: 'Respond',           text: 'Circuit breaker fires → <strong>EDA webhook</strong> triggers remediation rulebook → <strong>Ansible playbook</strong> demotes the agent tier, revokes tokens, and applies containment. Automated. Seconds, not hours.' },
+      { journey: 'manage',    layers: [5, 'platform'], products: ['lightspeed-remediation', 'lightspeed-satellite', 'rhel-ai'], title: 'AI-Assisted Management', text: '<strong>Lightspeed</strong> queries OCSF audit streams in natural language. <strong>RHEL AI</strong> fine-tunes anomaly detection on historical events. <strong>Lightspeed in Satellite</strong> keeps all queries on-prem for sovereignty. Both AI tools are themselves managed agents — AI managing AI.' }
+    ]
+  },
+  identity: {
+    title: 'Identity & Credential — L0 through L2',
+    body: 'From supply chain verification to token issuance, five products secure the agent identity lifecycle. <strong>IdM</strong> provides the Kerberos/PKINIT foundation. <strong>Keycloak</strong> handles OAuth2 token exchange with scope ceilings per tier. <strong>Certificate System</strong> issues X.509 identities. <strong>Quay</strong> and <strong>RHTPA</strong> verify the agent image before it ever enrolls.',
+    layers: [0, 1, 2],
+    products: ['quay', 'rhtap', 'rhtpa', 'rhcs', 'lightspeed-advisor', 'idm', 'keycloak'],
+    journey: ['scan', 'build', 'enroll']
+  },
+  confinement: {
+    title: 'Execution Confinement — L3 & L4',
+    body: 'Six products enforce what agents can do and where they can run. <strong>Cedar + Lightspeed</strong> handle policy (NL authoring lowers the barrier). <strong>Podman rootless + SELinux/Blastwall</strong> provide defense-in-depth on RHEL. <strong>OpenShift</strong> maps trust tiers to Pod Security Standards. <strong>ACS</strong> adds admission control. <strong>Device Edge</strong> extends confinement to constrained environments.',
+    layers: [3, 4],
+    products: ['aap', 'acs', 'service-mesh', 'lightspeed-policy', 'podman', 'selinux', 'openshift', 'device-edge', 'image-builder'],
+    journey: ['authorize', 'confine', 'connect']
+  },
+  monitoring: {
+    title: 'Monitoring, Response & AI — L5',
+    body: 'Seven products monitor, remediate, and learn. <strong>Insights</strong> dashboards agent fleet health. <strong>EDA</strong> automates circuit breaker responses in seconds. <strong>OpenSCAP</strong> maps trust tiers to regulatory compliance. <strong>RHEL AI / InstructLab</strong> trains anomaly detection on OCSF event history. <strong>Lightspeed</strong> lets operators query audit data and generate remediation in natural language.',
+    layers: [5],
+    products: ['eda', 'insights', 'oshift-obs', 'openscap', 'rhel-ai', 'lightspeed-remediation', 'lightspeed-advisor', 'aap'],
+    journey: ['monitor', 'respond', 'manage']
+  },
+  sovereignty: {
+    title: 'Data Sovereignty — Air-Gapped Agent Management',
+    body: '<strong>Lightspeed in Satellite</strong> keeps OCSF audit queries and Cedar policy generation entirely within the customer network. No agent telemetry leaves the perimeter. Satellite Capsules extend trust tier policy to edge locations. Combined with <strong>RHEL AI</strong> for on-prem anomaly model training, the entire management plane operates air-gapped — critical for defense, government, and regulated industries.',
+    layers: ['platform', 4, 5],
+    products: ['satellite', 'lightspeed-satellite', 'rhel-ai', 'device-edge', 'image-builder', 'selinux'],
+    journey: ['deploy', 'confine', 'manage']
+  }
+};
+
+let currentTimeouts = [];
+let lifecycleStep = -1;
+let lifecycleInterval = null;
+
+function clearTimers() {
+  currentTimeouts.forEach(t => clearTimeout(t));
+  currentTimeouts = [];
+  if (lifecycleInterval) { clearInterval(lifecycleInterval); lifecycleInterval = null; }
+}
+
+function resetUI() {
+  document.querySelectorAll('.layer-row').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.product-chip').forEach(el => { el.classList.remove('lit', 'lit-red'); });
+  document.querySelectorAll('.journey-step').forEach(el => el.classList.remove('active', 'done'));
+}
+
+function activateLayers(layers) {
+  layers.forEach(l => {
+    const el = l === 'platform' ? document.getElementById('layer-platform') : document.getElementById('layer-' + l);
+    if (el) el.classList.add('active');
+  });
+}
+
+function lightProducts(products, cls) {
+  cls = cls || 'lit';
+  document.querySelectorAll('.product-chip').forEach(chip => {
+    if (products.includes(chip.dataset.product)) chip.classList.add(cls);
+  });
+}
+
+function setNarration(title, body, step) {
+  document.getElementById('narr-title').textContent = title;
+  document.getElementById('narr-body').innerHTML = body;
+  const counter = document.querySelector('.step-counter');
+  if (counter) counter.remove();
+  if (step !== undefined) {
+    const sc = document.createElement('div');
+    sc.className = 'step-counter';
+    sc.textContent = step;
+    document.getElementById('narration').appendChild(sc);
+  }
+}
+
+function showScenario(key) {
+  clearTimers();
+  resetUI();
+
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[onclick="showScenario('${key}')"]`).classList.add('active');
+
+  const s = SCENARIOS[key];
+
+  if (key === 'lifecycle') {
+    setNarration(s.title, s.body);
+    runLifecycle(s.steps);
+    return;
+  }
+
+  activateLayers(s.layers);
+  lightProducts(s.products);
+  setNarration(s.title, s.body);
+
+  s.journey.forEach(j => {
+    const el = document.querySelector(`[data-step="${j}"]`);
+    if (el) el.classList.add('active');
+  });
+
+  if (key === 'sovereignty') {
+    lightProducts(['satellite', 'lightspeed-satellite'], 'lit-red');
+  }
+}
+
+function runLifecycle(steps) {
+  lifecycleStep = -1;
+  const d = 2500;
+
+  function advance() {
+    lifecycleStep++;
+    if (lifecycleStep >= steps.length) {
+      // All done — light everything
+      document.querySelectorAll('.journey-step').forEach(el => el.classList.add('done'));
+      activateLayers([0, 1, 2, 3, 4, 5, 'platform']);
+      lightProducts(Object.keys(PRODUCTS));
+      setNarration('Complete Agent Lifecycle', 'Every stage mapped. Every layer covered. <strong>17 Red Hat products, zero gaps, zero new SKUs.</strong> The agentic security platform is a composition of products Red Hat already ships — integrated through the five-layer trust tier enforcement stack.', '10 / 10');
+      return;
+    }
+
+    const step = steps[lifecycleStep];
+
+    // Mark journey
+    document.querySelectorAll('.journey-step').forEach((el, i) => {
+      el.classList.remove('active');
+      if (i < lifecycleStep) el.classList.add('done');
+    });
+    const jEl = document.querySelector(`[data-step="${step.journey}"]`);
+    if (jEl) { jEl.classList.remove('done'); jEl.classList.add('active'); }
+
+    // Light layers and products
+    document.querySelectorAll('.layer-row').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.product-chip').forEach(el => el.classList.remove('lit', 'lit-red'));
+
+    activateLayers(step.layers);
+    lightProducts(step.products);
+
+    setNarration(step.title, step.text, (lifecycleStep + 1) + ' / ' + steps.length);
+  }
+
+  advance();
+  lifecycleInterval = setInterval(advance, d);
+
+  // Click journey steps to jump
+  document.querySelectorAll('.journey-step').forEach((el, i) => {
+    el.onclick = () => {
+      clearTimers();
+      lifecycleStep = i - 1;
+      advance();
+      lifecycleInterval = setInterval(advance, d);
+    };
+  });
+}
+
+// Init
+showScenario('overview');
+</script>
+
+</body>
+</html>
