@@ -932,28 +932,46 @@
     } else if (type === 'breach') {
       setNarration('<strong>Scenario: Trusted agent gets compromised mid-session.</strong><br>A verified DevOps agent is hijacked by an attacker. It attempts privilege escalation, rapid-fire requests, and credential theft. How fast can we contain it?', 0);
 
-      setNarration('Layer 1: Compromised agent still has a valid session credential from before the attack. Initial request passes identity check. <strong>This is exactly why you need more than one layer.</strong>', d);
+      // Phase 1: Agent was working normally — show initial green state
+      setNarration('<strong>Before the attack:</strong> DevAssist was operating normally — writing P4 incident reports, reading infrastructure status. All layers green, behavioral baseline normal. Then the agent gets compromised.', d);
       setLayer('l1', 'pass', 'VALID SESSION', d);
+      setLayer('l2', 'pass', 'NORMAL ACCESS', d * 1.2);
+      setOutcome('productivity', 'green', 'OPERATING NORMALLY', d);
 
-      setNarration('Layer 2: Attacker tries to request admin access — <strong>DENIED.</strong> The agent\'s role profile has a hard ceiling. No amount of exploitation can grant scopes the profile doesn\'t include. The ceiling is set at enrollment, not at runtime.', d * 2.5);
-      setLayer('l2', 'deny', 'ADMIN → DENIED', d * 2.5);
-      setOutcome('lateral', 'green', 'CEILING HELD', d * 2.5);
+      // Phase 2: Attack begins — escalation attempt
+      setNarration('<strong>Attack begins.</strong> Compromised agent tries: <strong>1)</strong> Request admin scope to delete audit logs. <strong>2)</strong> Rapid-fire OBO delegation to escalate through sub-agents. <strong>3)</strong> Read credential stores. All three are blocked by the scope ceiling — the agent\'s profile was set at enrollment, not runtime.', d * 3);
+      setLayer('l2', 'deny', 'ADMIN → DENIED', d * 3);
+      setOutcome('lateral', 'green', 'CEILING HELD', d * 3);
 
-      setNarration('Layer 3: Rapid-fire requests detected — 3+ denied actions in 10 seconds. Sequence anomaly flagged: writes without preceding reads. Rate spike with no orchestrator-registered intent. <strong>This is not normal agent behavior.</strong>', d * 4);
-      setLayer('l3', 'deny', 'ANOMALY DETECTED', d * 4);
+      // Phase 3: Anomaly detection
+      setNarration('<strong>Anomaly detected.</strong> Three denied requests in 10 seconds. Writes attempted without preceding reads. Rate spike with no orchestrator intent registered. Layer 3 flags the pattern — <strong>this is not normal agent behavior.</strong>', d * 5);
+      setLayer('l3', 'deny', 'ANOMALY FLAGGED', d * 5);
 
-      setNarration('Layer 5: Behavioral detector triggers circuit breaker. <strong>Stage 1: THROTTLE</strong> — all agents of this type are rate-limited. Token revocation fires immediately. The compromised agent\'s credential and all sub-delegated credentials are invalidated.', d * 5.5);
-      setLayer('l5', 'deny', 'CIRCUIT BREAKER', d * 5.5);
-      setOutcome('time', 'orange', '< 60 SECONDS', d * 5.5);
+      // Phase 4: Circuit breaker fires — REVOCATION CASCADE
+      setNarration('<strong>Circuit breaker fires.</strong> Stage 1: THROTTLE — all DevAssist-type agents rate-limited immediately. Stage 2: HALT — all actions suspended. <strong>Token revocation cascade begins:</strong>', d * 7);
+      setLayer('l5', 'deny', 'CIRCUIT BREAKER', d * 7);
+      setOutcome('time', 'orange', '< 60 SECONDS', d * 7);
 
-      setNarration('Anomaly sustained → <strong>Stage 2: HALT</strong> → <strong>Stage 3: BLOCK.</strong> Agent demoted to blocked tier. All access revoked. Automated alert fires to security operations. <strong>Admin must manually re-enroll to restore access.</strong>', d * 7);
-      setOutcome('blast', 'green', '0 ADMIN OPS, 2 WRITES', d * 7);
+      // Phase 5: Visual revocation — layers flip to denied one by one
+      setNarration('<strong>Revocation cascade:</strong> DevAssist\'s credential → <strong>REVOKED.</strong> All sub-delegated tokens (PluginX, MonitorBot) → <strong>REVOKED.</strong> Confinement locks down — all filesystem and network access terminated. Agent demoted from Verified → <strong>BLOCKED.</strong> No access to any system. Admin must manually re-enroll.', d * 9);
+      // L1 flips from pass to deny — token revoked
+      currentTimeout.push(setTimeout(() => {
+        const l1 = document.getElementById('layer-1');
+        const r1 = document.getElementById('l1-result');
+        l1.classList.remove('pass');
+        l1.classList.add('deny', 'active-anim');
+        r1.textContent = 'TOKEN REVOKED';
+        r1.classList.remove('pass');
+        r1.classList.add('deny');
+      }, d * 9));
+      // L4 goes deny — access cut
+      setLayer('l4', 'deny', 'ACCESS TERMINATED', d * 9.5);
+      setOutcome('blast', 'green', '0 ADMIN OPS, 2 WRITES', d * 9);
 
-      setNarration('<strong>Containment complete.</strong> Zero admin operations succeeded. Two low-severity writes occurred within existing policy. All tokens revoked. Agent permanently blocked until human review. Automated remediation playbook triggered. <strong>Breach contained in seconds — not hours, not days.</strong>', d * 8.5);
-      setLayer('l4', 'deny', 'ACCESS REVOKED', d * 8.5);
-
-      setOutcome('audit', 'green', 'FULL FORENSIC TRAIL', d * 8.5);
-      setOutcome('productivity', 'orange', 'ONE AGENT TYPE PAUSED', d * 7);
+      // Phase 6: Final containment summary
+      setNarration('<strong>Containment complete.</strong> The attacker achieved: zero admin operations (blocked by scope ceiling), two low-severity P4 writes (within existing policy). What was revoked: all agent tokens, all delegated tokens, all filesystem access, all network access. Agent permanently blocked. Automated remediation playbook triggered via security operations webhook. <strong>Total time: under 60 seconds. No human intervention.</strong>', d * 11);
+      setOutcome('audit', 'green', 'FULL FORENSIC TRAIL', d * 11);
+      setOutcome('productivity', 'orange', 'ONE AGENT TYPE PAUSED', d * 9);
 
     } else if (type === 'risk') {
       setNarration('<strong>Scenario: How does each layer reduce your risk exposure?</strong><br>Walk through the five layers and see exactly which risks each one mitigates — from credential theft to data exfiltration to compliance gaps.', 0);
