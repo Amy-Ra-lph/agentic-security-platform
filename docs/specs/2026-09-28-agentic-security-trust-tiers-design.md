@@ -54,8 +54,11 @@ User enrolls agent
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│  L4: OpenShell   │  Execution confinement
+│  L4a: OpenShell  │  Namespace + syscall confinement
 │  (ODIS profiles) │  Sandbox per tier: network, FS, syscalls
+├─────────────────┤
+│  L4b: Blastwall  │  SELinux MAC confinement (always on)
+│  (policy modules)│  Type enforcement + MLS/MCS labels
 └────────┬────────┘
          ▼
 ┌─────────────────┐
@@ -418,13 +421,22 @@ forbid(
 
 Benchmark harness: `tests/bench-policy-latency.sh` — 1000 requests with/without policy, reports p50/p95/p99.
 
-### 5.4 L4: OpenShell — Execution Confinement
+### 5.4 L4: Execution Confinement (OpenShell + Blastwall)
+
+Two independent confinement mechanisms, stacked. Either can be used alone — not all deployments will run OpenShell (e.g., container-native workloads may rely on Blastwall only). Both should be accounted for in every design.
+
+#### 5.4.1 L4a: OpenShell — Namespace + Syscall Confinement
 
 **Component:** OpenShell 0.0.111 with tier-mapped sandbox profiles
 
-**Three profiles:**
+**What it enforces:** Process isolation (namespaces), syscall filtering (seccomp), network segmentation, filesystem access.
+
+**Four profiles:**
 
 ```yaml
+blocked.profile:
+  # No execution — agent never reaches L4
+
 sovereign.profile:
   namespace: shared
   network: full
@@ -445,6 +457,84 @@ untrusted.profile:
 ```
 
 **Profile selection:** Target API reads `tier` claim from token → selects matching OpenShell profile → executes agent code within sandbox.
+
+**When to use:** Agent executes arbitrary code or scripts. CLI tools, MCP tool servers, plugin runtimes.
+
+#### 5.4.2 L4b: Blastwall — SELinux MAC Confinement
+
+**Component:** Blastwall SELinux policy modules, one per trust tier.
+
+**What it enforces:** Mandatory Access Control at the kernel level. Controls file access, IPC, network socket types, device access. Operates independently of OpenShell — even if namespace/seccomp is bypassed, SELinux MAC still blocks.
+
+**Tier mapping via MLS/MCS labels:**
+
+| Tier | SELinux Context | Access |
+|------|----------------|--------|
+| Sovereign | `agent_sovereign_t / s0-s15:c0.c1023` | Full MLS range, all categories |
+| Verified | `agent_verified_t / s0:c100.c199` | Restricted category set, no cross-tier data access |
+| Untrusted | `agent_untrusted_t / s0` | Base sensitivity only, no categories, no IPC to other tiers |
+
+**Policy modules (Phase 2.5: 3 modules):**
+
+```
+# agent_sovereign.te — full access, standard audit
+type agent_sovereign_t;
+allow agent_sovereign_t agent_data_t:file { read write create };
+allow agent_sovereign_t agent_net_t:tcp_socket { create connect };
+allow agent_sovereign_t agent_ipc_t:unix_stream_socket { connectto };
+
+# agent_verified.te — scoped access, no admin files, no raw sockets
+type agent_verified_t;
+allow agent_verified_t agent_data_t:file { read write };
+dontaudit agent_verified_t agent_admin_t:file { read write };
+allow agent_verified_t agent_net_t:tcp_socket { create connect };
+
+# agent_untrusted.te — read-only, no network sockets, no IPC
+type agent_untrusted_t;
+allow agent_untrusted_t agent_data_t:file { read };
+dontaudit agent_untrusted_t agent_data_t:file { write create };
+dontaudit agent_untrusted_t self:tcp_socket { create connect };
+dontaudit agent_untrusted_t agent_ipc_t:unix_stream_socket { connectto };
+```
+
+**File contexts:** Agent data directories labeled per tier. Cross-tier access blocked by type enforcement.
+
+```
+/var/lib/agent/sovereign(/.*)?    system_u:object_r:agent_sovereign_data_t:s0-s15
+/var/lib/agent/verified(/.*)?     system_u:object_r:agent_verified_data_t:s0:c100.c199
+/var/lib/agent/untrusted(/.*)?    system_u:object_r:agent_untrusted_data_t:s0
+```
+
+**When to use:** All deployments. Blastwall is the baseline — it runs at the kernel level regardless of whether OpenShell is present. Container workloads, systemd services, and direct process execution all get SELinux confinement.
+
+#### 5.4.3 Stacking Model
+
+```
+Agent code executes
+  │
+  ├── L4b: Blastwall (always)
+  │    SELinux MAC: type enforcement + MLS/MCS labels
+  │    Blocks: cross-tier file access, unauthorized IPC, raw sockets
+  │
+  └── L4a: OpenShell (when applicable)
+       Namespace + seccomp: process isolation, syscall filtering
+       Blocks: network exfiltration, filesystem escape, privilege escalation
+```
+
+**Defense in depth:** If an agent escapes the OpenShell namespace (container breakout), Blastwall's SELinux policy still constrains it. If SELinux is in permissive mode (troubleshooting), OpenShell's seccomp still blocks dangerous syscalls. Neither depends on the other.
+
+**Deployment matrix:**
+
+| Deployment Type | L4a OpenShell | L4b Blastwall |
+|-----------------|---------------|---------------|
+| MCP tool server (container) | Yes | Yes |
+| CLI agent (direct execution) | Yes | Yes |
+| Systemd service agent | No (already isolated) | Yes |
+| K8s pod agent | No (use pod security) | Yes (via SELinux on node) |
+| RHEL AI model tool call | Optional | Yes |
+
+**Phase 2.5:** OpenShell profiles + 3 Blastwall SELinux policy modules. Both active in demo.
+**Phase 3:** Per-profile SELinux policy generation (not just per-tier). Blastwall policy compiler takes agent profile YAML → generates `.te` module.
 
 ### 5.5 L5: Audit — Structured Logging and Response
 
@@ -783,7 +873,8 @@ Policy layer adds <1ms. Indistinguishable from total request time.
 | Tier-aware OBO daemon | 3 days | IPA group lookup, scope ceiling from profile config, tier/profile claims |
 | Policy sidecar | 1 week | Cedar binary, 5 rules, AuthZEN endpoint, fast-path filter |
 | Target API | 3 days | Simulated incident management (5 endpoints), wired through L2→L3→L4→L5 |
-| OpenShell tier profiles | 3 days | 3 profiles, profile selector reads token tier claim |
+| OpenShell tier profiles | 2 days | 4 profiles (blocked/sovereign/verified/untrusted), profile selector reads token tier claim |
+| Blastwall SELinux modules | 3 days | 3 policy modules (sovereign/verified/untrusted), file contexts, MLS/MCS labels |
 | Audit pipeline | 1.5 weeks | OCSF log formatter, anomaly detector (policy + behavioral), circuit breaker, intent signal stub, CAEP revocation stub |
 | Demo harness | 3 days | 7-act script, 3 output modes (engineering/strategy/customer) |
 | Assessment harness | 2 days | Static checks (cosign, blocklist) + OpenShell dynamic sandbox + scoring engine + synthetic API |
@@ -795,6 +886,7 @@ Policy layer adds <1ms. Indistinguishable from total request time.
 - agentdesktop JWT enrollment (becomes DevAssist enrollment path)
 - IPA groups + HBAC framework
 - OpenShell 0.0.111 (add profile configs)
+- Blastwall upstream PRs (SELinux policy framework)
 - AB's DARC ahdapa implementation (wire into lab)
 
 ### 8.3 Mock (Phase 2.5 → real in Phase 3)
@@ -839,10 +931,10 @@ Policy layer adds <1ms. Indistinguishable from total request time.
 
 ## 10. Relationship to Existing Work
 
-### 10.1 RHELBU-3756 Phase Mapping
+### 10.1 Phase Mapping
 
-| RHELBU-3756 Phase | Trust Tiers Coverage |
-|-------------------|---------------------|
+| Prior Phase | Trust Tiers Coverage |
+|-------------|---------------------|
 | Phase 2 MVP #1: OAuth2-to-Kerberos bridge | L2 tier-aware OBO daemon |
 | Phase 2 MVP #2: Agent identity lifecycle | L1 DARC enrollment per tier |
 | Phase 2 MVP #3: Structured audit logging | L5 OCSF audit pipeline |

