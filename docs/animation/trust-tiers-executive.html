@@ -396,6 +396,167 @@
 
   .risk-fill.low { background: var(--pass); }
   .risk-fill.high { background: var(--deny); }
+
+  /* Guided tour */
+  .tour-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 100;
+    transition: opacity 0.3s;
+  }
+
+  .tour-overlay.visible { display: block; }
+
+  .tour-bubble {
+    position: fixed;
+    background: #1e1e3a;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px 24px;
+    max-width: 440px;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: top 0.4s, left 0.4s, opacity 0.3s;
+  }
+
+  .tour-bubble::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #1e1e3a;
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    transform: rotate(45deg);
+    bottom: -9px;
+    left: 40px;
+  }
+
+  .tour-bubble.arrow-top::after {
+    top: -9px;
+    bottom: auto;
+    transform: rotate(-135deg);
+  }
+
+  .tour-bubble.arrow-right::after {
+    right: -9px;
+    left: auto;
+    bottom: auto;
+    top: 20px;
+    transform: rotate(-45deg);
+  }
+
+  .tour-bubble.arrow-left::after {
+    left: -9px;
+    bottom: auto;
+    top: 20px;
+    transform: rotate(135deg);
+  }
+
+  .tour-bubble.arrow-none::after { display: none; }
+
+  .tour-step-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .tour-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .tour-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+
+  .tour-text strong { color: var(--text); }
+
+  .tour-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tour-nav button {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid var(--layer-border);
+    background: var(--card);
+    color: var(--text);
+    transition: all 0.2s;
+  }
+
+  .tour-nav button:hover { border-color: var(--accent); }
+
+  .tour-nav .tour-next {
+    background: var(--accent);
+    color: #0d0d1a;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .tour-nav .tour-next:hover { background: #8fb8ff; }
+
+  .tour-progress {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .tour-dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .tour-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--layer-border);
+    transition: background 0.3s;
+  }
+
+  .tour-dot.active { background: var(--accent); }
+  .tour-dot.done { background: var(--pass); }
+
+  .tour-highlight {
+    position: relative;
+    z-index: 150;
+    border-radius: 10px;
+    box-shadow: 0 0 0 4px var(--accent), 0 0 20px rgba(122, 162, 247, 0.3);
+    transition: box-shadow 0.4s;
+  }
+
+  .tour-start-btn {
+    padding: 10px 28px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 16px;
+  }
+
+  .tour-start-btn:hover {
+    background: var(--accent);
+    color: #0d0d1a;
+  }
 </style>
 </head>
 <body>
@@ -461,6 +622,7 @@
 </div>
 
 <div class="controls">
+  <button class="tour-start-btn" id="tour-start" onclick="startTour()">&#x25B6; Guided Demo</button>
   <button id="btn-vetting" onclick="runScenario('vetting')">Agent Vetting</button>
   <button id="btn-trusted" onclick="runScenario('trusted')">Trusted Agent</button>
   <button id="btn-unknown" onclick="runScenario('unknown')">Unknown Agent</button>
@@ -870,6 +1032,238 @@
       setOutcome('productivity', 'green', 'ZERO OVERHEAD', d * 5.5);
     }
   }
+
+  // ── Guided Tour ──
+
+  const tourSteps = [
+    {
+      title: 'Welcome',
+      text: 'This interactive demo shows how a five-layer security platform protects your AI agent fleet. We\'ll walk through <strong>six scenarios</strong> — from how agents are vetted before they enter your environment, to how breaches are contained in seconds.<br><br>Each scenario plays out in the center stack. The right sidebar shows business-level risk outcomes.',
+      target: null,
+      arrow: 'none',
+      position: 'center',
+    },
+    {
+      title: 'The Problem We\'re Solving',
+      text: 'Start here. Today\'s AI agents run <strong>over-privileged</strong> — often with the same credentials as the humans who launched them. There\'s no identity lifecycle, no confinement, and no limit on blast radius. One compromised agent can read, write, and delete across your entire estate.',
+      target: 'problem-box',
+      arrow: 'top',
+      position: 'below',
+    },
+    {
+      title: 'Five Layers of Defense',
+      text: 'Every agent request flows through these five layers — top to bottom. <strong>Any layer can independently deny a request.</strong> No single point of failure.<br><br><strong>Layer 1</strong> — Identity: Is this agent who it claims to be?<br><strong>Layer 2</strong> — Scoping: What is it allowed to do?<br><strong>Layer 3</strong> — Policy: Is this action allowed right now?<br><strong>Layer 4</strong> — Confinement: What can the code physically touch?<br><strong>Layer 5</strong> — Monitoring: Is the agent behaving normally?',
+      target: 'layer-1',
+      arrow: 'top',
+      position: 'below-stack',
+    },
+    {
+      title: 'Scenario 1: Agent Vetting',
+      text: 'Before any agent touches your systems, it goes through <strong>automated pre-enrollment assessment</strong>. Watch two agents evaluated side-by-side — one passes (Untrusted tier), one is blocked. No manual review needed.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-vetting',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'vetting',
+    },
+    {
+      title: 'Scenario 2: Trusted Agent',
+      text: 'Now see what happens when a <strong>verified internal agent</strong> performs routine operations. It flows through all five layers at full speed — security is invisible when trust is earned. Notice the green outcomes in the sidebar: zero overhead, full audit chain.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-trusted',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'trusted',
+    },
+    {
+      title: 'Scenario 3: Unknown Agent',
+      text: 'An unknown third-party plugin requests access. Watch how the platform <strong>automatically restricts</strong> it to read-only access with strict confinement — no network, no writes, no delegation. Safe evaluation without risk.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-unknown',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'unknown',
+    },
+    {
+      title: 'Scenario 4: Breach Contained',
+      text: 'This is the critical scenario for security leadership. A <strong>trusted agent gets compromised</strong> mid-session. Watch how the platform detects the anomaly, triggers the circuit breaker, revokes all tokens, and demotes the agent to blocked — <strong>all within seconds</strong>. No human intervention needed.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-breach',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'breach',
+    },
+    {
+      title: 'Scenario 5: Risk Containment',
+      text: 'Walk through each layer and see <strong>exactly which risks it mitigates</strong>: credential theft, privilege escalation, unauthorized actions, data exfiltration, and undetected compromise. Each layer addresses a different attack vector independently.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-risk',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'risk',
+    },
+    {
+      title: 'Scenario 6: Compliance Proof',
+      text: 'For audit and compliance teams: every action is logged in a <strong>standardized security format</strong> with full identity chain, delegation path, and policy decision. One queryable timeline of everything. Audit-ready from day one.<br><br><em>Click "Next" to start this scenario.</em>',
+      target: 'btn-compliance',
+      arrow: 'top',
+      position: 'below-btn',
+      action: 'compliance',
+    },
+    {
+      title: 'Explore On Your Own',
+      text: 'That\'s the full walkthrough. You can now <strong>click any scenario button</strong> to replay it, or revisit the overview panel at the top.<br><br><strong>Key takeaways:</strong><br>&#x2022; Every agent earns its access through automated vetting<br>&#x2022; Five independent layers — no single point of failure<br>&#x2022; Breaches contained in seconds, not hours<br>&#x2022; Full audit trail from day one<br>&#x2022; Trusted agents run at full speed — security without slowdown',
+      target: null,
+      arrow: 'none',
+      position: 'center',
+    },
+  ];
+
+  let tourIndex = -1;
+  let tourActive = false;
+
+  function startTour() {
+    tourActive = true;
+    tourIndex = -1;
+    // Ensure overlay and bubble exist
+    if (!document.getElementById('tour-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.id = 'tour-overlay';
+      overlay.className = 'tour-overlay';
+      overlay.onclick = function(e) { if (e.target === this) endTour(); };
+      document.body.appendChild(overlay);
+
+      const bubble = document.createElement('div');
+      bubble.id = 'tour-bubble';
+      bubble.className = 'tour-bubble';
+      bubble.innerHTML = `
+        <div class="tour-step-label" id="tour-label"></div>
+        <div class="tour-title" id="tour-title"></div>
+        <div class="tour-text" id="tour-text-content"></div>
+        <div class="tour-dots" id="tour-dots"></div>
+        <div class="tour-nav">
+          <button onclick="prevTourStep()">Back</button>
+          <span class="tour-progress" id="tour-progress"></span>
+          <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next</button>
+        </div>
+      `;
+      document.body.appendChild(bubble);
+    }
+    // Build dots
+    const dotsEl = document.getElementById('tour-dots');
+    dotsEl.innerHTML = tourSteps.map((_, i) =>
+      `<div class="tour-dot" id="tour-dot-${i}"></div>`
+    ).join('');
+    // Ensure overview is visible
+    document.getElementById('problem-box').classList.remove('collapsed');
+    nextTourStep();
+  }
+
+  function endTour() {
+    tourActive = false;
+    document.getElementById('tour-overlay').classList.remove('visible');
+    document.getElementById('tour-bubble').style.display = 'none';
+    document.querySelectorAll('.tour-highlight').forEach(el =>
+      el.classList.remove('tour-highlight')
+    );
+  }
+
+  function positionBubble(step) {
+    const bubble = document.getElementById('tour-bubble');
+    bubble.className = 'tour-bubble arrow-' + step.arrow;
+    bubble.style.display = 'block';
+
+    if (step.position === 'center') {
+      bubble.style.top = '50%';
+      bubble.style.left = '50%';
+      bubble.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    bubble.style.transform = 'none';
+    const target = document.getElementById(step.target);
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+
+    if (step.position === 'below' || step.position === 'below-btn') {
+      bubble.style.top = (rect.bottom + window.scrollY + 16) + 'px';
+      bubble.style.left = Math.max(20, rect.left - 20) + 'px';
+    } else if (step.position === 'below-stack') {
+      bubble.style.top = (rect.bottom + window.scrollY + 16) + 'px';
+      bubble.style.left = Math.max(20, rect.left - 20) + 'px';
+    } else if (step.position === 'right') {
+      bubble.style.top = (rect.top + window.scrollY) + 'px';
+      bubble.style.left = (rect.right + 20) + 'px';
+    }
+
+    // Scroll target into view
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function showTourStep(idx) {
+    const step = tourSteps[idx];
+    const overlay = document.getElementById('tour-overlay');
+    overlay.classList.add('visible');
+
+    // Update content
+    document.getElementById('tour-label').textContent = `Step ${idx + 1} of ${tourSteps.length}`;
+    document.getElementById('tour-title').textContent = step.title;
+    document.getElementById('tour-text-content').innerHTML = step.text;
+    document.getElementById('tour-progress').textContent = `${idx + 1} / ${tourSteps.length}`;
+
+    // Update dots
+    tourSteps.forEach((_, i) => {
+      const dot = document.getElementById('tour-dot-' + i);
+      dot.className = 'tour-dot' + (i < idx ? ' done' : '') + (i === idx ? ' active' : '');
+    });
+
+    // Update next button text
+    const nextBtn = document.getElementById('tour-next-btn');
+    nextBtn.textContent = idx === tourSteps.length - 1 ? 'Finish' : (step.action ? 'Play & Continue' : 'Next');
+
+    // Highlight target
+    document.querySelectorAll('.tour-highlight').forEach(el =>
+      el.classList.remove('tour-highlight')
+    );
+    if (step.target) {
+      const target = document.getElementById(step.target);
+      if (target) target.classList.add('tour-highlight');
+    }
+
+    positionBubble(step);
+  }
+
+  function nextTourStep() {
+    // Run scenario action from current step before advancing
+    if (tourIndex >= 0 && tourIndex < tourSteps.length) {
+      const currentStep = tourSteps[tourIndex];
+      if (currentStep.action) {
+        runScenario(currentStep.action);
+      }
+    }
+
+    tourIndex++;
+    if (tourIndex >= tourSteps.length) {
+      endTour();
+      return;
+    }
+    showTourStep(tourIndex);
+  }
+
+  function prevTourStep() {
+    if (tourIndex <= 0) return;
+    tourIndex--;
+    showTourStep(tourIndex);
+  }
+
+  // Keyboard navigation during tour
+  document.addEventListener('keydown', function(e) {
+    if (!tourActive) return;
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      nextTourStep();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      prevTourStep();
+    } else if (e.key === 'Escape') {
+      endTour();
+    }
+  });
 </script>
 
 </body>
