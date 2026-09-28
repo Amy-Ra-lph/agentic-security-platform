@@ -1016,11 +1016,14 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 | Ansible Automation Platform | EDA rulebooks for L5 circuit breaker remediation. Playbooks for tier promotion/demotion. Bulk agent enrollment automation | L3, L5 |
 | Red Hat Advanced Cluster Security (ACS) | Extend trust tier policy to containerized agent workloads on OpenShift. ACS admission control enforces tier-based deployment rules | L3, L4 |
 | Red Hat Trusted Profile Analyzer (RHTPA) | SBOM analysis for pre-enrollment assessment (Layer 0). CVE scanning of agent dependencies feeds risk score | L0 |
+| Red Hat Quay | Container image scanning and vulnerability analysis feeds L0 pre-enrollment risk score. Cosign signature verification before agent image pull. Registry policies restrict Untrusted agents to signed, scanned images only | L0 |
+| Red Hat Service Mesh (Istio) | mTLS enforcement between agents per trust tier. Traffic policies: Untrusted agents cannot call Sovereign endpoints. AuthorizationPolicy maps to Cedar L3 decisions at network level | L2, L3 |
 
 **Execution and Confinement (L4)**
 
 | Product | Integration | Layer |
 |---------|-------------|-------|
+| Podman (rootless) | Agent execution runtime under OpenShell profiles. Rootless containers + user namespaces + SELinux = defense-in-depth confinement. Quadlet unit files per trust tier | L4 |
 | RHEL (SELinux / Blastwall) | L4b mandatory access control. MLS/MCS labels per trust tier. Type enforcement policy modules per agent role | L4 |
 | OpenShift (Pod Security) | Trust tier → Pod Security Standard mapping. Sovereign = privileged, Verified = baseline, Untrusted = restricted, Blocked = not scheduled | L4 |
 | Red Hat Device Edge / MicroShift | Trust tiers for edge agent fleets. Constrained environments where L4 confinement is critical (limited network, air-gapped) | L4 |
@@ -1032,6 +1035,8 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 | Ansible Automation Platform (EDA) | Circuit breaker → EDA webhook → remediation rulebook → containment playbook. Automated tier demotion and token revocation | L5 |
 | Red Hat Insights | Agent fleet health dashboard. Trust tier distribution, anomaly rates, circuit breaker frequency as Insights rules | L5 |
 | OpenShift Logging + Observability | OCSF event pipeline via Vector/Loki. Correlation with cluster-level telemetry for containerized agents | L5 |
+| OpenSCAP / Compliance as Code | STIG/CIS benchmark scans verify agent host confinement profiles match regulatory requirements. Automated compliance reports per trust tier. Maps Cedar policies to compliance controls | L4, L5 |
+| RHEL AI / InstructLab | Fine-tune anomaly detection models on OCSF event streams for improved circuit breaker accuracy. RHEL AI itself enrolls as a managed agent — second meta-recursive proof point alongside Lightspeed | L5, All |
 
 **Platform and Deployment**
 
@@ -1051,7 +1056,7 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 | RHEL Lightspeed (Meta-recursive) | Lightspeed itself enrolls as a Verified-tier agent, confined by OpenShell, subject to the same five-layer stack it helps manage. Proof that the platform handles AI-managing-AI | All |
 | Lightspeed in Satellite | On-prem Lightspeed deployment where OCSF audit data and policy queries never leave customer network. Enables AI-assisted agent fleet management in air-gapped and sovereignty-constrained environments. Satellite Capsules extend trust tier policy to edge locations | All |
 
-**Cross-portfolio story:** An agent built in RHTAP (signed, SBOM'd) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by SELinux + OpenShell → monitored by Insights → remediated by EDA → managed through Lightspeed natural language queries and policy authoring. Every layer maps to an existing product. Lightspeed closes the loop: it generates policies, queries audit data, and itself operates as a managed agent — proving the platform handles AI-managing-AI. The PoC proves the integration points; productization extends them.
+**Cross-portfolio story:** An agent image scanned in Quay (CVE-clean, Cosign-signed) → built in RHTAP (SBOM'd, Tekton Chains attestation) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by Podman rootless + SELinux/Blastwall under OpenShell profiles → mTLS-enforced via Service Mesh → monitored by Insights + OpenSCAP compliance scans → anomalies detected by RHEL AI-trained models → remediated by EDA → managed through Lightspeed natural language queries and policy authoring. Every layer maps to an existing product. Lightspeed and RHEL AI close the loop: they generate policies, query audit data, train on OCSF streams, and themselves operate as managed agents — proving the platform handles AI-managing-AI. The PoC proves the integration points; productization extends them.
 
 ## 11. Risks and Mitigations
 
