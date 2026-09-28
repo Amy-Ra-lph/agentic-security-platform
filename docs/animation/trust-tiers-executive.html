@@ -396,33 +396,28 @@
   .risk-fill.low { background: var(--pass); }
   .risk-fill.high { background: var(--deny); }
 
-  /* Guided tour — fixed bottom bar */
-  .tour-bar {
+  /* Guided tour — fixed side panel */
+  .tour-panel {
     display: none;
     position: fixed;
-    bottom: 0;
+    top: 0;
     left: 0;
-    right: 0;
-    background: #1a1a30;
-    border-top: 2px solid var(--accent);
-    padding: 16px 24px;
+    width: 300px;
+    height: 100vh;
+    background: #13132a;
+    border-right: 2px solid var(--accent);
+    padding: 24px 20px;
     z-index: 200;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    overflow-y: auto;
+    flex-direction: column;
   }
 
-  .tour-bar.visible { display: block; }
-
-  .tour-bar-inner {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 20px;
-    align-items: center;
-  }
+  .tour-panel.visible { display: flex; }
 
   .tour-content {
-    min-width: 0;
+    flex: 1;
+    min-height: 0;
   }
 
   .tour-step-label {
@@ -430,39 +425,56 @@
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: var(--accent);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
   }
 
   .tour-title {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 10px;
   }
 
   .tour-text {
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.7;
     color: var(--text-dim);
   }
 
   .tour-text strong { color: var(--text); }
 
   .tour-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
     flex-shrink: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--layer-border);
+    margin-top: 16px;
   }
+
+  .tour-dots {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .tour-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--layer-border);
+    transition: background 0.3s;
+  }
+
+  .tour-dot.active { background: var(--accent); }
+  .tour-dot.done { background: var(--pass); }
 
   .tour-nav {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 
   .tour-nav button {
-    padding: 8px 20px;
+    padding: 8px 16px;
     border-radius: 6px;
     font-size: 13px;
     cursor: pointer;
@@ -470,6 +482,7 @@
     background: var(--card);
     color: var(--text);
     transition: all 0.2s;
+    flex: 1;
   }
 
   .tour-nav button:hover { border-color: var(--accent); }
@@ -484,26 +497,11 @@
   .tour-nav .tour-next:hover { background: #8fb8ff; }
 
   .tour-nav .tour-exit {
+    flex: 0;
     padding: 8px 12px;
     font-size: 12px;
     color: var(--text-dim);
   }
-
-  .tour-dots {
-    display: flex;
-    gap: 5px;
-  }
-
-  .tour-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--layer-border);
-    transition: background 0.3s;
-  }
-
-  .tour-dot.active { background: var(--accent); }
-  .tour-dot.done { background: var(--pass); }
 
   .tour-highlight {
     border-radius: 10px;
@@ -511,7 +509,7 @@
     transition: box-shadow 0.4s;
   }
 
-  body.tour-active { padding-bottom: 140px; }
+  body.tour-active { margin-left: 300px; transition: margin-left 0.3s; }
 
   .tour-start-btn {
     padding: 10px 28px;
@@ -599,7 +597,7 @@
   <button id="btn-vetting" onclick="runScenario('vetting')">Agent Vetting</button>
   <button id="btn-trusted" onclick="runScenario('trusted')">Trusted Agent</button>
   <button id="btn-unknown" onclick="runScenario('unknown')">Unknown Agent</button>
-  <button id="btn-breach" class="scenario-breach" onclick="runScenario('breach')">Breach Contained</button>
+  <button id="btn-breach" onclick="runScenario('breach')">Breach Contained</button>
   <button id="btn-risk" onclick="runScenario('risk')">Risk Containment</button>
   <button id="btn-compliance" onclick="runScenario('compliance')">Compliance Proof</button>
 </div>
@@ -1094,28 +1092,26 @@
     tourActive = true;
     tourIndex = -1;
     document.body.classList.add('tour-active');
-    if (!document.getElementById('tour-bar')) {
-      const bar = document.createElement('div');
-      bar.id = 'tour-bar';
-      bar.className = 'tour-bar';
-      bar.innerHTML = `
-        <div class="tour-bar-inner">
-          <div class="tour-content">
-            <div class="tour-step-label" id="tour-label"></div>
-            <div class="tour-title" id="tour-title"></div>
-            <div class="tour-text" id="tour-text-content"></div>
-          </div>
-          <div class="tour-controls">
-            <div class="tour-dots" id="tour-dots"></div>
-            <div class="tour-nav">
-              <button onclick="prevTourStep()">Back</button>
-              <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next</button>
-              <button class="tour-exit" onclick="endTour()">Exit</button>
-            </div>
+    if (!document.getElementById('tour-panel')) {
+      const panel = document.createElement('div');
+      panel.id = 'tour-panel';
+      panel.className = 'tour-panel';
+      panel.innerHTML = `
+        <div class="tour-content">
+          <div class="tour-step-label" id="tour-label"></div>
+          <div class="tour-title" id="tour-title"></div>
+          <div class="tour-text" id="tour-text-content"></div>
+        </div>
+        <div class="tour-controls">
+          <div class="tour-dots" id="tour-dots"></div>
+          <div class="tour-nav">
+            <button onclick="prevTourStep()">Back</button>
+            <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next</button>
+            <button class="tour-exit" onclick="endTour()">Exit</button>
           </div>
         </div>
       `;
-      document.body.appendChild(bar);
+      document.body.appendChild(panel);
     }
     const dotsEl = document.getElementById('tour-dots');
     dotsEl.innerHTML = tourSteps.map((_, i) =>
@@ -1128,8 +1124,8 @@
   function endTour() {
     tourActive = false;
     document.body.classList.remove('tour-active');
-    const bar = document.getElementById('tour-bar');
-    if (bar) bar.classList.remove('visible');
+    const panel = document.getElementById('tour-panel');
+    if (panel) panel.classList.remove('visible');
     document.querySelectorAll('.tour-highlight').forEach(el =>
       el.classList.remove('tour-highlight')
     );
@@ -1137,8 +1133,8 @@
 
   function showTourStep(idx) {
     const step = tourSteps[idx];
-    const bar = document.getElementById('tour-bar');
-    bar.classList.add('visible');
+    const panel = document.getElementById('tour-panel');
+    panel.classList.add('visible');
 
     document.getElementById('tour-label').textContent = `Step ${idx + 1} of ${tourSteps.length}`;
     document.getElementById('tour-title').textContent = step.title;
