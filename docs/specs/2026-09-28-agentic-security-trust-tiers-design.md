@@ -1041,7 +1041,16 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 | Image Builder (bootc) | Pre-baked agent confinement profiles in RHEL images. Sovereign image vs Untrusted image with different SELinux modules | L4 |
 | Red Hat Trusted Application Pipeline (RHTAP) | CI/CD pipeline for agent software. Build-time signing (Sigstore/Tekton Chains) feeds L0 pre-enrollment supply chain check | L0 |
 
-**Cross-portfolio story:** An agent built in RHTAP (signed, SBOM'd) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by SELinux + OpenShell → monitored by Insights → remediated by EDA. Every layer maps to an existing product. The PoC proves the integration points; productization extends them.
+**AI-Assisted Management**
+
+| Product | Integration | Layer |
+|---------|-------------|-------|
+| RHEL Lightspeed (Advisor) | Advisor rules flag agent packages missing signatures, known-vulnerable dependencies, or non-compliant crypto before enrollment. Trust tier health as Advisor recommendation category | L0, L5 |
+| RHEL Lightspeed (Remediation) | Auto-generated remediation playbooks from circuit breaker events. Natural language querying of OCSF audit streams ("which agents triggered anomalies this week?") | L5 |
+| RHEL Lightspeed (Policy Authoring) | Natural language Cedar policy generation — "block any agent from writing to /etc unless Sovereign" → Cedar syntax. Lowers policy authoring barrier for operations teams | L3 |
+| RHEL Lightspeed (Meta-recursive) | Lightspeed itself enrolls as a Verified-tier agent, confined by OpenShell, subject to the same five-layer stack it helps manage. Proof that the platform handles AI-managing-AI | All |
+
+**Cross-portfolio story:** An agent built in RHTAP (signed, SBOM'd) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by SELinux + OpenShell → monitored by Insights → remediated by EDA → managed through Lightspeed natural language queries and policy authoring. Every layer maps to an existing product. Lightspeed closes the loop: it generates policies, queries audit data, and itself operates as a managed agent — proving the platform handles AI-managing-AI. The PoC proves the integration points; productization extends them.
 
 ## 11. Risks and Mitigations
 
