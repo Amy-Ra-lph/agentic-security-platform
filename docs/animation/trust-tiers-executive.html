@@ -534,7 +534,7 @@
 
 <div class="header">
   <h1>Securing Your AI Agent Fleet</h1>
-  <p class="subtitle">Five Layers of Defense — From Identity to Audit</p>
+  <p class="subtitle">Five Layers of Defense — 23 Capabilities, Zero New Products</p>
   <p class="tagline">Every agent earns its access. Every action is verified. Every breach is contained in seconds.</p>
 </div>
 
@@ -638,7 +638,7 @@
       <div class="layer-id">&#x1F511;</div>
       <div class="layer-info">
         <div class="layer-name">Identity Verification</div>
-        <div class="layer-desc">Is this agent who it claims to be? Device-bound credentials with human confirmation.</div>
+        <div class="layer-desc">Is this agent who it claims to be? Device-bound credentials with hardware attestation (Keylime TPM, Trustee TEE) and human confirmation.</div>
       </div>
       <div class="layer-result" id="l1-result"></div>
     </div>
@@ -662,7 +662,7 @@
       <div class="layer-id">&#x1F4DC;</div>
       <div class="layer-info">
         <div class="layer-name">Policy Enforcement</div>
-        <div class="layer-desc">Is this action allowed right now? Context-aware rules: time, severity, rate, resource sensitivity.</div>
+        <div class="layer-desc">Is this action allowed right now? Two-layer policy: agent lifecycle authorization (scope ceilings, delegation rules) + enterprise resource permissions. Context-aware: time, severity, rate, resource sensitivity.</div>
       </div>
       <div class="layer-result" id="l3-result"></div>
     </div>
@@ -674,7 +674,7 @@
       <div class="layer-id">&#x1F6E1;</div>
       <div class="layer-info">
         <div class="layer-name">Execution Confinement</div>
-        <div class="layer-desc">Two stacked walls: namespace isolation + mandatory access control. Limits what agent code can touch.</div>
+        <div class="layer-desc">Defense in depth: namespace isolation + mandatory access control + immutable OS (Image Mode) + hardware attestation (Keylime/Trustee) + Ansible System Roles for crypto policy enforcement per tier.</div>
       </div>
       <div class="layer-result" id="l4-result"></div>
     </div>
@@ -893,7 +893,7 @@
       setNarration('Layer 3: Policy engine evaluates the request in context. P3 incident write during business hours — within normal parameters. <strong>Approved in under 10 microseconds.</strong>', d * 4);
       setLayer('l3', 'pass', 'POLICY OK', d * 4);
 
-      setNarration('Layer 4: Trusted agents run with standard mandatory access control — kernel-level enforcement that restricts file and network access to declared paths. No sandbox overhead, but still confined.', d * 5.5);
+      setNarration('Layer 4: Trusted agents run with standard mandatory access control on an immutable OS (Image Mode). Kernel-level enforcement restricts file and network access to declared paths. Hardware attestation confirms host integrity. No sandbox overhead, but still confined.', d * 5.5);
       setLayer('l4', 'pass', 'STANDARD CONFINEMENT', d * 5.5);
 
       setNarration('Layer 5: Action logged with full identity chain. Behavioral baseline updated. <strong>Trusted agents work at full speed — security is invisible until something goes wrong.</strong>', d * 7);
@@ -917,16 +917,16 @@
       setNarration('Layer 3: Read request passes policy, but with rate limiting — max 10 requests per minute. Prevents data harvesting and reconnaissance at scale.', d * 4);
       setLayer('l3', 'pass', 'RATE LIMITED', d * 4);
 
-      setNarration('Layer 4: Double confinement. First wall: namespace isolation blocks all network access, restricts filesystem to read-only bind mounts, blocks process spawning. Second wall: mandatory access control denies all sockets, IPC, and cross-process communication. <strong>Exfiltration is physically impossible.</strong>', d * 5.5);
+      setNarration('Layer 4: Defense in depth. Namespace isolation blocks all network access, restricts filesystem to read-only bind mounts, blocks process spawning. Mandatory access control denies all sockets, IPC, and cross-process communication. Image Mode ensures the host OS is immutable — agents cannot tamper with the platform. System Roles enforce strict crypto policies for this tier. <strong>Exfiltration is physically impossible.</strong>', d * 5.5);
       setLayer('l4', 'throttle', 'STRICT (BOTH WALLS)', d * 5.5);
 
       setNarration('Layer 5: Every action fully traced with correlation IDs. Behavioral baseline being established. <strong>The plugin reads data safely — fully confined and monitored. You evaluate without risk.</strong>', d * 7);
       setLayer('l5', 'pass', 'FULL TRACE', d * 7);
 
-      setOutcome('blast', 'green', 'READ-ONLY', d * 2.5);
-      setOutcome('time', 'green', 'INSTANT (PRE-CONFINED)', d * 5.5);
-      setOutcome('lateral', 'green', 'IMPOSSIBLE', d * 2.5);
-      setOutcome('audit', 'green', 'EVERY ACTION TRACED', d * 7);
+      setOutcome('blast', 'orange', 'READ-ONLY — RESTRICTED', d * 2.5);
+      setOutcome('time', 'orange', 'PRE-CONFINED ON ARRIVAL', d * 5.5);
+      setOutcome('lateral', 'orange', 'BLOCKED — NO DELEGATION', d * 2.5);
+      setOutcome('audit', 'orange', 'FULL TRACE — UNDER WATCH', d * 7);
       setOutcome('productivity', 'orange', 'READ-ONLY, RATE LIMITED', d * 4);
 
     } else if (type === 'breach') {
@@ -976,7 +976,7 @@
     } else if (type === 'risk') {
       setNarration('<strong>Scenario: How does each layer reduce your risk exposure?</strong><br>Walk through the five layers and see exactly which risks each one mitigates — from credential theft to data exfiltration to compliance gaps.', 0);
 
-      setNarration('<strong>Risk: Credential theft and impersonation.</strong><br>Layer 1 mitigates this. Credentials are bound to specific devices with hardware attestation. A stolen token is useless on a different host. Human confirmation prevents automated credential farming. <strong>Risk reduction: eliminates remote credential replay attacks.</strong>', d);
+      setNarration('<strong>Risk: Credential theft and impersonation.</strong><br>Layer 1 mitigates this. Credentials are bound to specific devices with hardware attestation — Keylime verifies TPM integrity, Trustee verifies TEE confinement. A stolen token is useless on a different host. Human confirmation prevents automated credential farming. <strong>Risk reduction: eliminates remote credential replay attacks.</strong>', d);
       setLayer('l1', 'pass', 'CREDENTIAL THEFT → BLOCKED', d);
       setOutcome('blast', 'green', 'DEVICE-BOUND', d);
 
@@ -984,10 +984,10 @@
       setLayer('l2', 'pass', 'ESCALATION → CEILING', d * 2.5);
       setOutcome('lateral', 'green', 'HARD CEILING', d * 2.5);
 
-      setNarration('<strong>Risk: Unauthorized actions in sensitive contexts.</strong><br>Layer 3 mitigates this. Even if an agent has the right credentials and scope, policy evaluates the full context: time of day, resource sensitivity, action severity, request rate. A DevOps agent writing a P1 incident at 3 AM triggers a deny — credentials don\'t override context. <strong>Risk reduction: prevents credential misuse in high-risk windows.</strong>', d * 4.5);
+      setNarration('<strong>Risk: Unauthorized actions in sensitive contexts.</strong><br>Layer 3 mitigates this with two-layer policy enforcement. Agent lifecycle authorization sets scope ceilings and delegation rules — the maximum any agent in a tier can request. Enterprise resource permissions evaluate specific access within that ceiling. Even if an agent has the right credentials and scope, context-aware rules evaluate time of day, resource sensitivity, action severity, and request rate. <strong>Risk reduction: prevents credential misuse in high-risk windows.</strong>', d * 4.5);
       setLayer('l3', 'pass', 'CONTEXT ABUSE → DENIED', d * 4.5);
 
-      setNarration('<strong>Risk: Data exfiltration and system tampering.</strong><br>Layer 4 mitigates this with two independent walls. Namespace isolation prevents network egress — agents can\'t call home. Mandatory access control prevents filesystem writes outside declared paths. Even if Layers 1-3 are bypassed, the agent is physically contained. <strong>Risk reduction: makes exfiltration physically impossible for restricted agents.</strong>', d * 6.5);
+      setNarration('<strong>Risk: Data exfiltration and system tampering.</strong><br>Layer 4 mitigates this with defense in depth. Namespace isolation prevents network egress. Mandatory access control prevents filesystem writes outside declared paths. Image Mode (bootc) makes the host OS immutable — agents cannot tamper with the platform beneath them. Keylime continuously attests host integrity. System Roles enforce crypto policies per tier. Even if Layers 1-3 are bypassed, the agent is physically contained. <strong>Risk reduction: makes exfiltration physically impossible for restricted agents.</strong>', d * 6.5);
       setLayer('l4', 'pass', 'EXFILTRATION → IMPOSSIBLE', d * 6.5);
       setOutcome('time', 'green', 'PREVENT, NOT DETECT', d * 6.5);
 
@@ -1041,7 +1041,7 @@
     },
     {
       title: 'Five Layers of Defense',
-      text: 'Every agent request flows through these five layers — top to bottom. <strong>Any layer can independently deny a request.</strong> No single point of failure.<br><br><strong>Layer 1</strong> — Identity: Is this agent who it claims to be?<br><strong>Layer 2</strong> — Scoping: What is it allowed to do?<br><strong>Layer 3</strong> — Policy: Is this action allowed right now?<br><strong>Layer 4</strong> — Confinement: What can the code physically touch?<br><strong>Layer 5</strong> — Monitoring: Is the agent behaving normally?',
+      text: 'Every agent request flows through these five layers — top to bottom. <strong>Any layer can independently deny a request.</strong> 23 capabilities, zero new products.<br><br><strong>Layer 1</strong> — Identity: Hardware-attested credentials (Keylime TPM, Trustee TEE)<br><strong>Layer 2</strong> — Scoping: Scope ceilings set at enrollment, delegation narrows<br><strong>Layer 3</strong> — Policy: Two-layer authorization — agent lifecycle + enterprise resources<br><strong>Layer 4</strong> — Confinement: Immutable OS, MAC labels, crypto policy per tier<br><strong>Layer 5</strong> — Monitoring: Behavioral analysis, automated circuit breaker',
       target: 'layer-1',
       arrow: 'top',
       position: 'below-stack',
@@ -1096,7 +1096,7 @@
     },
     {
       title: 'Explore On Your Own',
-      text: 'That\'s the full walkthrough. You can now <strong>click any scenario button</strong> to replay it, or revisit the overview panel at the top.<br><br><strong>Key takeaways:</strong><br>&#x2022; Every agent earns its access through automated vetting<br>&#x2022; Five independent layers — no single point of failure<br>&#x2022; Breaches contained in seconds, not hours<br>&#x2022; Full audit trail from day one<br>&#x2022; Trusted agents run at full speed — security without slowdown',
+      text: 'That\'s the full walkthrough. You can now <strong>click any scenario button</strong> to replay it, or revisit the overview panel at the top.<br><br><strong>Key takeaways:</strong><br>&#x2022; 23 capabilities mapped across 6 enforcement layers — zero new products<br>&#x2022; Every agent earns its access through automated vetting with hardware attestation<br>&#x2022; Two-layer policy: agent lifecycle authorization + enterprise resource permissions<br>&#x2022; Defense in depth: immutable OS, MAC labels, crypto policy, hardware attestation<br>&#x2022; Breaches contained in seconds, not hours<br>&#x2022; Trusted agents run at full speed — security without slowdown',
       target: null,
       arrow: 'none',
       position: 'center',
@@ -1164,7 +1164,7 @@
     });
 
     const nextBtn = document.getElementById('tour-next-btn');
-    nextBtn.textContent = idx === tourSteps.length - 1 ? 'Finish' : (step.action ? 'Play & Continue' : 'Next');
+    nextBtn.textContent = idx === tourSteps.length - 1 ? 'Finish' : 'Next';
 
     document.querySelectorAll('.tour-highlight').forEach(el =>
       el.classList.remove('tour-highlight')
@@ -1176,16 +1176,13 @@
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
+
+    if (step.action) {
+      runScenario(step.action);
+    }
   }
 
   function nextTourStep() {
-    if (tourIndex >= 0 && tourIndex < tourSteps.length) {
-      const currentStep = tourSteps[tourIndex];
-      if (currentStep.action) {
-        runScenario(currentStep.action);
-      }
-    }
-
     tourIndex++;
     if (tourIndex >= tourSteps.length) {
       endTour();

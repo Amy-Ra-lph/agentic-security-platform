@@ -1021,10 +1021,15 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 
 **Execution and Confinement (L4)**
 
-| Product | Integration | Layer |
+| Product / Capability | Integration | Layer |
 |---------|-------------|-------|
 | Podman (rootless) | Agent execution runtime under OpenShell profiles. Rootless containers + user namespaces + SELinux = defense-in-depth confinement. Quadlet unit files per trust tier | L4 |
 | RHEL (SELinux / Blastwall) | L4b mandatory access control. MLS/MCS labels per trust tier. Type enforcement policy modules per agent role | L4 |
+| Image Mode (bootc) | Immutable, image-based RHEL. Agents cannot tamper with the host OS — the read-only filesystem prevents rootkit persistence and configuration drift. Trust tier confinement is baked into the OS image itself | L4 |
+| Keylime | TPM-based remote host attestation. Verifies platform integrity at boot and continuously monitors for runtime tampering. Sovereign tier requires Keylime attestation; Untrusted hosts that fail attestation are blocked from agent enrollment | L0, L4 |
+| Trustee (Confidential Computing) | TEE attestation for SEV-SNP and TDX workloads. Verifies that agent execution environments have not been tampered with. Sovereign-tier agents handling sensitive data require Trustee-verified TEE confinement | L0, L4 |
+| Hardened UBI | Pre-scanned, FIPS-validated container base images. Agents built on Hardened UBI inherit a known-good, compliance-ready foundation. Feeds L0 pre-enrollment assessment — images not based on Hardened UBI get higher risk scores | L0, L4 |
+| System Roles (Ansible) | Ansible roles that enforce crypto policies, SELinux modes, and certificate configuration per trust tier. Sovereign hosts get FIPS crypto + targeted SELinux; Untrusted get strict SELinux + limited certificate trust. Declarative, idempotent enforcement of confinement posture | L4 |
 | OpenShift (Pod Security) | Trust tier → Pod Security Standard mapping. Sovereign = privileged, Verified = baseline, Untrusted = restricted, Blocked = not scheduled | L4 |
 | Red Hat Device Edge / MicroShift | Trust tiers for edge agent fleets. Constrained environments where L4 confinement is critical (limited network, air-gapped) | L4 |
 
@@ -1055,7 +1060,64 @@ The five-layer stack maps to products across the Red Hat portfolio. Each layer h
 | RHEL Lightspeed (Meta-recursive) | Lightspeed itself enrolls as a Verified-tier agent, confined by OpenShell, subject to the same five-layer stack it helps manage. Proof that the platform handles AI-managing-AI | All |
 | Lightspeed in Satellite | On-prem Lightspeed deployment where OCSF audit data and policy queries never leave customer network. Enables AI-assisted agent fleet management in air-gapped and sovereignty-constrained environments. Satellite Capsules extend trust tier policy to edge locations | All |
 
-**Cross-portfolio story:** An agent image scanned in Quay (CVE-clean, Cosign-signed) → built in RHTAP (SBOM'd, Tekton Chains attestation) → deployed via Satellite to a RHEL host → enrolled via IdM/Keycloak with trust tier assignment → confined by Podman rootless + SELinux/Blastwall under OpenShell profiles → mTLS-enforced via Service Mesh → monitored by Insights + OpenSCAP compliance scans → anomalies detected by RHEL AI-trained models → remediated by EDA → managed through Lightspeed natural language queries and policy authoring. Every layer maps to an existing product. Lightspeed and RHEL AI close the loop: they generate policies, query audit data, train on OCSF streams, and themselves operate as managed agents — proving the platform handles AI-managing-AI. The PoC proves the integration points; productization extends them.
+**Cross-portfolio story:** An agent built on Hardened UBI, scanned in Quay (CVE-clean, Cosign-signed) → built in RHTAP (SBOM'd, Tekton Chains attestation) → host integrity verified by Keylime (TPM attestation) and Trustee (TEE for confidential workloads) → deployed via Satellite to an Image Mode RHEL host (immutable OS) → enrolled via IdM/Keycloak with trust tier assignment → confined by Podman rootless + SELinux/Blastwall under OpenShell profiles → System Roles enforce crypto policies and SELinux modes per tier → mTLS-enforced via Service Mesh → monitored by Insights + OpenSCAP compliance scans → anomalies detected by RHEL AI-trained models → remediated by EDA → managed through Lightspeed natural language queries. Every layer maps to an existing product or feature set — 23 capabilities, zero new SKUs. Lightspeed and RHEL AI close the loop: they query audit data, train on OCSF streams, and themselves operate as managed agents — proving the platform handles AI-managing-AI. The PoC proves the integration points; productization extends them.
+
+### 10.7 ahdapa Authorization Policy Evolution
+
+ahdapa today operates at L1–L2 (credential issuance, OBO delegation, scope ceilings). Its architecture positions it for a natural evolution into agent-specific authorization policy management at L3, complementing rather than competing with Keycloak Authorization Services.
+
+**Current policy-adjacent capabilities:**
+
+| Capability | Layer | Policy Nature |
+|------------|-------|---------------|
+| Scope ceilings per trust tier | L2 | Coarse AuthZ — hard limits on requestable scopes |
+| Consent decisions | L2 | Authorization gates — admin/user approval before delegation |
+| Delegation narrowing rules | L2 | Chain-of-custody policy — each hop narrows, never widens |
+| Trust tier assignment | L1 | Access classification — determines policy envelope |
+
+**Planned policy extensions:**
+
+| Extension | Description | Why ahdapa (not Keycloak) |
+|-----------|-------------|---------------------------|
+| Cedar policy embedding | Lightweight policy engine evaluates agent-specific rules at token exchange time. ~2ms eval, no Java stack. Formally verifiable policies | ahdapa holds trust tier + delegation context at decision time. Cedar is lightweight enough to embed without architectural overhead |
+| AuthZEN PDP | Standard authorization API (IETF draft) — any service asks ahdapa "can agent X do Y on resource Z?" Returns structured decision with obligation/advice | WIMSE alignment (§10.8). ahdapa becomes the agent-aware Policy Decision Point. Keycloak remains the enterprise PDP |
+| Delegation policy rules | Declarative rules: "Agent A can delegate to agent B only if B is same-or-higher tier, only for scopes S, only for duration T" | Keycloak does not model delegation chains. ahdapa owns this context end-to-end |
+| Behavioral policy | Circuit breaker thresholds per tier. Anomaly-triggered tier demotion rules. Re-promotion criteria after cooldown | ahdapa knows the agent's identity + tier + delegation history. Policy and enforcement co-located |
+| Resource registration | Agents declare protected resources. ahdapa evaluates access requests against tier-scoped policies | Lighter than UMA for agent-to-agent scenarios. No resource server registration ceremony |
+
+**Architectural split — ahdapa vs Keycloak AuthZ:**
+
+```
+Domain                    │ ahdapa AuthZ              │ Keycloak AuthZ Services
+──────────────────────────┼───────────────────────────┼──────────────────────────
+Policy domain             │ Agent lifecycle           │ Enterprise resources
+Subjects                  │ AI agents, delegation     │ Humans, services, agents
+                          │ chains                    │
+Decisions                 │ Enrollment, delegation,   │ Resource access, UMA,
+                          │ scope ceiling, tier       │ RBAC, client policies
+                          │ promotion/demotion        │
+Policy language           │ Cedar (embedded)          │ JavaScript, time-based,
+                          │                           │ aggregate, role-based
+Weight                    │ ~2ms eval, SQLite,        │ Full Java stack,
+                          │ systemd service           │ PostgreSQL
+Integration               │ FreeIPA/Kerberos native   │ OIDC/SAML federation
+Standards                 │ AuthZEN, RFC 8693,        │ UMA 2.0, OAuth2
+                          │ RFC 8628                  │
+```
+
+No overlap: Keycloak answers "can user/agent X access enterprise resource Y?" ahdapa answers "can agent X enroll/delegate/escalate within the agent trust model?" Both feed L5 audit. Both enforce at every API call.
+
+**Dependency:** WIMSE policy engine PoC (see §10.8 below) validates the AuthZEN PDP path. Cedar embedding is independent — can proceed with ahdapa's existing scope ceiling enforcement as the policy hook.
+
+### 10.8 WIMSE / AuthZEN Alignment
+
+The IETF WIMSE (Workload Identity in Multi-System Environments) working group defines workload identity tokens and inter-system trust. AuthZEN (Authorization API) standardizes the PDP interface. Together they provide the standards foundation for ahdapa's agent-specific AuthZ evolution:
+
+- **WIMSE workload identity tokens** map naturally to agent trust tier credentials — the token carries tier, scope ceiling, and delegation chain claims
+- **AuthZEN PDP API** gives any service a standard way to query ahdapa for agent authorization decisions
+- **Policy Information Point (PIP)** — ahdapa aggregates context from IdM (tier membership), Keylime (host attestation), and OCSF audit (behavioral history) to inform policy decisions
+
+PoC validation: see `project_wimse-policy-engine-poc-alignment-2026-09-24.md` for the five-layer + AuthZEN integration design.
 
 ## 11. Risks and Mitigations
 

@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The 3 AM Page — Securing AI Agents with the Portfolio You Already Own</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700;900&family=Red+Hat+Text:wght@400;500;700&family=Red+Hat+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --accent: #5599ff;
+    --red: #ee0000;
+    --red-dim: rgba(238, 0, 0, 0.15);
+    --green: #44cc88;
+    --amber: #ffaa33;
+    --purple: #9966ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Text', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .deck {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Slide nav */
+  .slide-nav {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .slide-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+  }
+
+  .slide-dot.active { background: var(--accent); transform: scale(1.3); }
+  .slide-dot.visited { background: var(--text-dim); }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    z-index: 100;
+  }
+
+  /* Typography */
+  .slide-kicker {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .slide-title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 24px;
+    max-width: 900px;
+  }
+
+  .slide-title.huge {
+    font-size: 72px;
+  }
+
+  .slide-subtitle {
+    font-size: 22px;
+    color: var(--text-dim);
+    max-width: 700px;
+    line-height: 1.5;
+    margin-bottom: 32px;
+  }
+
+  .slide-body {
+    font-size: 20px;
+    line-height: 1.7;
+    max-width: 800px;
+    color: var(--text);
+  }
+
+  .slide-body strong { color: var(--accent); font-weight: 700; }
+  .slide-body em { color: var(--amber); font-style: normal; font-weight: 500; }
+
+  .red { color: var(--red); }
+  .green { color: var(--green); }
+  .accent { color: var(--accent); }
+  .amber { color: var(--amber); }
+  .purple { color: var(--purple); }
+  .dim { color: var(--text-dim); }
+
+  /* Stat blocks */
+  .stat-row {
+    display: flex;
+    gap: 48px;
+    margin-top: 40px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-number {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Alert card */
+  .alert-card {
+    background: var(--red-dim);
+    border: 1px solid rgba(238, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 32px 40px;
+    max-width: 700px;
+    text-align: left;
+    margin-top: 32px;
+  }
+
+  .alert-card .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .alert-card .alert-icon {
+    width: 32px; height: 32px;
+    background: var(--red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    animation: pulse-alert 2s infinite;
+  }
+
+  @keyframes pulse-alert {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 0, 0, 0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(238, 0, 0, 0); }
+  }
+
+  .alert-card .alert-title {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 14px;
+    color: var(--red);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .alert-card .alert-body {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .alert-card .alert-meta {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 16px;
+  }
+
+  /* Layer cards */
+  .layer-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 36px;
+    max-width: 800px;
+    width: 100%;
+    text-align: left;
+    margin-top: 24px;
+  }
+
+  .layer-card .layer-badge {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 3px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .layer-card .layer-badge.red-badge { background: var(--red); }
+  .layer-card .layer-badge.green-badge { background: var(--green); color: var(--bg); }
+  .layer-card .layer-badge.amber-badge { background: var(--amber); color: var(--bg); }
+  .layer-card .layer-badge.purple-badge { background: var(--purple); }
+
+  .layer-card h3 {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .layer-card p {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+
+  .layer-card p strong { color: var(--text); }
+
+  .layer-card .products {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .layer-card .product-chip {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    background: rgba(85, 153, 255, 0.1);
+    border: 1px solid rgba(85, 153, 255, 0.25);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 700px;
+    width: 100%;
+    margin-top: 24px;
+    text-align: left;
+  }
+
+  .timeline-event {
+    display: flex;
+    gap: 20px;
+    padding: 14px 0;
+    border-left: 2px solid var(--border);
+    padding-left: 24px;
+    position: relative;
+  }
+
+  .timeline-event::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 20px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .timeline-event.red-event::before { background: var(--red); }
+  .timeline-event.green-event::before { background: var(--green); }
+  .timeline-event.amber-event::before { background: var(--amber); }
+
+  .timeline-time {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    min-width: 70px;
+    flex-shrink: 0;
+  }
+
+  .timeline-content {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .timeline-content strong { color: var(--accent); }
+
+  /* Reveal grid */
+  .reveal-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 900px;
+    width: 100%;
+    margin-top: 32px;
+  }
+
+  .reveal-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: reveal-in 0.4s forwards;
+  }
+
+  .reveal-item .reveal-count {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 36px;
+    font-weight: 900;
+  }
+
+  .reveal-item .reveal-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  @keyframes reveal-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Two-column layout */
+  .two-col {
+    display: flex;
+    gap: 48px;
+    max-width: 900px;
+    width: 100%;
+    margin-top: 32px;
+    text-align: left;
+  }
+
+  .two-col .col {
+    flex: 1;
+  }
+
+  .two-col h4 {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .two-col ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .two-col li {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    padding: 4px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .two-col li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  .two-col li strong { color: var(--text); }
+
+  /* CTA */
+  .cta-list {
+    list-style: none;
+    padding: 0;
+    max-width: 700px;
+    text-align: left;
+    margin-top: 32px;
+  }
+
+  .cta-list li {
+    font-size: 18px;
+    line-height: 1.6;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .cta-list li:last-child { border: none; }
+
+  .cta-list .cta-num {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    width: 28px;
+  }
+
+  .cta-list li strong { color: var(--accent); }
+
+  /* Competitor comparison */
+  .compare-table {
+    max-width: 800px;
+    width: 100%;
+    margin-top: 32px;
+    border-collapse: collapse;
+    text-align: center;
+  }
+
+  .compare-table th {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .compare-table th:first-child { text-align: left; }
+
+  .compare-table td {
+    padding: 10px 16px;
+    font-size: 15px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table td:first-child {
+    text-align: left;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .compare-table .check { color: var(--green); font-size: 18px; }
+  .compare-table .cross { color: var(--red); font-size: 18px; opacity: 0.5; }
+  .compare-table .partial { color: var(--amber); font-size: 14px; }
+  .compare-table .rh-col { background: rgba(85, 153, 255, 0.05); }
+
+  /* Keyboard hint */
+  .key-hint {
+    position: fixed;
+    bottom: 30px;
+    left: 40px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    z-index: 100;
+  }
+
+  .key-hint kbd {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  /* Animated elements */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .slide.active .fade-in { opacity: 1; transform: translateY(0); }
+  .slide.active .fade-in.d1 { transition-delay: 0.2s; }
+  .slide.active .fade-in.d2 { transition-delay: 0.4s; }
+  .slide.active .fade-in.d3 { transition-delay: 0.6s; }
+  .slide.active .fade-in.d4 { transition-delay: 0.8s; }
+  .slide.active .fade-in.d5 { transition-delay: 1.0s; }
+
+  /* Background patterns */
+  .slide-bg-grid {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(85, 153, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(85, 153, 255, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  .slide-bg-radial {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, rgba(85, 153, 255, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Red Hat logo watermark */
+  .rh-watermark {
+    position: fixed;
+    top: 24px;
+    left: 32px;
+    z-index: 100;
+  }
+
+  .rh-watermark svg {
+    width: 36px;
+    height: 36px;
+    fill: var(--red);
+    opacity: 0.7;
+  }
+
+  /* Quote block */
+  .quote-block {
+    border-left: 3px solid var(--red);
+    padding-left: 24px;
+    max-width: 700px;
+    text-align: left;
+    margin-top: 32px;
+  }
+
+  .quote-block .quote-text {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .quote-block .quote-attr {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Red Hat Logo Watermark -->
+<div class="rh-watermark">
+  <svg viewBox="0 0 613 145" xmlns="http://www.w3.org/2000/svg">
+    <path d="M127.47 83.49c12.51 0 30.61-2.58 30.61-17.46a14 14 0 0 0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C124.89 8.69 103.76.5 97.51.5 91.69.5 90 8 83.06 8c-6.68 0-11.64-5.6-17.89-5.6-6 0-9.91 4.09-12.93 12.5 0 0-8.41 23.72-9.49 27.16A6.43 6.43 0 0 0 42.53 44c0 9.22 36.3 39.45 84.94 39.45M160 72.07c1.73 8.19 1.73 9.05 1.73 10.13 0 14-15.74 21.77-36.43 21.77C78.54 104 37.58 76.6 37.58 58.49a18.45 18.45 0 0 1 1.51-7.33C22.27 52 .5 55 .5 74.22c0 31.48 74.59 70.28 133.65 70.28 45.28 0 56.7-20.48 56.7-36.65 0-12.72-11-27.16-30.83-35.78"/>
+  </svg>
+</div>
+
+<div class="deck">
+
+  <!-- Slide 1: Title -->
+  <div class="slide active" id="slide-0">
+    <div class="slide-bg-radial"></div>
+    <div class="slide-kicker fade-in">Red Hat Security Portfolio</div>
+    <div class="slide-title huge fade-in d1">The 3 AM Page</div>
+    <div class="slide-subtitle fade-in d2">Securing AI Agents with the Portfolio You Already Own</div>
+    <div class="stat-row fade-in d3">
+      <div class="stat">
+        <div class="stat-number accent">23</div>
+        <div class="stat-label">Capabilities</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number green">6</div>
+        <div class="stat-label">Enforcement Layers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number purple">4</div>
+        <div class="stat-label">Trust Tiers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number red">0</div>
+        <div class="stat-label">New Products</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 2: The Reality -->
+  <div class="slide" id="slide-1">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">The Reality</div>
+    <div class="slide-title fade-in d1">AI Agents Are Already<br>In Your Infrastructure</div>
+    <div class="slide-subtitle fade-in d2">Most enterprises don't know how many they have, where they run, or what they can access.</div>
+    <div class="stat-row fade-in d3">
+      <div class="stat">
+        <div class="stat-number red">82%</div>
+        <div class="stat-label">of enterprises will deploy<br>agentic AI by 2028</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number amber">67%</div>
+        <div class="stat-label">use shared API keys<br>for AI agent auth</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number red">0</div>
+        <div class="stat-label">revocation path<br>for most agents</div>
+      </div>
+    </div>
+    <div class="quote-block fade-in d4">
+      <div class="quote-text">"AI agents are shadow IT at machine speed."</div>
+    </div>
+  </div>
+
+  <!-- Slide 3: The Incident -->
+  <div class="slide" id="slide-2">
+    <div class="slide-bg-radial"></div>
+    <div class="slide-kicker fade-in">The Incident</div>
+    <div class="slide-title fade-in d1">3:07 AM — SOC Alert</div>
+    <div class="alert-card fade-in d2">
+      <div class="alert-header">
+        <div class="alert-icon">!</div>
+        <div class="alert-title">Critical — Unauthorized Database Access</div>
+      </div>
+      <div class="alert-body">
+        An AI coding assistant queried the <strong>production customer database</strong> with a token nobody in IAM issued. Investigation reveals <strong>200+ AI agents</strong> operating across the enterprise — LLM assistants, code generators, data pipeline agents — with API keys, shared secrets, or no credentials at all.
+      </div>
+      <div class="alert-meta">Source: SIEM correlation rule • Token: unknown origin • Scope: unlimited • Revocation path: none</div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 24px; font-size: 18px; color: var(--text-dim);">
+      No enrollment. No scope limits. No confinement. No way to revoke access.<br>
+      The CISO asks: <strong style="color: var(--text); font-size: 22px;">"How do we get this under control?"</strong>
+    </div>
+  </div>
+
+  <!-- Slide 4: The Answer -->
+  <div class="slide" id="slide-3">
+    <div class="slide-bg-radial"></div>
+    <div class="slide-kicker fade-in">The Answer</div>
+    <div class="slide-title fade-in d1">A Phone Call.<br><span class="dim" style="font-size: 36px;">Not a Purchase Order.</span></div>
+    <div class="slide-body fade-in d2">
+      The five-layer agentic security enforcement stack maps <strong>entirely</strong> to the existing Red Hat portfolio.<br><br>
+      Every capability — from pre-enrollment supply chain scanning to AI-assisted fleet management — is delivered by a product or feature set <em>Red Hat already ships</em>.
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 24px; font-size: 18px;">
+      The rogue agent that triggered the alert?<br>
+      <strong>Detected, demoted, scope-narrowed, and confined — before the human finishes reading the ticket.</strong>
+    </div>
+  </div>
+
+  <!-- Slide 5: Layer 0 — Supply Chain -->
+  <div class="slide" id="slide-4">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">Response Layer 0</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Verify Before You Trust</div>
+    <div class="layer-card fade-in d2">
+      <div class="layer-badge">L0 — Pre-Enrollment</div>
+      <h3>Supply Chain + Platform Attestation</h3>
+      <p><strong>Quay</strong> scans agent images for CVEs and verifies cryptographic signatures. <strong>RHTAP</strong> provides build provenance — proof of where and how the agent was built. <strong>RHTPA</strong> analyzes software bills of materials for dependency risk. <strong>Keylime</strong> attests hardware integrity via TPM. <strong>Trustee</strong> verifies confidential computing enclaves. <strong>Hardened UBI</strong> ensures FIPS-validated base images. Bad supply chain = blocked at the door.</p>
+      <div class="products">
+        <span class="product-chip">Quay</span>
+        <span class="product-chip">RHTAP</span>
+        <span class="product-chip">RHTPA</span>
+        <span class="product-chip">Keylime</span>
+        <span class="product-chip">Trustee</span>
+        <span class="product-chip">Hardened UBI</span>
+        <span class="product-chip">Certificate System</span>
+        <span class="product-chip">Lightspeed Advisor</span>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 20px; font-size: 16px; color: var(--text-dim);">
+      <strong style="color: var(--green);">Result:</strong> The rogue agent's image has no cryptographic signature, no software bill of materials, and its host has no hardware attestation. It would have been <strong style="color: var(--red);">blocked before enrollment</strong>.
+    </div>
+  </div>
+
+  <!-- Slide 6: Layers 1-2 — Identity -->
+  <div class="slide" id="slide-5">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">Response Layers 1–2</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Every Agent Gets a Real Identity</div>
+    <div class="layer-card fade-in d2">
+      <div class="layer-badge">L1 — Credential · L2 — Token</div>
+      <h3>Revocable Credentials + Scoped Delegation</h3>
+      <p><strong>IdM/FreeIPA</strong> enrolls agents into trust tier groups with host-based access rules — controlling which agents can access which services on which hosts. <strong>Red Hat SSO (Keycloak)</strong> issues individually revocable credentials and handles on-behalf-of delegation — when one agent delegates to another, scope narrows, never widens. SSO enforces scope ceilings per tier: Untrusted agents get narrow access, Sovereign agents get broad.</p>
+      <div class="products">
+        <span class="product-chip">IdM / FreeIPA</span>
+        <span class="product-chip">Red Hat SSO</span>
+        <span class="product-chip">Certificate System</span>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 20px; font-size: 16px; color: var(--text-dim);">
+      <strong style="color: var(--green);">Result:</strong> The coding assistant gets an Untrusted-tier credential. Scope ceiling: <strong>read staging data only</strong>. Production database? <strong style="color: var(--red);">Token doesn't carry that scope.</strong> Revocation: one API call.
+    </div>
+  </div>
+
+  <!-- Slide 7: Layer 3 — Policy -->
+  <div class="slide" id="slide-6">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">Response Layer 3</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Two-Layer Policy Enforcement</div>
+    <div class="layer-card fade-in d2">
+      <div class="layer-badge amber-badge">L3 — Policy</div>
+      <h3>Scope Ceilings + Resource Permissions</h3>
+      <p><strong>Red Hat SSO</strong> enforces scope ceilings — the maximum any agent in a tier can request. <strong>SSO Authorization Services</strong> evaluates resource-level permissions within that ceiling. <strong>Cedar policy engine</strong> adds fine-grained, formally verifiable runtime rules. Two layers: "what can this tier access" + "what can this specific agent do." Policy is enforced at <strong>every API call</strong>, not just at login.</p>
+      <div class="products">
+        <span class="product-chip">Red Hat SSO</span>
+        <span class="product-chip">ACS</span>
+        <span class="product-chip">Service Mesh</span>
+        <span class="product-chip">AAP</span>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 20px; font-size: 16px; color: var(--text-dim);">
+      <strong style="color: var(--green);">Result:</strong> Even if the agent somehow obtained a valid token, the <strong style="color: var(--amber);">L3 policy check</strong> denies production database access for Untrusted-tier agents. Denied attempt is logged in real time.
+    </div>
+  </div>
+
+  <!-- Slide 8: Layer 4 — Confinement -->
+  <div class="slide" id="slide-7">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">Response Layer 4</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Blast Radius = Trust Tier</div>
+    <div class="layer-card fade-in d2">
+      <div class="layer-badge red-badge">L4 — Confinement</div>
+      <h3>Defense in Depth — OS to Hardware</h3>
+      <p><strong>Podman rootless</strong> + <strong>SELinux/Blastwall</strong> box agents with mandatory access control labels per tier. <strong>Image Mode (bootc)</strong> makes the host OS immutable — agents can't tamper with the platform. <strong>Keylime</strong> continuously attests host integrity. <strong>Trustee</strong> verifies hardware-level secure enclaves. <strong>System Roles</strong> enforce crypto policies and SELinux config per tier. A compromised agent <strong>cannot escape</strong>.</p>
+      <div class="products">
+        <span class="product-chip">Podman</span>
+        <span class="product-chip">SELinux / Blastwall</span>
+        <span class="product-chip">Image Mode (bootc)</span>
+        <span class="product-chip">Keylime</span>
+        <span class="product-chip">Trustee</span>
+        <span class="product-chip">System Roles</span>
+        <span class="product-chip">OpenShift</span>
+        <span class="product-chip">Image Builder</span>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 20px; font-size: 16px; color: var(--text-dim);">
+      <strong style="color: var(--green);">Result:</strong> The rogue agent runs in a tight SELinux sandbox. It can see its own working directory. It cannot touch the network, other processes, or the filesystem. <strong style="color: var(--red);">Lateral movement: impossible.</strong>
+    </div>
+  </div>
+
+  <!-- Slide 9: Layer 5 — Detection & Response -->
+  <div class="slide" id="slide-8">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">Response Layer 5</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Automated Response at Machine Speed</div>
+    <div class="timeline fade-in d2">
+      <div class="timeline-event red-event">
+        <div class="timeline-time">T + 0s</div>
+        <div class="timeline-content"><strong>Audit event:</strong> Anomalous query pattern detected — coding assistant accessing production schema</div>
+      </div>
+      <div class="timeline-event amber-event">
+        <div class="timeline-time">T + 0.3s</div>
+        <div class="timeline-content"><strong>Circuit breaker fires:</strong> Agent exceeds scope ceiling for Untrusted tier. State → THROTTLE</div>
+      </div>
+      <div class="timeline-event amber-event">
+        <div class="timeline-time">T + 1.2s</div>
+        <div class="timeline-content"><strong>EDA rulebook triggers:</strong> Containment playbook executes — token revoked, agent demoted to Blocked</div>
+      </div>
+      <div class="timeline-event green-event">
+        <div class="timeline-time">T + 2.8s</div>
+        <div class="timeline-content"><strong>Satellite propagates:</strong> All 10,000 hosts updated — agent's credential is revoked fleet-wide</div>
+      </div>
+      <div class="timeline-event green-event">
+        <div class="timeline-time">T + 5s</div>
+        <div class="timeline-content"><strong>Lightspeed generates:</strong> Incident summary and recommended policy tightening for SOC review</div>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 16px; font-size: 16px; color: var(--text-dim);">
+      <strong style="color: var(--green);">Total elapsed:</strong> 5 seconds. The human hasn't finished reading the alert.
+    </div>
+  </div>
+
+  <!-- Slide 10: The Reveal -->
+  <div class="slide" id="slide-9">
+    <div class="slide-bg-radial"></div>
+    <div class="slide-kicker fade-in">The Reveal</div>
+    <div class="slide-title fade-in d1">Everything You Just Saw?<br><span class="accent">You Already Own It.</span></div>
+    <div class="reveal-grid fade-in d2">
+      <div class="reveal-item" style="animation-delay: 0.3s;">
+        <div class="reveal-count accent">23</div>
+        <div class="reveal-label">Capabilities<br>Mapped</div>
+      </div>
+      <div class="reveal-item" style="animation-delay: 0.5s;">
+        <div class="reveal-count green">6</div>
+        <div class="reveal-label">Enforcement<br>Layers</div>
+      </div>
+      <div class="reveal-item" style="animation-delay: 0.7s;">
+        <div class="reveal-count purple">4</div>
+        <div class="reveal-label">Trust<br>Tiers</div>
+      </div>
+      <div class="reveal-item" style="animation-delay: 0.9s;">
+        <div class="reveal-count red">0</div>
+        <div class="reveal-label">New Products<br>Required</div>
+      </div>
+    </div>
+    <div class="slide-body fade-in d3" style="margin-top: 28px;">
+      This is not a roadmap. This is not a future product launch.<br>
+      This is <strong>integration and composition</strong> of products Red Hat ships today.<br>
+      <em>Time to value is months, not years.</em>
+    </div>
+  </div>
+
+  <!-- Slide 11: Why Only Red Hat -->
+  <div class="slide" id="slide-10">
+    <div class="slide-bg-grid"></div>
+    <div class="slide-kicker fade-in">The Differentiator</div>
+    <div class="slide-title fade-in d1" style="font-size: 40px;">Why Only Red Hat Can Tell This Story</div>
+    <table class="compare-table fade-in d2">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th class="rh-col">Red Hat</th>
+          <th>Hyperscaler</th>
+          <th>Identity Vendor</th>
+          <th>Security Vendor</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Own the OS kernel + MAC</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Enterprise identity system</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="partial">partial</span></td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Container platform + registry</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>On-prem AI toolchain</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Air-gapped fleet management</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">partial</span></td>
+        </tr>
+        <tr>
+          <td>AI managing AI (meta-recursive)</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Hardware attestation (TPM/TEE)</td>
+          <td class="rh-col"><span class="check">&#10003;</span></td>
+          <td><span class="partial">partial</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">partial</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="slide-body fade-in d3" style="margin-top: 20px; font-size: 17px;">
+      Securing AI agents requires owning the <strong>OS</strong>, the <strong>identity system</strong>, the <strong>confinement layer</strong>, and the <strong>AI toolchain</strong> simultaneously. <em>No other vendor has all four.</em>
+    </div>
+  </div>
+
+  <!-- Slide 12: Call to Action -->
+  <div class="slide" id="slide-11">
+    <div class="slide-bg-radial"></div>
+    <div class="slide-kicker fade-in">Start Monday</div>
+    <div class="slide-title fade-in d1" style="font-size: 44px;">Three Steps to<br>Agent Fleet Control</div>
+    <ul class="cta-list fade-in d2">
+      <li>
+        <span class="cta-num">01</span>
+        <span><strong>Discover.</strong> Run an agent inventory — how many AI agents are running, what credentials do they hold, what can they access? Most CISOs are shocked by the number.</span>
+      </li>
+      <li>
+        <span class="cta-num">02</span>
+        <span><strong>Enroll.</strong> Start with IdM. Assign trust tiers. Issue revocable, scoped credentials. Set scope ceilings per tier. This alone eliminates the "shared API key" anti-pattern.</span>
+      </li>
+      <li>
+        <span class="cta-num">03</span>
+        <span><strong>Confine.</strong> Apply SELinux policies per tier. Deploy Podman rootless for agent workloads. Enable Insights monitoring. You now have visibility, control, and automated response.</span>
+      </li>
+    </ul>
+    <div class="slide-body fade-in d3" style="margin-top: 28px; font-size: 18px;">
+      <strong>The platform is ready.</strong> The question isn't whether to secure your AI agents.<br>
+      It's whether you do it before or after the 3 AM page.
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="slide-nav" id="slideNav"></div>
+<div class="slide-counter" id="slideCounter">1 / 12</div>
+<div class="key-hint"><kbd>←</kbd> <kbd>→</kbd> or click to navigate</div>
+
+<script>
+const TOTAL_SLIDES = 12;
+let currentSlide = 0;
+
+function initNav() {
+  const nav = document.getElementById('slideNav');
+  for (let i = 0; i < TOTAL_SLIDES; i++) {
+    const dot = document.createElement('button');
+    dot.className = 'slide-dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    nav.appendChild(dot);
+  }
+}
+
+function goToSlide(n) {
+  if (n < 0 || n >= TOTAL_SLIDES || n === currentSlide) return;
+
+  const prev = document.getElementById('slide-' + currentSlide);
+  const next = document.getElementById('slide-' + n);
+
+  prev.classList.remove('active');
+  prev.classList.add(n > currentSlide ? 'exit-left' : '');
+  setTimeout(() => prev.classList.remove('exit-left'), 500);
+
+  next.classList.add('active');
+
+  const dots = document.querySelectorAll('.slide-dot');
+  dots[currentSlide].classList.remove('active');
+  dots[currentSlide].classList.add('visited');
+  dots[n].classList.remove('visited');
+  dots[n].classList.add('active');
+
+  currentSlide = n;
+  document.getElementById('slideCounter').textContent = (n + 1) + ' / ' + TOTAL_SLIDES;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goToSlide(currentSlide + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); goToSlide(currentSlide - 1); }
+  if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+  if (e.key === 'End') { e.preventDefault(); goToSlide(TOTAL_SLIDES - 1); }
+});
+
+document.addEventListener('click', e => {
+  if (e.target.closest('.slide-nav') || e.target.closest('.slide-dot')) return;
+  const x = e.clientX / window.innerWidth;
+  if (x > 0.5) goToSlide(currentSlide + 1);
+  else goToSlide(currentSlide - 1);
+});
+
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 50) {
+    if (dx < 0) goToSlide(currentSlide + 1);
+    else goToSlide(currentSlide - 1);
+  }
+});
+
+initNav();
+</script>
+</body>
+</html>
