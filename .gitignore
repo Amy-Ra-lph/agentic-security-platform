@@ -9,3 +9,6 @@ venv/
 *.log
 .claude/
 node_modules/
+.demo-credentials
+beaker/setup/inventory.env
+beaker/demo/output/

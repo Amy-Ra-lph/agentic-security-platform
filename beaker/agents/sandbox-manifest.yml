@@ -1,0 +1,21 @@
+name: governed-agent
+version: "1.0"
+
+network:
+  mode: none
+
+filesystem:
+  read:
+    - "${PROJECT_DIR}"
+  write:
+    - "/tmp/output"
+    - "${OUTPUT_DIR}"
+
+environment:
+  mode: deny_all
+  allow:
+    - PROJECT_DIR
+    - OUTPUT_DIR
+
+capabilities:
+  drop_all: true
