@@ -1,5 +1,5 @@
 settings:
-  title: "Act 13: Revocation"
+  title: "Act 13: Suspension & Response"
   width: 120
   height: 35
   prompt: "root@idm:~# "
@@ -7,11 +7,15 @@ settings:
 
 instructions:
   - type: marker
-    label: "Multi-Layer Revocation — Incident Response"
+    label: "Incident Response — Suspend, Investigate, Decide"
 
   - type: comment
-    text: "Step 1: Disable HBAC — immediately blocks execution on all hosts."
+    text: "Anomaly detected. First move: suspend the agent. Preserve evidence."
     pause_after: 1.5
+
+  - type: comment
+    text: "Step 1: Disable HBAC — blocks execution immediately."
+    pause_after: 1.0
 
   - type: command
     run: ipa hbacrule-disable allow-pod-monitor-execution
@@ -30,40 +34,53 @@ instructions:
     pause_after: 2.0
 
   - type: comment
-    text: "Enabled: False. The agent cannot execute anywhere — even with a valid token."
-    pause_after: 2.0
-
-  - type: comment
-    text: "Step 2: Delete the service principal — removes the identity entirely."
+    text: "Enabled: False. Agent cannot execute — even with a valid token."
     pause_after: 1.5
 
+  - type: comment
+    text: "Step 2: Revoke active tokens."
+    pause_after: 1.0
+
   - type: command
-    run: ipa service-del agent/pod-monitor.demo.agentic.test
+    run: "curl -sk -X POST https://localhost/idp/revoke -d 'token_type_hint=access_token&client_id=8d701d16-3c2a-409e-88ea-809e53f8b3a0'"
     output: |
-      -----------------------------------------------------------------------
-      Deleted service "agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST"
-      -----------------------------------------------------------------------
+      {"status": "revoked"}
     pause_after: 1.5
 
+  - type: comment
+    text: "Two commands. Under 10 seconds. Agent is fully suspended."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Identity preserved. Audit trail intact. Now we investigate."
+    pause_after: 2.0
+
   - type: command
-    run: ipa service-show agent/pod-monitor.demo.agentic.test 2>&1
+    run: "ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $NF}' | sort -u"
     output: |
-      ipa: ERROR: agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST: service not found
+      addr=10.37.153.138     <-- expected (runner host)
+      addr=192.168.44.99     <-- UNAUTHORIZED
     pause_after: 2.0
 
   - type: comment
-    text: "Identity deleted. Credentials invalidated. Agent is fully revoked."
-    pause_after: 2.0
+    text: "Confirmed: credentials used from unknown host. Credential theft."
+    pause_after: 1.5
 
   - type: comment
-    text: "Three commands. Under 30 seconds. Complete revocation."
+    text: "If false positive? Re-enable in one command:"
+    pause_after: 1.0
+
+  - type: command
+    run: "# ipa hbacrule-enable allow-pod-monitor-execution"
+    output: |
+      (not running — this was real compromise)
     pause_after: 2.0
 
   - type: command
     run: cat /opt/demo/lifecycle-summary.txt
     output: |
       ┌─────────────┬──────────────────────────────────────────────────┐
-      │  Phase       │  What Happened                                   │
+      │  Phase       │  What Happened                                  │
       ├─────────────┼──────────────────────────────────────────────────┤
       │  Create      │  AI vibe-coded an agent (looks great, steals creds) │
       │  Gate        │  Pre-commit scan caught 7 critical findings     │
@@ -71,10 +88,14 @@ instructions:
       │  Onboard     │  IPA + HBAC + ahdapa + OpenShell — zero-touch  │
       │  Manage      │  Agent visible in IPA — same tools admins know  │
       │  Monitor     │  Audit trail detects token burst anomaly        │
-      │  Respond     │  Multi-layer revoke in under 30 seconds        │
+      │  Respond     │  Suspend → investigate → decide (not destroy)   │
       └─────────────┴──────────────────────────────────────────────────┘
     pause_after: 3.0
 
   - type: comment
-    text: "From vibe code to governed to revoked — on RHEL, with the tools you already have."
+    text: "We didn't destroy the agent — we suspended it. Investigation first, then decide."
+    pause_after: 2.0
+
+  - type: comment
+    text: "From vibe code to governed — on RHEL, with the tools you already have."
     pause_after: 3.0
