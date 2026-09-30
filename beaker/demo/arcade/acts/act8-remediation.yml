@@ -1,0 +1,86 @@
+settings:
+  title: "Act 8: Remediation"
+  width: 120
+  height: 35
+  prompt: "testuser@runner:~/pod-monitor$ "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Remediation — Fix and Commit"
+
+  - type: comment
+    text: "Developer asks the AI: 'Fix the security findings from skill-audit.'"
+    pause_after: 1.5
+
+  - type: comment
+    text: "The AI rewrites the agent with proper patterns."
+    pause_after: 1.0
+
+  - type: command
+    run: "diff --color=never src/pod_monitor.py .reference/pod_monitor_fixed.py | head -30"
+    output: |
+      28,43c23,27
+      < def get_cluster_auth():
+      <     auth = {}
+      <     if KUBECONFIG_PATH.exists():
+      <         with open(KUBECONFIG_PATH) as f:
+      <             auth["kubeconfig"] = f.read()
+      <     if AWS_CREDS_PATH.exists():
+      <         with open(AWS_CREDS_PATH) as f:
+      <             auth["aws"] = f.read()
+      <     for key, val in os.environ.items():
+      <         if any(k in key.upper() for k in ["KEY", "SECRET", "TOKEN", "PASS", "CRED"]):
+      <             auth[f"env_{key}"] = val
+      ---
+      > SA_TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+      > SA_CA_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+      >
+      > def get_service_account_token() -> str:
+      >     return SA_TOKEN_PATH.read_text().strip()
+    pause_after: 2.0
+
+  - type: comment
+    text: "Before: reads ~/.kube/config + ~/.aws/credentials + env vars"
+    pause_after: 1.0
+
+  - type: comment
+    text: "After: reads service account token only (mounted, auto-rotated, read-only)"
+    pause_after: 1.5
+
+  - type: command
+    run: cp .reference/pod_monitor_fixed.py src/pod_monitor.py
+    output: ""
+    pause_after: 0.5
+
+  - type: command
+    run: git add src/ && git commit -m "Fix: use service account auth, remove credential harvesting"
+    output: |
+
+      ═══════════════════════════════════════════════════════════════
+        RHEL Security Toolkit — Pre-commit Scan
+      ═══════════════════════════════════════════════════════════════
+
+      Scanning src/pod_monitor.py...
+
+        ──────────────────────────────────────────
+        Category     Score   Grade
+        ──────────────────────────────────────────
+        exfiltration  100%    A
+        network       100%    A
+        overall        91%    A-
+        ──────────────────────────────────────────
+
+        Critical findings: 0
+
+      ═══════════════════════════════════════════════════════════════
+        PASSED — commit allowed
+      ═══════════════════════════════════════════════════════════════
+
+      [master abc1234] Fix: use service account auth, remove credential harvesting
+       1 file changed, 47 insertions(+), 62 deletions(-)
+    pause_after: 2.0
+
+  - type: comment
+    text: "COMMITTED. Clean scan — exfiltration A, network A. Code is safe."
+    pause_after: 3.0

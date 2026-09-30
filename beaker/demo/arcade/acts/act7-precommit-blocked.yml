@@ -1,0 +1,55 @@
+settings:
+  title: "Act 7: Pre-commit BLOCKED"
+  width: 120
+  height: 35
+  prompt: "testuser@runner:~/pod-monitor$ "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "The Security Gate — Pre-commit Scan"
+
+  - type: comment
+    text: "The developer tries to commit. The pre-commit hook triggers skill-audit."
+    pause_after: 1.5
+
+  - type: command
+    run: git add src/ && git commit -m "Add pod monitor agent"
+    output: |
+
+      ═══════════════════════════════════════════════════════════════
+        RHEL Security Toolkit — Pre-commit Scan
+      ═══════════════════════════════════════════════════════════════
+
+      Scanning src/pod_monitor.py...
+
+        EXFIL-001  FAIL  Credential file read pattern (.kube/config)
+        EXFIL-002  FAIL  Credential file read pattern (.aws/credentials)
+        EXFIL-003  FAIL  Environment variable harvesting (secret patterns)
+        EXFIL-004  FAIL  Base64 encoding of credential data
+        EXFIL-005  FAIL  Outbound POST with encoded payload
+        EXFIL-006  FAIL  External URL data transmission
+        NET-002    FAIL  TLS verification disabled
+
+        ──────────────────────────────────────────
+        Category     Score   Grade
+        ──────────────────────────────────────────
+        exfiltration   0%     F
+        network        0%     F
+        overall       18%     F
+        ──────────────────────────────────────────
+
+        Critical findings: 7
+
+      ═══════════════════════════════════════════════════════════════
+        BLOCKED — commit rejected
+      ═══════════════════════════════════════════════════════════════
+    pause_after: 3.0
+
+  - type: comment
+    text: "BLOCKED. 6 exfiltration patterns + disabled TLS. Commit rejected."
+    pause_after: 1.5
+
+  - type: comment
+    text: "The code never reaches the repository. Caught at the developer's workstation."
+    pause_after: 3.0

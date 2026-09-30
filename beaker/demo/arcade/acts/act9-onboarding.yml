@@ -1,0 +1,75 @@
+settings:
+  title: "Act 9: Automated Onboarding"
+  width: 120
+  height: 40
+  prompt: "testuser@runner:~/pod-monitor$ "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Zero-Touch Onboarding — RHEL Governance Stack"
+
+  - type: comment
+    text: "Clean scan triggers automated onboarding. 6 steps, zero manual intervention."
+    pause_after: 1.5
+
+  - type: command
+    run: sudo bash onboard-agent.sh pod-monitor
+    output: |
+
+      ══════════════════════════════════════════════════════
+        Agent Onboarding: pod-monitor
+      ══════════════════════════════════════════════════════
+
+      [1/6] Pre-flight — verifying clean security scan
+        ✓ Security scan passed — no findings
+
+      [2/6] Registering agent identity in FreeIPA
+        → Random password: k8sP2mXn7qR4
+        ✓ Host enrolled with OTP: k8sP2mXn7qR4
+        → OTP valid for single-use IPA join
+        ✓ Service principal: agent/pod-monitor.demo.agentic.test
+
+      [3/6] Configuring HBAC access policy
+        ✓ HBAC rule scopes agent to runner.demo.agentic.test only
+
+      [4/6] Registering OAuth2 client with ahdapa
+        ✓ Client ID: 8d701d16-3c2a-409e-88ea-809e53f8b3a0
+        → Scope: pods:read pods:list
+        ✓ Credentials stored in ~/.agent-credentials/
+
+      [5/6] Verifying scoped token issuance
+        ✓ ES256 JWT issued
+        → Claims:
+            {
+              "aud": ["8d701d16-3c2a-409e-88ea-809e53f8b3a0"],
+              "exp": 1790790812,
+              "jti": "idm.demo.agentic.test/984d3916-cecd-4b0f...",
+              "scope": "pods:read pods:list",
+              "client_id": "8d701d16-3c2a-409e-88ea-809e53f8b3a0"
+            }
+
+      [6/6] Assigning OpenShell sandbox profile
+        → OpenShell available — agent will run with Landlock+seccomp confinement
+        → Profile: network=deny, fs=scoped(/tmp,/workspace), no-credential-mount
+        ✓ Sandbox profile assigned
+
+      ══════════════════════════════════════════════════════
+        Onboarding Complete
+      ══════════════════════════════════════════════════════
+
+        Agent:          pod-monitor
+        Identity:       agent/pod-monitor.demo.agentic.test
+        HBAC:           allow-pod-monitor-execution
+        OAuth2 Client:  8d701d16-3c2a-409e-88ea-809e53f8b3a0
+        Token Scope:    pods:read pods:list
+        Trust Tier:     Verified
+    pause_after: 3.0
+
+  - type: comment
+    text: "6 steps: scan → IPA identity → HBAC policy → OAuth2 client → JWT → sandbox"
+    pause_after: 1.5
+
+  - type: comment
+    text: "The agent is now a governed entity in the RHEL security stack."
+    pause_after: 3.0

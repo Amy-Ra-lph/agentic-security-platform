@@ -1,0 +1,51 @@
+settings:
+  title: "Act 12: Anomaly Detected"
+  width: 120
+  height: 35
+  prompt: "root@idm:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Anomaly Detected — Token Burst"
+
+  - type: comment
+    text: "Something changed. The audit trail shows a burst of token requests."
+    pause_after: 1.5
+
+  - type: command
+    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $1, $2}' | sort | uniq -c | sort -rn | head -5
+    output: |
+       47 type=USER_AUTH msg=audit(09/30/2026 15:31:xx)
+        1 type=USER_AUTH msg=audit(09/30/2026 15:00:10)
+        1 type=USER_AUTH msg=audit(09/30/2026 14:30:12)
+        1 type=USER_AUTH msg=audit(09/30/2026 14:00:11)
+        1 type=USER_AUTH msg=audit(09/30/2026 13:30:09)
+    pause_after: 2.0
+
+  - type: comment
+    text: "47 token requests in ONE MINUTE. Normal pattern is 1 per 30 minutes."
+    pause_after: 2.0
+
+  - type: command
+    run: ausearch -m USER_AUTH -i --start recent | grep pod-monitor | grep "15:31" | head -3
+    output: |
+      type=USER_AUTH msg=audit(09/30/2026 15:31:02) : acct="pod-monitor"
+        addr=10.37.153.138 res=success
+      type=USER_AUTH msg=audit(09/30/2026 15:31:02) : acct="pod-monitor"
+        addr=192.168.44.99 res=success
+      type=USER_AUTH msg=audit(09/30/2026 15:31:03) : acct="pod-monitor"
+        addr=192.168.44.99 res=success
+    pause_after: 2.0
+
+  - type: comment
+    text: "NEW SOURCE IP: 192.168.44.99 — the agent's credentials are being used from an unknown host."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Signals: token burst + new source IP = credential compromise."
+    pause_after: 1.5
+
+  - type: comment
+    text: "Response required: REVOKE ACCESS IMMEDIATELY."
+    pause_after: 3.0

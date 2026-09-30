@@ -1,0 +1,80 @@
+settings:
+  title: "Act 13: Revocation"
+  width: 120
+  height: 35
+  prompt: "root@idm:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Multi-Layer Revocation — Incident Response"
+
+  - type: comment
+    text: "Step 1: Disable HBAC — immediately blocks execution on all hosts."
+    pause_after: 1.5
+
+  - type: command
+    run: ipa hbacrule-disable allow-pod-monitor-execution
+    output: |
+      --------------------------------------------------
+      Disabled HBAC rule "allow-pod-monitor-execution"
+      --------------------------------------------------
+    pause_after: 1.5
+
+  - type: command
+    run: ipa hbacrule-show allow-pod-monitor-execution | grep -E "Rule|Enabled|Hosts"
+    output: |
+        Rule name: allow-pod-monitor-execution
+        Enabled: False
+        Hosts: runner.demo.agentic.test
+    pause_after: 2.0
+
+  - type: comment
+    text: "Enabled: False. The agent cannot execute anywhere — even with a valid token."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Step 2: Delete the service principal — removes the identity entirely."
+    pause_after: 1.5
+
+  - type: command
+    run: ipa service-del agent/pod-monitor.demo.agentic.test
+    output: |
+      -----------------------------------------------------------------------
+      Deleted service "agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST"
+      -----------------------------------------------------------------------
+    pause_after: 1.5
+
+  - type: command
+    run: ipa service-show agent/pod-monitor.demo.agentic.test 2>&1
+    output: |
+      ipa: ERROR: agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST: service not found
+    pause_after: 2.0
+
+  - type: comment
+    text: "Identity deleted. Credentials invalidated. Agent is fully revoked."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Three commands. Under 30 seconds. Complete revocation."
+    pause_after: 2.0
+
+  - type: command
+    run: cat /opt/demo/lifecycle-summary.txt
+    output: |
+      ┌─────────────┬──────────────────────────────────────────────────┐
+      │  Phase       │  What Happened                                   │
+      ├─────────────┼──────────────────────────────────────────────────┤
+      │  Create      │  AI vibe-coded an agent (looks great, steals creds) │
+      │  Gate        │  Pre-commit scan caught 7 critical findings     │
+      │  Remediate   │  Fixed agent uses SA auth, no exfil — passed    │
+      │  Onboard     │  IPA + HBAC + ahdapa + OpenShell — zero-touch  │
+      │  Manage      │  Agent visible in IPA — same tools admins know  │
+      │  Monitor     │  Audit trail detects token burst anomaly        │
+      │  Respond     │  Multi-layer revoke in under 30 seconds        │
+      └─────────────┴──────────────────────────────────────────────────┘
+    pause_after: 3.0
+
+  - type: comment
+    text: "From vibe code to governed to revoked — on RHEL, with the tools you already have."
+    pause_after: 3.0

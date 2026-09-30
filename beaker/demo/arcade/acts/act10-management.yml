@@ -1,0 +1,53 @@
+settings:
+  title: "Act 10: System Management View"
+  width: 120
+  height: 35
+  prompt: "testuser@runner:~/pod-monitor$ "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "System Management — Agent as Managed Entity"
+
+  - type: comment
+    text: "Flip to the admin perspective. The agent is visible in FreeIPA."
+    pause_after: 1.5
+
+  - type: command
+    run: sudo ssh root@idm.demo.agentic.test 'ipa service-show agent/pod-monitor.demo.agentic.test'
+    output: |
+        Principal name: agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST
+        Principal alias: agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST
+        Keytab: False
+        Managed by: pod-monitor.demo.agentic.test
+    pause_after: 2.0
+
+  - type: comment
+    text: "Same ipa service-show used for HTTP, LDAP, or any Kerberos service."
+    pause_after: 1.5
+
+  - type: command
+    run: sudo ssh root@idm.demo.agentic.test 'ipa hbacrule-show allow-pod-monitor-execution'
+    output: |
+        Rule name: allow-pod-monitor-execution
+        Description: Allow pod-monitor to execute on enrolled hosts
+        Enabled: True
+        Hosts: runner.demo.agentic.test
+        HBAC Services: agent-runtime
+    pause_after: 2.0
+
+  - type: comment
+    text: "HBAC: agent can ONLY execute on runner.demo.agentic.test."
+    pause_after: 1.0
+
+  - type: comment
+    text: "Service: agent-runtime — scoped to that service type."
+    pause_after: 1.5
+
+  - type: comment
+    text: "AI agent governance IS system management. Same IPA. Same HBAC. Same audit trail."
+    pause_after: 2.0
+
+  - type: comment
+    text: "No new tools. No new concepts. No new training."
+    pause_after: 3.0

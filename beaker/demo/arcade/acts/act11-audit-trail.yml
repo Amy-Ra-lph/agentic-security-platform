@@ -1,0 +1,53 @@
+settings:
+  title: "Act 11: Audit Trail"
+  width: 120
+  height: 35
+  prompt: "root@idm:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Runtime Monitoring — Audit Trail"
+
+  - type: comment
+    text: "The agent is running. RHEL's audit subsystem tracks every auth event."
+    pause_after: 1.5
+
+  - type: command
+    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | tail -6
+    output: |
+      type=USER_AUTH msg=audit(09/30/2026 14:00:11.234) : pid=12345 uid=0
+        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
+        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
+        terminal=? res=success'
+      type=USER_AUTH msg=audit(09/30/2026 14:30:12.891) : pid=12345 uid=0
+        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
+        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
+        terminal=? res=success'
+      type=USER_AUTH msg=audit(09/30/2026 15:00:10.456) : pid=12345 uid=0
+        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
+        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
+        terminal=? res=success'
+    pause_after: 2.0
+
+  - type: comment
+    text: "Healthy pattern: token refresh every 30 minutes, same source IP."
+    pause_after: 1.5
+
+  - type: comment
+    text: "Each event records: grant type, agent name, source IP, success/failure."
+    pause_after: 2.0
+
+  - type: command
+    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $1, $2}' | sort | uniq -c | sort -rn | head -5
+    output: |
+        1 type=USER_AUTH msg=audit(09/30/2026 15:00:10)
+        1 type=USER_AUTH msg=audit(09/30/2026 14:30:12)
+        1 type=USER_AUTH msg=audit(09/30/2026 14:00:11)
+        1 type=USER_AUTH msg=audit(09/30/2026 13:30:09)
+        1 type=USER_AUTH msg=audit(09/30/2026 13:00:08)
+    pause_after: 2.0
+
+  - type: comment
+    text: "Steady cadence. One request per interval. This agent is behaving normally."
+    pause_after: 3.0
