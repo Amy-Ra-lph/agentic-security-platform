@@ -15,7 +15,7 @@ C_YELLOW='\033[1;33m'
 C_BOLD='\033[1m'
 C_RESET='\033[0m'
 
-step() { echo -e "\n${C_BOLD}[$1/5]${C_RESET} ${C_CYAN}$2${C_RESET}"; }
+step() { echo -e "\n${C_BOLD}[$1/4]${C_RESET} ${C_CYAN}$2${C_RESET}"; }
 ok()   { echo -e "  ${C_GREEN}✓${C_RESET} $1"; }
 info() { echo -e "  ${C_YELLOW}→${C_RESET} $1"; }
 
@@ -47,46 +47,27 @@ step 3 "Resetting git workspace"
 
 if [ -d "${WORKSPACE}" ]; then
     cd "${WORKSPACE}"
+    git config --global --add safe.directory "${WORKSPACE}" 2>/dev/null || true
 
-    # Restore vulnerable version as src/pod_monitor.py
+    # Unstage everything and remove demo commits
+    git reset 2>/dev/null || true
+    git update-ref -d HEAD 2>/dev/null || true
+    info "Git history cleared"
+
+    # Restore vulnerable version
     if [ -f .reference/pod_monitor_vulnerable.py ]; then
         cp .reference/pod_monitor_vulnerable.py src/pod_monitor.py
+        chown testuser:testuser src/pod_monitor.py 2>/dev/null || true
         info "Restored vulnerable pod_monitor.py"
     fi
 
-    # Reset git — unstage everything, discard commits on demo branch
-    git checkout -- . 2>/dev/null || true
-    git clean -fd src/ 2>/dev/null || true
-
-    # Remove any demo commits (keep initial)
-    FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD 2>/dev/null)
-    if [ -n "$FIRST_COMMIT" ]; then
-        git reset "$FIRST_COMMIT" 2>/dev/null || true
-        info "Git reset to initial commit"
-    fi
-
-    ok "Git workspace reset"
+    ok "Git workspace reset — no commits, vulnerable code ready"
 else
     info "Workspace ${WORKSPACE} not found — skipping"
 fi
 
-# ── Step 4: Re-stage vulnerable file for demo ──────────────────
-step 4 "Staging vulnerable file for pre-commit demo"
-
-if [ -d "${WORKSPACE}" ]; then
-    cd "${WORKSPACE}"
-    # Ensure vulnerable version is in src/ and unstaged
-    if [ -f .reference/pod_monitor_vulnerable.py ]; then
-        cp .reference/pod_monitor_vulnerable.py src/pod_monitor.py
-        chown testuser:testuser src/pod_monitor.py 2>/dev/null || true
-    fi
-    ok "Vulnerable pod_monitor.py ready for git add + commit demo"
-else
-    info "Skipped — workspace not found"
-fi
-
-# ── Step 5: Verify clean state ─────────────────────────────────
-step 5 "Verifying clean state"
+# ── Step 4: Verify clean state ─────────────────────────────────
+step 4 "Verifying clean state"
 
 ssh root@${IPA_SERVER} "
     ipa service-show agent/${AGENT_FQDN} 2>/dev/null && echo 'WARNING: service still exists' || echo 'Service: clean'
