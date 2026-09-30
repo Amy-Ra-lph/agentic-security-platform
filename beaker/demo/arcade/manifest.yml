@@ -1,0 +1,55 @@
+title: "The 30-Second Mistake"
+subtitle: "AI Agent Security on RHEL — Five Layers of Defense"
+theme: summit-dark
+logo: null
+
+acts:
+  - title: "The Bad Path"
+    description: "A rogue AI agent exfiltrates credentials in 30 seconds"
+    cast: acts/act1-bad-path.cast
+    icon: shield
+    accent: "#EE0000"
+    key_points:
+      - "Agent looks helpful — 'Project initialized successfully!'"
+      - "Behind the scenes: env vars, AWS keys, SSH keys, kubeconfig exfiltrated"
+      - "6,204 bytes base64-encoded and POSTed to external endpoint"
+
+  - title: "Assessment Gate"
+    description: "Static analysis catches the rogue agent before it runs"
+    cast: acts/act2-assessment.cast
+    icon: check
+    accent: "#37a3a3"
+    key_points:
+      - "RHEL Security Toolkit: 8 exfiltration findings across 6 EXFIL rules"
+      - "Catches credential reads, env harvesting, base64+POST, host recon"
+      - "T1048.003 DNS tunneling variant also detected (EXFIL-006)"
+
+  - title: "Identity Gate"
+    description: "No enrollment, no token — ahdapa + FreeIPA HBAC"
+    cast: acts/act3-identity.cast
+    icon: key
+    accent: "#4ECDC4"
+    key_points:
+      - "Rogue agent: invalid_client — no registered credentials"
+      - "HBAC rule restricts token issuance to enrolled hosts"
+      - "Governed agent gets ES256 JWT scoped to project:read/write"
+
+  - title: "Runtime Confinement"
+    description: "OpenShell sandbox blocks exfiltration at runtime"
+    cast: acts/act4-confinement.cast
+    icon: lock
+    accent: "#A855F7"
+    key_points:
+      - "Governed agent succeeds within scoped filesystem"
+      - "Rogue agent's exfil silently fails — network blocked"
+      - "No credential files exist inside sandbox"
+
+  - title: "Side-by-Side"
+    description: "Same 30 seconds, opposite outcomes"
+    cast: acts/act5-comparison.cast
+    icon: terminal
+    accent: "#F59E0B"
+    key_points:
+      - "Five layers — any one stops the attack"
+      - "Defense in depth for AI agents on RHEL"
+      - "The 30-Second Mistake — prevented"

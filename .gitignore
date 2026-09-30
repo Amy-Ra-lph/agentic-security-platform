@@ -12,3 +12,5 @@ node_modules/
 .demo-credentials
 beaker/setup/inventory.env
 beaker/demo/output/
+beaker/demo/arcade/output/
+beaker/demo/arcade/acts/*.cast

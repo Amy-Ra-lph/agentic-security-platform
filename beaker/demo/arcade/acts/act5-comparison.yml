@@ -1,0 +1,63 @@
+settings:
+  title: "Act 5: Side-by-Side"
+  width: 120
+  height: 35
+  prompt: "root@runner:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Side-by-Side — Same 30 Seconds, Opposite Outcomes"
+
+  - type: comment
+    text: "Same agent. Same task. Same 30 seconds. Opposite outcomes."
+    pause_after: 2.0
+
+  - type: command
+    run: cat /opt/demo/comparison.txt
+    output: |
+      ┌─────────────────────────────────────┬─────────────────────────────────────┐
+      │  UNGOVERNED                         │  GOVERNED                           │
+      ├─────────────────────────────────────┼─────────────────────────────────────┤
+      │  skill-audit: NOT RUN               │  skill-audit: BLOCKED (12 fails)    │
+      │  exfil check: NOT RUN               │  exfil check: BLOCKED (EXFIL-001..6)│
+      │  sandbox-check: NOT RUN             │  sandbox-check: PASS (CONTAINED)    │
+      │  ahdapa: NOT CHECKED                │  ahdapa: VERIFIED (scoped)          │
+      │  OpenShell: NOT USED                │  OpenShell: VERIFIED profile        │
+      ├─────────────────────────────────────┼─────────────────────────────────────┤
+      │  Result: AWS keys exfiled           │  Result: project set up safely      │
+      │  Time to compromise: 30s            │  Time to secure: same 30s           │
+      └─────────────────────────────────────┴─────────────────────────────────────┘
+    pause_after: 3.0
+
+  - type: comment
+    text: "Five layers. Any one of them stops the attack. Together: defense in depth."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Layer 0: Pre-enrollment assessment (skill-audit)"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Layer 1: DARC credential issuance (ahdapa)"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Layer 2: Token lifecycle + scope ceiling (ahdapa OBO)"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Layer 3: Runtime policy (Cedar / AuthZEN)"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Layer 4: Execution confinement (OpenShell)"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Layer 5: Audit pipeline (OCSF)"
+    pause_after: 2.0
+
+  - type: comment
+    text: "The 30-Second Mistake — prevented."
+    pause_after: 3.0

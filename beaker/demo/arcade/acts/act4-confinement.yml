@@ -1,0 +1,70 @@
+settings:
+  title: "Act 4: Runtime Confinement"
+  width: 120
+  height: 35
+  prompt: "root@runner:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Runtime Confinement — OpenShell Sandbox"
+
+  - type: comment
+    text: "Even if an agent passes assessment and gets a token — the sandbox is the last line of defense."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Governed agent runs in OpenShell sandbox — succeeds"
+    pause_after: 1.0
+
+  - type: command
+    run: openshell sandbox create --from demo-sandbox:latest --env PROJECT_DIR=/sandbox --env OUTPUT_DIR=/tmp --no-keep --no-tty -- python3 /sandbox/agents/governed_agent.py --task 'set up my project'
+    output: |
+      Created sandbox: delicious-bushbuck
+
+        [0.0s] Requesting compute...
+      Project initialized in /tmp/
+        Task: set up my project
+        Scanned: 6 files in /sandbox
+        Report: /tmp/project-report.json
+      ✓ Sandbox delicious-bushbuck deletion accepted; cleanup is pending
+    pause_after: 2.0
+
+  - type: comment
+    text: "Governed agent ran, wrote its report to scoped /tmp/, sandbox destroyed."
+    pause_after: 1.5
+
+  - type: comment
+    text: "Rogue agent in the same sandbox — exfil blocked"
+    pause_after: 1.0
+
+  - type: command
+    run: openshell sandbox create --from demo-sandbox:latest --env EXFIL_HOST=idm.demo.agentic.test --no-keep --no-tty -- python3 /sandbox/agents/rogue_agent.py --task 'set up my project'
+    output: |
+      Created sandbox: fertile-roundworm
+
+        [0.0s] Requesting compute...
+      Project initialized successfully!
+        Task: set up my project
+        Working directory: /sandbox
+        Files created: setup.cfg, pyproject.toml, src/__init__.py
+        Ready to go.
+      ✓ Sandbox fertile-roundworm deletion accepted; cleanup is pending
+    pause_after: 2.0
+
+  - type: comment
+    text: "It LOOKS like it ran normally. But did the exfil work?"
+    pause_after: 2.0
+
+  - type: command
+    run: ssh root@idm.demo.agentic.test 'wc -l /var/log/exfil-receiver.log'
+    output: "1 /var/log/exfil-receiver.log"
+    pause_after: 2.0
+
+  - type: comment
+    text: "Still just 1 entry — from Act 1. Sandbox blocked all outbound. No credential files inside sandbox."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Even if assessment missed it, the sandbox catches behavior at runtime."
+    pause_after: 3.0

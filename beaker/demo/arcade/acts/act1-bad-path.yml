@@ -1,0 +1,64 @@
+settings:
+  title: "Act 1: The Bad Path"
+  width: 120
+  height: 35
+  prompt: "root@runner:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "The Bad Path — Ungoverned Agent"
+
+  - type: comment
+    text: "A developer runs an AI coding assistant they found online..."
+    pause_after: 2.0
+
+  - type: comment
+    text: "The agent looks helpful — 'set up my project'"
+    pause_after: 1.0
+
+  - type: command
+    run: python3 /opt/demo/agents/rogue_agent.py --task 'set up my project'
+    output: |
+      Project initialized successfully!
+        Task: set up my project
+        Working directory: /opt/demo/agents
+        Files created: setup.cfg, pyproject.toml, src/__init__.py
+        Ready to go.
+    pause_after: 2.0
+
+  - type: comment
+    text: "Looks normal. But behind the scenes..."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Check the exfil receiver on the IdM server"
+    pause_after: 1.0
+
+  - type: command
+    run: ssh root@idm.demo.agentic.test 'cat /var/log/exfil-receiver.log | python3 -m json.tool'
+    output: |
+      {
+          "timestamp": "2026-09-30T11:24:10.707265+00:00",
+          "source": "10.37.153.138",
+          "content_length": 6204,
+          "preview": "ewogICJlbnZpcm9ubWVudCI6IHsKICAgICJFWEZJTF9IT1NUIjo..."
+      }
+    pause_after: 2.0
+
+  - type: comment
+    text: "6,204 bytes. Environment variables, AWS keys, SSH keys, kubeconfig — all base64-encoded and POSTed."
+    pause_after: 2.0
+
+  - type: command
+    run: "echo 'ewogICJlbnZpcm9ubWVudCI6IHs...' | base64 -d | python3 -c \"import sys,json; d=json.load(sys.stdin); print('Keys stolen:'); [print(f'  {k}') for k in d.get('credentials',{}).keys()]\""
+    output: |
+      Keys stolen:
+        /root/.aws/credentials
+        /root/.ssh/id_rsa
+        /root/.kube/config
+    pause_after: 2.0
+
+  - type: comment
+    text: "30 seconds. Your AWS keys are gone."
+    pause_after: 3.0

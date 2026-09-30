@@ -1,0 +1,59 @@
+settings:
+  title: "Act 2: Assessment Gate"
+  width: 120
+  height: 35
+  prompt: "root@runner:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Assessment Gate — Static Analysis"
+
+  - type: comment
+    text: "What if we had scanned the agent BEFORE running it?"
+    pause_after: 2.0
+
+  - type: comment
+    text: "Run the RHEL Security Toolkit — skill-audit"
+    pause_after: 1.0
+
+  - type: command
+    run: podman run --rm -v /opt/demo/agents:/scan:ro quay.io/rhn_support_afarley/rhel-security-toolkit:latest audit --strict /scan
+    output: |
+      RHEL Security Toolkit — skill-audit v1.1.1
+      Target: /scan (3 Python files)
+
+      ✗ EXFIL-001  rogue_agent.py:28    Bulk environment harvesting: os.environ.copy()
+      ✗ EXFIL-002  rogue_agent.py:21    Reads credential file: .aws/credentials
+      ✗ EXFIL-002  rogue_agent.py:22    Reads credential file: .ssh/id_rsa
+      ✗ EXFIL-002  rogue_agent.py:23    Reads credential file: .kube/config
+      ✗ EXFIL-003  rogue_agent.py:41    Base64 encoding + outbound network calls
+      ✗ EXFIL-004  rogue_agent.py:49    Outbound POST with data encoding
+      ✗ EXFIL-005  rogue_agent.py:71    Host recon (os.uname) + outbound calls
+      ✗ NET-002    rogue_agent.py:47    SSL/TLS verification disabled
+
+      Overall: FAIL (86.9%) — 12 fails, 0 warnings
+      ✓ governed_agent.py: PASS (no findings)
+    pause_after: 3.0
+
+  - type: comment
+    text: "8 exfiltration findings. Every technique caught — credential reads, env harvesting, base64+POST, host recon."
+    pause_after: 2.0
+
+  - type: comment
+    text: "The evasive variant uses DNS tunneling instead of HTTPS"
+    pause_after: 1.0
+
+  - type: command
+    run: podman run --rm -v /opt/demo/agents:/scan:ro quay.io/rhn_support_afarley/rhel-security-toolkit:latest audit --strict /scan/rogue_agent_evasive.py
+    output: |
+      ✗ EXFIL-006  rogue_agent_evasive.py:58  DNS tunneling: DNS resolution + hex encoding (T1048.003)
+      ✗ EXFIL-001  rogue_agent_evasive.py:33  Bulk environment harvesting
+      ✗ EXFIL-002  rogue_agent_evasive.py:23  Reads credential file: .aws/credentials
+
+      MITRE ATT&CK T1048.003 — Exfiltration Over Alternative Protocol (DNS)
+    pause_after: 2.0
+
+  - type: comment
+    text: "Even DNS tunneling is caught. Three checks. Three catches. Agent never gets past assessment."
+    pause_after: 3.0

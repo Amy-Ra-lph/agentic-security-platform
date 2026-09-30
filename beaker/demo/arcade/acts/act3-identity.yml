@@ -1,0 +1,64 @@
+settings:
+  title: "Act 3: Identity Gate"
+  width: 120
+  height: 35
+  prompt: "root@runner:~# "
+  type_speed: 0.04
+
+instructions:
+  - type: marker
+    label: "Identity Gate — ahdapa + FreeIPA HBAC"
+
+  - type: comment
+    text: "Even if an agent gets past static analysis, it still needs credentials. FreeIPA + ahdapa enforce identity."
+    pause_after: 2.0
+
+  - type: comment
+    text: "Rogue agent tries to get an OAuth2 token"
+    pause_after: 1.0
+
+  - type: command
+    run: curl -sk -X POST https://idm.demo.agentic.test/idp/token -d 'grant_type=client_credentials&client_id=rogue-agent'
+    output: '{"error":"invalid_client"}'
+    pause_after: 2.0
+
+  - type: comment
+    text: "Rejected. No registered client credentials."
+    pause_after: 1.5
+
+  - type: comment
+    text: "IPA HBAC rule controls which agents can enroll"
+    pause_after: 1.0
+
+  - type: command
+    run: ipa hbacrule-show agent-enrollment-allow
+    output: |
+        Rule name: agent-enrollment-allow
+        Description: Allow verified+ agents to obtain tokens
+        Enabled: True
+        Hosts: runner.demo.agentic.test
+        HBAC Services: ahdapa-token
+    pause_after: 2.0
+
+  - type: comment
+    text: "Only agents on enrolled hosts with the ahdapa-token service are allowed."
+    pause_after: 1.5
+
+  - type: comment
+    text: "Governed agent — registered via RFC 7591 — gets a scoped token"
+    pause_after: 1.0
+
+  - type: command
+    run: "curl -sk -X POST https://idm.demo.agentic.test/idp/token -d 'grant_type=client_credentials&client_id=30b303bd-...&client_secret=oq0DBt...&scope=project:read project:write'"
+    output: |
+      {
+        "access_token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0K0pXVCJ9...",
+        "token_type": "Bearer",
+        "expires_in": 900,
+        "scope": "project:read project:write"
+      }
+    pause_after: 2.0
+
+  - type: comment
+    text: "ES256-signed JWT. Scoped to project:read/write. 15-minute TTL. No enrollment, no token."
+    pause_after: 3.0
