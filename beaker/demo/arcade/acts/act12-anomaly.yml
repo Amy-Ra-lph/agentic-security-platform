@@ -10,17 +10,17 @@ instructions:
     label: "Anomaly Detected — Token Burst"
 
   - type: comment
-    text: "Something changed. The audit trail shows a burst of token requests."
+    text: "Something changed. The httpd access log shows a burst of token requests."
     pause_after: 1.5
 
   - type: command
-    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $1, $2}' | sort | uniq -c | sort -rn | head -5
+    run: grep "/idp/token" /var/log/httpd/access_log | awk '{print $4}' | sort | uniq -c | sort -rn | head -5
     output: |
-       47 type=USER_AUTH msg=audit(09/30/2026 15:31:xx)
-        1 type=USER_AUTH msg=audit(09/30/2026 15:00:10)
-        1 type=USER_AUTH msg=audit(09/30/2026 14:30:12)
-        1 type=USER_AUTH msg=audit(09/30/2026 14:00:11)
-        1 type=USER_AUTH msg=audit(09/30/2026 13:30:09)
+       47 [30/Sep/2026:15:31:xx
+        1 [30/Sep/2026:15:00:10
+        1 [30/Sep/2026:14:30:12
+        1 [30/Sep/2026:14:00:11
+        1 [30/Sep/2026:13:30:09
     pause_after: 2.0
 
   - type: comment
@@ -28,14 +28,10 @@ instructions:
     pause_after: 2.0
 
   - type: command
-    run: ausearch -m USER_AUTH -i --start recent | grep pod-monitor | grep "15:31" | head -3
+    run: grep "/idp/token" /var/log/httpd/access_log | grep "15:31" | awk '{print $1}' | sort | uniq -c | sort -rn
     output: |
-      type=USER_AUTH msg=audit(09/30/2026 15:31:02) : acct="pod-monitor"
-        addr=10.37.153.138 res=success
-      type=USER_AUTH msg=audit(09/30/2026 15:31:02) : acct="pod-monitor"
-        addr=192.168.44.99 res=success
-      type=USER_AUTH msg=audit(09/30/2026 15:31:03) : acct="pod-monitor"
-        addr=192.168.44.99 res=success
+       44 192.168.44.99
+        3 10.37.153.138
     pause_after: 2.0
 
   - type: comment
@@ -47,5 +43,5 @@ instructions:
     pause_after: 1.5
 
   - type: comment
-    text: "Response required: REVOKE ACCESS IMMEDIATELY."
+    text: "Response required: SUSPEND ACCESS IMMEDIATELY."
     pause_after: 3.0

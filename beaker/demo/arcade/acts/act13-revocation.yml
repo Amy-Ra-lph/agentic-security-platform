@@ -56,10 +56,10 @@ instructions:
     pause_after: 2.0
 
   - type: command
-    run: "ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $NF}' | sort -u"
+    run: "grep '/idp/token' /var/log/httpd/access_log | awk '{print $1}' | sort | uniq -c | sort -rn"
     output: |
-      addr=10.37.153.138     <-- expected (runner host)
-      addr=192.168.44.99     <-- UNAUTHORIZED
+       44 192.168.44.99     <-- UNAUTHORIZED
+        6 10.37.153.138     <-- expected (runner host)
     pause_after: 2.0
 
   - type: comment

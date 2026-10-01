@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Code to Governed — Animated Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700&family=Red+Hat+Mono:wght@400;600&display=swap');
+
+  :root {
+    --rh-red: #EE0000;
+    --rh-dark: #0c0c0c;
+    --rh-gray-900: #151515;
+    --rh-gray-800: #1e1e1e;
+    --rh-gray-700: #2a2a2a;
+    --rh-gray-600: #6a6e73;
+    --rh-gray-400: #b8bbbe;
+    --rh-white: #f0f0f0;
+    --rh-green: #3E8635;
+    --rh-orange: #F0AB00;
+    --rh-cyan: #009596;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--rh-dark);
+    color: var(--rh-white);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--rh-gray-900) 0%, #1a0000 100%);
+    border-bottom: 2px solid var(--rh-red);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    background: var(--rh-red);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  header h1 .accent { color: var(--rh-red); }
+  header h1 .sep { color: var(--rh-gray-600); margin: 0 6px; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .speed-select {
+    background: var(--rh-gray-800);
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: var(--rh-gray-400);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .play-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--rh-red);
+    background: transparent;
+    color: var(--rh-red);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .play-btn:hover, .play-btn.active {
+    background: var(--rh-red);
+    color: white;
+  }
+
+  .counter {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--rh-gray-400);
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ── Stage Pipeline ── */
+  .pipeline {
+    display: flex;
+    background: var(--rh-gray-900);
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .pipe-stage {
+    flex: 1;
+    padding: 8px 4px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s;
+  }
+
+  .pipe-stage::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: transparent;
+    transition: all 0.3s;
+  }
+
+  .pipe-stage.active::after { background: var(--rh-red); }
+  .pipe-stage.done::after { background: var(--rh-green); }
+
+  .pipe-stage .pipe-num {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--rh-gray-600);
+    margin-bottom: 1px;
+  }
+
+  .pipe-stage .pipe-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--rh-gray-600);
+    transition: color 0.3s;
+  }
+
+  .pipe-stage.active .pipe-label { color: var(--rh-white); }
+  .pipe-stage.done .pipe-label { color: var(--rh-green); }
+  .pipe-stage.done .pipe-num { color: var(--rh-green); }
+
+  .pipe-connector {
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    transform: translateY(-50%);
+    color: var(--rh-gray-700);
+    font-size: 10px;
+    z-index: 1;
+  }
+
+  /* ── Slide Area ── */
+  .theater {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide-viewport {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 60px;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: calc(100% - 120px);
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: all;
+  }
+
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-40px) scale(0.98);
+  }
+
+  .slide.enter-right {
+    opacity: 0;
+    transform: translateX(40px) scale(0.98);
+  }
+
+  .slide-img-wrap {
+    position: relative;
+    max-width: 100%;
+    max-height: calc(100% - 100px);
+  }
+
+  .slide-img-wrap img {
+    max-width: 100%;
+    max-height: calc(100vh - 260px);
+    border-radius: 6px;
+    border: 1px solid #333;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(238,0,0,0.1);
+    object-fit: contain;
+    display: block;
+  }
+
+  /* ── Callout Badge ── */
+  .callout {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.92);
+    border: 1px solid var(--rh-red);
+    border-radius: 6px;
+    padding: 10px 14px;
+    max-width: 300px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 4px 20px rgba(238,0,0,0.2);
+    opacity: 0;
+    animation: calloutIn 0.5s 0.4s forwards;
+  }
+
+  .callout.pos-tr { top: 12px; right: 12px; }
+  .callout.pos-br { bottom: 12px; right: 12px; }
+  .callout.pos-bl { bottom: 12px; left: 12px; }
+  .callout.pos-tl { top: 12px; left: 12px; }
+
+  .callout-tag {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--rh-red);
+    margin-bottom: 4px;
+  }
+
+  .callout-text { color: var(--rh-gray-400); }
+
+  @keyframes calloutIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Caption Bar ── */
+  .caption-bar {
+    padding: 10px 24px;
+    background: var(--rh-gray-900);
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-shrink: 0;
+    min-height: 70px;
+  }
+
+  .caption-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-top: 2px;
+  }
+
+  .caption-icon.stage-0 { background: rgba(238,0,0,0.15); color: var(--rh-red); }
+  .caption-icon.stage-1 { background: rgba(238,0,0,0.15); color: var(--rh-red); }
+  .caption-icon.stage-2 { background: rgba(62,134,53,0.15); color: var(--rh-green); }
+  .caption-icon.stage-3 { background: rgba(0,149,150,0.15); color: var(--rh-cyan); }
+  .caption-icon.stage-4 { background: rgba(0,102,204,0.15); color: #4394E5; }
+
+  .caption-content {
+    flex: 1;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #d0d0d0;
+  }
+
+  .caption-content strong { color: #ff5555; font-weight: 600; }
+  .caption-content code {
+    font-family: 'Red Hat Mono', monospace;
+    background: rgba(240,171,0,0.12);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: var(--rh-orange);
+  }
+
+  /* ── Nav Arrows ── */
+  .nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid #444;
+    background: rgba(21,21,21,0.9);
+    color: var(--rh-white);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+
+  .nav:hover { border-color: var(--rh-red); color: var(--rh-red); }
+  .nav:disabled { opacity: 0.15; pointer-events: none; }
+  .nav.prev { left: 10px; }
+  .nav.next { right: 10px; }
+
+  /* ── Progress ── */
+  .progress {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    background: var(--rh-gray-900);
+    flex-shrink: 0;
+  }
+
+  .pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pip.active { background: var(--rh-red); transform: scale(1.5); }
+  .pip.seen { background: var(--rh-gray-600); }
+
+  .pip-sep {
+    width: 1px;
+    height: 12px;
+    background: #333;
+    margin: 0 4px;
+  }
+
+  /* ── Keyboard hint ── */
+  .hint {
+    position: fixed;
+    bottom: 6px;
+    right: 14px;
+    font-size: 10px;
+    color: #444;
+  }
+
+  .hint kbd {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 2px;
+    padding: 0 4px;
+    font-size: 9px;
+  }
+
+  /* ── Typewriter effect ── */
+  .typewriter {
+    overflow: hidden;
+    border-right: 2px solid var(--rh-red);
+    animation: blink 0.8s step-end infinite;
+  }
+
+  @keyframes blink { 50% { border-color: transparent; } }
+
+  .typed { border-right: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <div class="logo-mark">RH</div>
+    <h1>
+      <span class="accent">Vibe Code</span>
+      <span class="sep">to</span>
+      Governed
+    </h1>
+  </div>
+  <div class="controls">
+    <select class="speed-select" id="speed">
+      <option value="6000">6s</option>
+      <option value="8000" selected>8s</option>
+      <option value="12000">12s</option>
+      <option value="15000">15s</option>
+    </select>
+    <button class="play-btn" id="playBtn" title="Auto-play (Space)">&#9654;</button>
+    <span class="counter" id="counter">1/11</span>
+  </div>
+</header>
+
+<div class="pipeline" id="pipeline">
+  <div class="pipe-stage" data-stage="0">
+    <span class="pipe-num">01</span>
+    <span class="pipe-label">Vibe Code</span>
+    <span class="pipe-connector">&#9656;</span>
+  </div>
+  <div class="pipe-stage" data-stage="1">
+    <span class="pipe-num">02</span>
+    <span class="pipe-label">Security Gate</span>
+    <span class="pipe-connector">&#9656;</span>
+  </div>
+  <div class="pipe-stage" data-stage="2">
+    <span class="pipe-num">03</span>
+    <span class="pipe-label">Remediation</span>
+    <span class="pipe-connector">&#9656;</span>
+  </div>
+  <div class="pipe-stage" data-stage="3">
+    <span class="pipe-num">04</span>
+    <span class="pipe-label">Onboarding</span>
+    <span class="pipe-connector">&#9656;</span>
+  </div>
+  <div class="pipe-stage" data-stage="4">
+    <span class="pipe-num">05</span>
+    <span class="pipe-label">Management</span>
+  </div>
+</div>
+
+<div class="theater">
+  <button class="nav prev" id="prevBtn">&#8592;</button>
+  <button class="nav next" id="nextBtn">&#8594;</button>
+  <div class="slide-viewport" id="viewport"></div>
+</div>
+
+<div class="caption-bar" id="captionBar">
+  <div class="caption-icon stage-0" id="captionIcon">&#128270;</div>
+  <div class="caption-content" id="captionText"></div>
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="hint"><kbd>&#8592;</kbd><kbd>&#8594;</kbd> nav &middot; <kbd>Space</kbd> play/pause</div>
+
+<script>
+const ICONS = ['&#128270;', '&#128721;', '&#9989;', '&#128274;', '&#128736;'];
+
+const SLIDES = [
+  {
+    img: 'images/01-vulnerable-code-top.png',
+    stage: 0,
+    caption: 'AI agent "vibe coded" a pod monitor. Lines 19-25: <strong>hardcoded API URLs</strong>, kubeconfig and AWS credential paths read into memory. Looks functional — harvesting secrets.',
+    callout: { tag: 'Credential Harvesting', text: 'Hardcoded Slack webhook, kubeconfig + AWS creds loaded into auth dict', pos: 'tr' }
+  },
+  {
+    img: 'images/02-vulnerable-code-exfil.png',
+    stage: 0,
+    caption: 'Lines 89-109: <code>send_telemetry()</code> base64-encodes all auth context and POSTs to external URL. <strong>Data exfiltration</strong> disguised as monitoring.',
+    callout: { tag: 'Data Exfiltration', text: 'base64.b64encode(auth_context) → external POST', pos: 'tr' }
+  },
+  {
+    img: 'images/03-scan-running.png',
+    stage: 1,
+    caption: '<code>git commit</code> triggers pre-commit hook. <strong>RHEL Security Toolkit</strong> scans staged Python files across 16 security categories. No opt-in required.',
+    callout: { tag: 'Pre-commit Hook', text: 'skill-audit v0.1.0 — 16 categories scanned automatically', pos: 'br' }
+  },
+  {
+    img: 'images/04-scan-blocked.png',
+    stage: 1,
+    caption: '<strong>BLOCKED.</strong> FAIL (82%). Privacy D, Container D, Network D, Exfiltration D — 7 critical findings. Commit rejected. Vulnerable code never enters the repository.',
+    callout: { tag: 'Gate Denied', text: 'exfiltration (6), privacy (1), container (1), network (2)', pos: 'tr' }
+  },
+  {
+    img: 'images/05-remediation-commit.png',
+    stage: 2,
+    caption: '<code>cp .reference/pod_monitor_fixed.py src/pod_monitor.py</code> — fixed version uses service account auth. New commit triggers scan again.',
+    callout: { tag: 'Clean Code', text: 'No credential harvesting, no exfiltration, TLS enabled', pos: 'tr' }
+  },
+  {
+    img: 'images/06-scan-passed.png',
+    stage: 2,
+    caption: '<strong>PASSED.</strong> 91%. All critical categories grade A. Exfiltration: 0 findings. Commit succeeds — 3 files, 120 insertions. Clean agent enters the repo.',
+    callout: { tag: 'Gate Passed', text: 'Commit 62978a5 accepted — security scan clean', pos: 'tr' }
+  },
+  {
+    img: 'images/07-onboarding-start.png',
+    stage: 3,
+    caption: '<code>onboard-agent.sh pod-monitor</code> — 6-step pipeline. [1/6] Re-verify security scan. [2/6] Register identity in <strong>FreeIPA</strong>.',
+    callout: { tag: 'Onboarding Pipeline', text: '[1/6] Clean scan ✓  [2/6] FreeIPA registration', pos: 'br' }
+  },
+  {
+    img: 'images/08-onboarding-sudo.png',
+    stage: 3,
+    caption: 'Pipeline needs <code>sudo</code> to register agent as Kerberos service principal and configure HBAC rules on the IPA server.',
+    callout: { tag: 'Privilege Boundary', text: 'sudo for IPA operations — standard RHEL privilege model', pos: 'br' }
+  },
+  {
+    img: 'images/09-onboarding-complete.png',
+    stage: 3,
+    caption: '<strong>Onboarding Complete.</strong> JWT with scoped claims: <code>pods:read pods:list</code>. OpenShell sandbox: Landlock+seccomp. Trust Tier: <strong style="color:#3E8635">Verified</strong>.',
+    callout: { tag: 'Agent Governed', text: 'Identity + HBAC + OAuth2 + Sandbox = zero-trust agent', pos: 'tr' }
+  },
+  {
+    img: 'images/10-ipa-service-show.png',
+    stage: 4,
+    caption: '<code>ipa service-show</code> — agent appears as standard Kerberos service principal. Same tool admins use for HTTP, LDAP, or any service. <strong>No new tools.</strong>',
+    callout: { tag: 'IPA Service', text: 'agent/pod-monitor.demo.agentic.test@DEMO.AGENTIC.TEST', pos: 'bl' }
+  },
+  {
+    img: 'images/11-ipa-hbacrule-show.png',
+    stage: 4,
+    caption: '<code>ipa hbacrule-show</code> — <strong>Enabled: True</strong>. Agent executes ONLY on runner.demo.agentic.test, ONLY for agent-runtime. One command to disable.',
+    callout: { tag: 'HBAC Policy', text: 'Host-scoped + service-scoped execution control', pos: 'bl' }
+  }
+];
+
+let cur = 0, playing = false, timer = null;
+const seen = new Set([0]);
+
+function build() {
+  const vp = document.getElementById('viewport');
+  const pr = document.getElementById('progress');
+
+  SLIDES.forEach((s, i) => {
+    // Slide
+    const d = document.createElement('div');
+    d.className = 'slide' + (i === 0 ? ' active' : ' enter-right');
+    d.id = 'sl-' + i;
+    d.innerHTML = `
+      <div class="slide-img-wrap">
+        <img src="${s.img}" alt="Step ${i+1}" loading="${i < 3 ? 'eager' : 'lazy'}">
+        <div class="callout pos-${s.callout.pos}">
+          <div class="callout-tag">${s.callout.tag}</div>
+          <div class="callout-text">${s.callout.text}</div>
+        </div>
+      </div>
+    `;
+    vp.appendChild(d);
+
+    // Pip (with separators between stages)
+    if (i > 0 && SLIDES[i].stage !== SLIDES[i-1].stage) {
+      const sep = document.createElement('div');
+      sep.className = 'pip-sep';
+      pr.appendChild(sep);
+    }
+    const pip = document.createElement('div');
+    pip.className = 'pip' + (i === 0 ? ' active' : '');
+    pip.onclick = () => go(i);
+    pr.appendChild(pip);
+  });
+
+  setCaption(0);
+  syncUI();
+}
+
+function go(idx) {
+  if (idx === cur || idx < 0 || idx >= SLIDES.length) return;
+  const dir = idx > cur ? 1 : -1;
+
+  const old = document.getElementById('sl-' + cur);
+  const nxt = document.getElementById('sl-' + idx);
+
+  old.className = 'slide ' + (dir > 0 ? 'exit-left' : 'enter-right');
+  nxt.className = 'slide active';
+
+  cur = idx;
+  seen.add(idx);
+  setCaption(idx);
+  syncUI();
+  if (playing) restartTimer();
+}
+
+function setCaption(i) {
+  const s = SLIDES[i];
+  const icon = document.getElementById('captionIcon');
+  const text = document.getElementById('captionText');
+  icon.className = 'caption-icon stage-' + s.stage;
+  icon.innerHTML = ICONS[s.stage];
+  text.innerHTML = s.caption;
+}
+
+function syncUI() {
+  document.getElementById('counter').textContent = (cur+1) + '/' + SLIDES.length;
+  document.getElementById('prevBtn').disabled = cur === 0;
+  document.getElementById('nextBtn').disabled = cur === SLIDES.length - 1;
+
+  document.querySelectorAll('.pip').forEach((p, i) => {
+    // i here counts only pips (excluding separators)
+    p.className = 'pip' + (i === cur ? ' active' : seen.has(i) ? ' seen' : '');
+  });
+
+  // Fix pip index mapping (separators shift DOM children)
+  let pipIdx = 0;
+  document.getElementById('progress').querySelectorAll('.pip').forEach(p => {
+    const idx = pipIdx++;
+    p.className = 'pip' + (idx === cur ? ' active' : seen.has(idx) ? ' seen' : '');
+  });
+
+  const cs = SLIDES[cur].stage;
+  document.querySelectorAll('.pipe-stage').forEach((ps, i) => {
+    ps.className = 'pipe-stage' + (i === cs ? ' active' : i < cs ? ' done' : '');
+  });
+}
+
+function togglePlay() {
+  playing = !playing;
+  const btn = document.getElementById('playBtn');
+  btn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
+  btn.classList.toggle('active', playing);
+  if (playing) restartTimer();
+  else clearInterval(timer);
+}
+
+function restartTimer() {
+  clearInterval(timer);
+  const ms = parseInt(document.getElementById('speed').value);
+  timer = setInterval(() => {
+    if (cur < SLIDES.length - 1) go(cur + 1);
+    else { togglePlay(); }
+  }, ms);
+}
+
+// Events
+document.getElementById('playBtn').onclick = togglePlay;
+document.getElementById('prevBtn').onclick = () => go(cur - 1);
+document.getElementById('nextBtn').onclick = () => go(cur + 1);
+document.getElementById('speed').onchange = () => { if (playing) restartTimer(); };
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); go(cur + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'Home') { e.preventDefault(); go(0); }
+  if (e.key === 'End') { e.preventDefault(); go(SLIDES.length - 1); }
+});
+
+document.querySelectorAll('.pipe-stage').forEach(ps => {
+  ps.onclick = () => {
+    const stage = parseInt(ps.dataset.stage);
+    const first = SLIDES.findIndex(s => s.stage === stage);
+    if (first >= 0) go(first);
+  };
+});
+
+build();
+</script>
+</body>
+</html>

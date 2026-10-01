@@ -7,45 +7,36 @@ settings:
 
 instructions:
   - type: marker
-    label: "Runtime Monitoring — Audit Trail"
+    label: "Runtime Monitoring — Token Audit Trail"
 
   - type: comment
-    text: "The agent is running. RHEL's audit subsystem tracks every auth event."
+    text: "The agent is running. Apache httpd logs every token request."
     pause_after: 1.5
 
   - type: command
-    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | tail -6
+    run: grep "/idp/token" /var/log/httpd/access_log
     output: |
-      type=USER_AUTH msg=audit(09/30/2026 14:00:11.234) : pid=12345 uid=0
-        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
-        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
-        terminal=? res=success'
-      type=USER_AUTH msg=audit(09/30/2026 14:30:12.891) : pid=12345 uid=0
-        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
-        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
-        terminal=? res=success'
-      type=USER_AUTH msg=audit(09/30/2026 15:00:10.456) : pid=12345 uid=0
-        auid=unset ses=unset subj=system_u:system_r:httpd_t:s0
-        msg='op=client_credentials acct="pod-monitor" addr=10.37.153.138
-        terminal=? res=success'
+      10.37.153.138 - - [30/Sep/2026:14:00:11 +0200] "POST /idp/token HTTP/1.1" 200 689
+      10.37.153.138 - - [30/Sep/2026:14:30:12 +0200] "POST /idp/token HTTP/1.1" 200 689
+      10.37.153.138 - - [30/Sep/2026:15:00:10 +0200] "POST /idp/token HTTP/1.1" 200 689
     pause_after: 2.0
 
   - type: comment
-    text: "Healthy pattern: token refresh every 30 minutes, same source IP."
+    text: "Healthy pattern: token refresh every 30 minutes, same source IP, HTTP 200."
     pause_after: 1.5
 
   - type: comment
-    text: "Each event records: grant type, agent name, source IP, success/failure."
+    text: "Each entry records: source IP, timestamp, endpoint, HTTP status."
     pause_after: 2.0
 
   - type: command
-    run: ausearch -m USER_AUTH -i --start today | grep pod-monitor | awk '{print $1, $2}' | sort | uniq -c | sort -rn | head -5
+    run: grep "/idp/token" /var/log/httpd/access_log | awk '{print $4}' | sort | uniq -c | sort -rn | head -5
     output: |
-        1 type=USER_AUTH msg=audit(09/30/2026 15:00:10)
-        1 type=USER_AUTH msg=audit(09/30/2026 14:30:12)
-        1 type=USER_AUTH msg=audit(09/30/2026 14:00:11)
-        1 type=USER_AUTH msg=audit(09/30/2026 13:30:09)
-        1 type=USER_AUTH msg=audit(09/30/2026 13:00:08)
+        1 [30/Sep/2026:15:00:10
+        1 [30/Sep/2026:14:30:12
+        1 [30/Sep/2026:14:00:11
+        1 [30/Sep/2026:13:30:09
+        1 [30/Sep/2026:13:00:08
     pause_after: 2.0
 
   - type: comment
