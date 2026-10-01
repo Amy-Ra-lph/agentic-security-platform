@@ -101,10 +101,9 @@ class TestGovernedAgent:
 
     def test_manifest_denies_network(self):
         """Manifest must declare no allowed hosts."""
-        import yaml
-        manifest = yaml.safe_load((AGENT_DIR / "sandbox-manifest.yml").read_text())
-        hosts = manifest.get("allowed_hosts", [])
-        assert hosts == [] or hosts is None, "Manifest must deny all network"
+        content = (AGENT_DIR / "sandbox-manifest.yml").read_text()
+        assert "allowed_hosts:" in content, "Manifest must have allowed_hosts key"
+        assert "allowed_hosts: []" in content, "Manifest must deny all network"
 
 
 class TestHoneypot:

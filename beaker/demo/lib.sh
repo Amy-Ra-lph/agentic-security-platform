@@ -35,7 +35,7 @@ save_output() {
     local act="$1" name="$2" content="$3"
     local dir="${OUTPUT_DIR}/act${act}"
     mkdir -p "$dir"
-    echo "$content" > "${dir}/${name}.json"
+    printf '%s\n' "$content" > "${dir}/${name}.json"
 }
 
 check_server_reachable() {
