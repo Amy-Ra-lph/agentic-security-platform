@@ -1,0 +1,8 @@
+[openshell]
+version = 2
+
+[openshell.gateway]
+compute_driver = "podman"
+
+[openshell.drivers.podman]
+health_check_interval_secs = 10

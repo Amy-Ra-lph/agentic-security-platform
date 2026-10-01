@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Security — End to End Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700&family=Red+Hat+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #666680;
+    --red: #ee0000;
+    --green: #44cc88;
+    --amber: #ffaa33;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab-bar {
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 24px;
+    flex-shrink: 0;
+  }
+
+  .logo-mark {
+    width: 24px; height: 24px;
+    background: var(--red);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 11px; color: #fff;
+  }
+
+  .logo-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+
+  .tabs {
+    display: flex;
+    height: 100%;
+    gap: 0;
+  }
+
+  .tab {
+    height: 100%;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .tab:hover { color: var(--text); }
+
+  .tab .num {
+    font-size: 10px;
+    margin-right: 6px;
+    opacity: 0.5;
+  }
+
+  .tab.active-red { color: var(--red); border-bottom-color: var(--red); }
+  .tab.active-green { color: var(--green); border-bottom-color: var(--green); }
+  .tab.active-amber { color: var(--amber); border-bottom-color: var(--amber); }
+
+  .hint {
+    margin-left: auto;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <div class="logo-area">
+    <div class="logo-mark">RH</div>
+    <div class="logo-title">Agent Security — End to End Demo</div>
+  </div>
+  <div class="tabs">
+    <div class="tab active-red" id="tab-1" onclick="switchTab(0)">
+      <span class="num">1</span> The 30-Second Mistake
+    </div>
+    <div class="tab" id="tab-2" onclick="switchTab(1)">
+      <span class="num">2</span> The Verified Path
+    </div>
+    <div class="tab" id="tab-3" onclick="switchTab(2)">
+      <span class="num">3</span> Swarm Detection &amp; Response
+    </div>
+  </div>
+  <div class="hint">1 · 2 · 3 to switch</div>
+</div>
+
+<iframe id="frame" src="split-view.html"></iframe>
+
+<script>
+const TABS = [
+  { src: 'split-view.html', cls: 'active-red' },
+  { src: 'split-view-verified.html', cls: 'active-green' },
+  { src: 'split-view-edr.html', cls: 'active-amber' },
+];
+
+let current = 0;
+const frame = document.getElementById('frame');
+const tabEls = [
+  document.getElementById('tab-1'),
+  document.getElementById('tab-2'),
+  document.getElementById('tab-3'),
+];
+
+function switchTab(idx) {
+  if (idx === current) {
+    frame.src = TABS[idx].src;
+    return;
+  }
+  tabEls[current].className = 'tab';
+  current = idx;
+  tabEls[current].className = 'tab ' + TABS[current].cls;
+  frame.src = TABS[current].src;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === '1') switchTab(0);
+  else if (e.key === '2') switchTab(1);
+  else if (e.key === '3') switchTab(2);
+});
+</script>
+
+</body>
+</html>

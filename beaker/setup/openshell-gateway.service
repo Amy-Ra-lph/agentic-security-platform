@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenShell Gateway
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/openshell-gateway --config /etc/openshell/gateway.toml
+Environment=HOME=/root
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

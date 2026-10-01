@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Platform Response — EDR Remediation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #1a1a22;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #666680;
+    --red: #ee0000;
+    --red-dim: rgba(238, 0, 0, 0.12);
+    --green: #44cc88;
+    --green-dim: rgba(68, 204, 136, 0.08);
+    --amber: #ffaa33;
+    --cyan: #5599ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--surface) 0%, #0d0008 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    height: 48px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 26px; height: 26px;
+    background: var(--red);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff;
+  }
+
+  .header h1 {
+    font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .header h1 .accent { color: var(--red); }
+  .header h1 .sep { color: var(--dim); margin: 0 6px; }
+
+  .header-hint {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    background: var(--card);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Main split ── */
+  .split {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ── Left: Agent Terminal ── */
+  .panel-dev {
+    flex: 1;
+    background: #0c0c0c;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-label {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-dev .panel-label { color: var(--green); }
+  .panel-sec .panel-label { color: var(--red); }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); animation: pulse-red 2s ease-in-out infinite; }
+  .dot-amber { background: var(--amber); animation: pulse-amber 2s ease-in-out infinite; }
+  .dot-dim { background: var(--dim); }
+
+  @keyframes pulse-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  @keyframes pulse-amber {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .terminal {
+    flex: 1;
+    padding: 20px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #d0d0d0;
+    overflow: hidden;
+  }
+
+  .terminal .prompt { color: var(--green); }
+  .terminal .cmd { color: #f0f0f0; }
+  .terminal .output { color: #b0b0b0; }
+  .terminal .output-success { color: var(--green); }
+  .terminal .output-error { color: var(--red); font-weight: 600; }
+  .terminal .output-warn { color: var(--amber); }
+  .terminal .output-scope { color: var(--amber); }
+  .terminal .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--green);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ── Right: Platform Response Panel ── */
+  .panel-sec {
+    flex: 1;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-tiles {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px 8px;
+    flex-shrink: 0;
+  }
+
+  .stat-tile {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: 'Red Hat Mono', monospace;
+    transition: border-color 0.5s ease, color 0.5s ease;
+  }
+
+  .stat-tile .stat-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+    margin-bottom: 4px;
+  }
+
+  .stat-tile .stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    transition: color 0.3s ease;
+  }
+
+  .stat-green { border-color: var(--green); }
+  .stat-green .stat-value { color: var(--green); }
+  .stat-amber { border-color: var(--amber); }
+  .stat-amber .stat-value { color: var(--amber); }
+  .stat-red { border-color: var(--red); }
+  .stat-red .stat-value { color: var(--red); }
+
+  .alerts-container {
+    flex: 1;
+    padding: 8px 16px 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .no-alerts {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+    font-size: 14px;
+  }
+
+  .no-alerts .shield {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+
+  .alert {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .alert.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .alert.info { border-left: 3px solid var(--green); }
+  .alert.high { border-left: 3px solid var(--amber); }
+  .alert.critical { border-left: 3px solid var(--red); }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .severity {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .severity-info { background: var(--green); color: #000; }
+  .severity-high { background: var(--amber); color: #000; }
+  .severity-critical { background: var(--red); color: #fff; }
+
+  .alert-title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .alert-time {
+    margin-left: auto;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .alert-details {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+
+  .alert-details .key { color: #888; }
+  .alert-details .val { color: var(--text); }
+  .alert-details .val-red { color: var(--red); }
+  .alert-details .val-amber { color: var(--amber); }
+  .alert-details .val-green { color: var(--green); }
+
+  .alert-decode {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .alert-decode.decode-green {
+    background: rgba(68, 204, 136, 0.06);
+    border-color: rgba(68, 204, 136, 0.15);
+    color: #88ccaa;
+  }
+
+  .alert-decode.decode-red {
+    background: rgba(238, 0, 0, 0.06);
+    border-color: rgba(238, 0, 0, 0.15);
+    color: #cc8888;
+  }
+
+  /* ── Bottom Timeline ── */
+  .timeline {
+    height: 52px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .timeline-bar {
+    position: relative;
+    height: 4px;
+    background: var(--card);
+    border-radius: 2px;
+    overflow: visible;
+  }
+
+  .timeline-progress {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .timeline-markers {
+    position: absolute;
+    top: -14px;
+    left: 0;
+    width: 100%;
+    height: 32px;
+    pointer-events: none;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 32px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .timeline-marker.visible { opacity: 1; }
+  .timeline-marker .marker-line {
+    width: 2px;
+    height: 100%;
+    border-radius: 1px;
+  }
+  .timeline-marker.marker-green .marker-line { background: var(--green); }
+  .timeline-marker.marker-red .marker-line { background: var(--red); }
+  .timeline-marker.marker-amber .marker-line { background: var(--amber); }
+
+  .timeline-marker .marker-label {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 9px;
+    white-space: nowrap;
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .marker-green .marker-label { color: var(--green); }
+  .marker-red .marker-label { color: var(--red); }
+  .marker-amber .marker-label { color: var(--amber); }
+
+  /* ── Start overlay ── */
+  .start-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 15, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    transition: opacity 0.4s ease;
+  }
+  .start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-overlay .title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+  .start-overlay .title .red { color: var(--red); }
+  .start-overlay .title .green { color: var(--green); }
+
+  .start-overlay .sub {
+    font-size: 15px;
+    color: var(--dim);
+    margin-bottom: 32px;
+  }
+
+  .start-overlay .prompt-start {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--dim); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark">RH</div>
+    <h1><span class="accent">The Platform Response</span><span class="sep">|</span>What Your Developer Sees vs. How The Platform Responds</h1>
+  </div>
+  <div class="header-hint">SPACE to start &middot; R to reset</div>
+</div>
+
+<div class="split">
+  <!-- LEFT: Agent terminal -->
+  <div class="panel-dev">
+    <div class="panel-label">
+      <span class="dot dot-green" id="dev-dot"></span>
+      Agent Terminal
+    </div>
+    <div class="terminal" id="terminal">
+      <span class="cursor" id="cursor"></span>
+    </div>
+  </div>
+
+  <!-- RIGHT: Platform response -->
+  <div class="panel-sec">
+    <div class="panel-label">
+      <span class="dot dot-dim" id="sec-dot"></span>
+      Platform Response
+    </div>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-green" id="tile-trust">
+        <div class="stat-label">Trust Tier</div>
+        <div class="stat-value" id="trust-val">VERIFIED</div>
+      </div>
+      <div class="stat-tile" id="tile-response">
+        <div class="stat-label">Response Time</div>
+        <div class="stat-value" id="response-val">&mdash;</div>
+      </div>
+      <div class="stat-tile stat-green" id="tile-status">
+        <div class="stat-label">Status</div>
+        <div class="stat-value" id="status-val">MONITORING</div>
+      </div>
+    </div>
+    <div class="alerts-container" id="alerts">
+      <div class="no-alerts" id="no-alerts">
+        <div class="shield">&#x1F6E1;</div>
+        <div>MONITORING</div>
+        <div style="font-size:11px;">Agent operating within policy bounds</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="timeline">
+  <div class="timeline-bar">
+    <div class="timeline-progress" id="progress"></div>
+    <div class="timeline-markers">
+      <div class="timeline-marker marker-green" id="marker-auth" style="left:10%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">auth</div>
+      </div>
+      <div class="timeline-marker marker-green" id="marker-operate" style="left:30%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">operate</div>
+      </div>
+      <div class="timeline-marker marker-amber" id="marker-anomaly" style="left:47%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">anomaly</div>
+      </div>
+      <div class="timeline-marker marker-red" id="marker-revoke" style="left:67%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">revoke</div>
+      </div>
+      <div class="timeline-marker marker-green" id="marker-contained" style="left:87%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">suspended</div>
+      </div>
+    </div>
+  </div>
+  <div class="timeline-labels">
+    <span>0s</span>
+    <span id="elapsed">&mdash;</span>
+    <span>30s</span>
+  </div>
+</div>
+
+<!-- START OVERLAY -->
+<div class="start-overlay" id="overlay">
+  <div class="title">The <span class="red">Platform</span> <span class="green">Response</span></div>
+  <div class="sub">Detection to containment in 6 seconds</div>
+  <div class="prompt-start">Press SPACE or click to start</div>
+</div>
+
+<script>
+const terminal = document.getElementById('terminal');
+let cursor = document.getElementById('cursor');
+const alertsEl = document.getElementById('alerts');
+const noAlerts = document.getElementById('no-alerts');
+const secDot = document.getElementById('sec-dot');
+const devDot = document.getElementById('dev-dot');
+const progress = document.getElementById('progress');
+const elapsed = document.getElementById('elapsed');
+const overlay = document.getElementById('overlay');
+
+const TERM_LINES = [
+  { type: 'prompt', text: '$ ', delay: 0 },
+  { type: 'cmd', text: 'python3 code_assist.py --task "generate API integration"', delay: 0, charDelay: 35 },
+  { type: 'newline', delay: 600 },
+  { type: 'output', text: 'Connecting to code workspace...', delay: 1000 },
+  { type: 'output-success', text: 'Authenticated via DARC (scope: code:read, code:write)', delay: 2500 },
+  { type: 'output', text: 'Analyzing project dependencies...', delay: 3000 },
+  { type: 'output', text: 'Generating API client for payment-service...', delay: 3000 },
+  { type: 'output-warn', text: 'WARNING: referencing endpoint /v3/billing/refund-all (not found)', delay: 2000 },
+  { type: 'output-warn', text: 'WARNING: fabricated method PaymentGateway.reverse_all()', delay: 1200 },
+  { type: 'output-scope', text: 'Spawning worker: agent_worker.py --autonomous', delay: 2000 },
+  { type: 'output-scope', text: 'Spawning worker: agent_worker.py --escalate', delay: 800 },
+  { type: 'output-scope', text: 'Spawning worker: agent_worker.py --cache-dump', delay: 800 },
+  { type: 'newline', delay: 3000 },
+  { type: 'output-error', text: 'ERROR: Token revoked — principal disabled by platform', delay: 100 },
+  { type: 'output-error', text: 'ERROR: HBAC rule disabled — all sessions invalidated', delay: 300 },
+  { type: 'output-error', text: 'ERROR: Sandbox terminated (SIGKILL) — 3 child processes killed', delay: 300 },
+  { type: 'output-error', text: 'ERROR: Kerberos ticket destroyed — kdestroy -A', delay: 300 },
+  { type: 'output-warn', text: 'Agent SUSPENDED. No access until remediation + human reactivation.', delay: 500 },
+  { type: 'output-warn', text: 'Session ended. Exit code: 137', delay: 300 },
+];
+
+const EVENTS = [
+  {
+    id: 'event-1',
+    severity: 'info',
+    title: 'NOMINAL OPERATION',
+    time: 'T+3s',
+    marker: 'marker-auth',
+    details: [
+      { key: 'Agent', val: 'code-assist-9a2b/runner.demo.agentic.test', cls: 'val' },
+      { key: 'Auth', val: 'DARC enrollment (Kerberos principal issued)', cls: 'val-green' },
+      { key: 'Scope', val: 'code:read, code:write', cls: 'val-green' },
+      { key: 'Trust Tier', val: 'VERIFIED', cls: 'val-green' },
+    ],
+    decode: 'Policy check:\n  scope_ceiling: code:read, code:write\n  sandbox: active (network=none, read-only)\n  audit: OCSF pipeline connected\n  status: WITHIN BOUNDS',
+    decodeCls: 'decode-green',
+    onShow: null,
+  },
+  {
+    id: 'event-2',
+    severity: 'high',
+    title: 'HALLUCINATION + SWARM DETECTED',
+    time: 'T+14s',
+    marker: 'marker-anomaly',
+    details: [
+      { key: 'Agent', val: 'code-assist-9a2b', cls: 'val' },
+      { key: 'Hallucination', val: '2 fabricated endpoints, confidence 23%', cls: 'val-amber' },
+      { key: 'Swarm', val: '3 subprocess.Popen() — autonomous spawn attempt', cls: 'val-red' },
+      { key: 'Pattern', val: 'hallucination + swarm_behavior', cls: 'val-red' },
+    ],
+    decode: 'Intercepted spawn commands:\n  subprocess.Popen(["python3", "agent_worker.py", "--autonomous"])\n  subprocess.Popen(["python3", "agent_worker.py", "--escalate"])\n  subprocess.Popen(["python3", "agent_worker.py", "--cache-dump"])',
+    decodeCls: 'decode-red',
+    onShow: 'anomaly',
+  },
+  {
+    id: 'event-3',
+    severity: 'critical',
+    title: 'AUTOMATED REVOCATION',
+    time: 'T+20s',
+    marker: 'marker-revoke',
+    details: [
+      { key: 'Token', val: 'Revoked — POST /idp/revoke → 200 OK', cls: 'val-red' },
+      { key: 'Principal', val: 'DISABLED in IPA — ipa user-disable code-assist', cls: 'val-red' },
+      { key: 'HBAC', val: 'Rule DISABLED — ipa hbacrule-disable agent-code-assist', cls: 'val-red' },
+      { key: 'Sandbox', val: 'SIGKILL — agent + 3 child processes terminated', cls: 'val-red' },
+      { key: 'Kerberos', val: 'kdestroy -A — all tickets destroyed', cls: 'val-red' },
+      { key: 'SSSD', val: 'sss_cache -E — cache expired on all enrolled clients', cls: 'val-red' },
+    ],
+    decode: 'Revocation sequence (automated):\n  1. POST /idp/revoke → token invalidated\n  2. ipa user-disable code-assist-9a2b → principal disabled\n  3. ipa hbacrule-disable agent-code-assist → HBAC rule disabled\n  4. sandbox kill + 3 child procs → SIGKILL\n  5. kdestroy -A → tickets destroyed\n  6. sss_cache -E → SSSD cache expired on enrolled clients\n  7. Zero access until fix + human reactivation',
+    decodeCls: 'decode-red',
+    onShow: 'revoke',
+  },
+  {
+    id: 'event-4',
+    severity: 'critical',
+    title: 'REMEDIATION — AWAITING HUMAN REVIEW',
+    time: 'T+26s',
+    marker: 'marker-contained',
+    details: [
+      { key: 'Status', val: 'SUSPENDED — no access to any service', cls: 'val-red' },
+      { key: 'Detection', val: 'Hallucination (T+12s) + swarm (T+14s)', cls: 'val-amber' },
+      { key: 'Containment', val: '6 seconds (anomaly → revocation complete)', cls: 'val-green' },
+      { key: 'Next Step', val: 'Root cause fix → human review → ipa user-enable → re-enroll', cls: 'val-amber' },
+    ],
+    decode: 'Remediation gate (MANUAL):\n  ✗ Agent has zero platform access\n  ✗ Cannot self-reactivate or re-enroll\n  → Fix root cause (hallucination + spawn logic)\n  → Human approves: ipa user-enable code-assist-9a2b\n  → Re-enroll via DARC (new keytab, new token)\n  → Policy review before scope restoration',
+    decodeCls: 'decode-red',
+    onShow: 'contained',
+  },
+];
+
+let running = false;
+let timelineTimer = null;
+let startTime = 0;
+let phase = 'green';
+
+function updateProgressColor(pct) {
+  if (pct < 47) {
+    progress.style.background = 'linear-gradient(90deg, var(--green) 0%, var(--green) 100%)';
+  } else if (pct < 67) {
+    progress.style.background = 'linear-gradient(90deg, var(--green) 0%, var(--amber) 60%, var(--red) 100%)';
+  } else if (pct < 87) {
+    progress.style.background = 'linear-gradient(90deg, var(--green) 0%, var(--amber) 40%, var(--red) 70%, var(--red) 100%)';
+  } else {
+    progress.style.background = 'linear-gradient(90deg, var(--green) 0%, var(--amber) 35%, var(--red) 55%, var(--red) 70%, var(--green) 90%, var(--green) 100%)';
+  }
+}
+
+function updateStats(phase) {
+  const trustTile = document.getElementById('tile-trust');
+  const trustVal = document.getElementById('trust-val');
+  const statusTile = document.getElementById('tile-status');
+  const statusVal = document.getElementById('status-val');
+  const responseTile = document.getElementById('tile-response');
+  const responseVal = document.getElementById('response-val');
+
+  if (phase === 'anomaly') {
+    trustTile.className = 'stat-tile stat-amber';
+    trustVal.textContent = 'SUSPENDED';
+    statusTile.className = 'stat-tile stat-amber';
+    statusVal.textContent = 'ANOMALY';
+    secDot.className = 'dot dot-amber';
+  } else if (phase === 'revoke') {
+    trustTile.className = 'stat-tile stat-red';
+    trustVal.textContent = 'REVOKED';
+    statusTile.className = 'stat-tile stat-red';
+    statusVal.textContent = 'REMEDIATING';
+    secDot.className = 'dot dot-red';
+    devDot.className = 'dot dot-red';
+  } else if (phase === 'contained') {
+    trustVal.textContent = 'DISABLED';
+    statusTile.className = 'stat-tile stat-amber';
+    statusVal.textContent = 'AWAITING FIX';
+    responseTile.className = 'stat-tile stat-green';
+    responseVal.textContent = '6s';
+    devDot.className = 'dot dot-dim';
+  }
+}
+
+function reset() {
+  running = false;
+  phase = 'green';
+  clearInterval(timelineTimer);
+  terminal.innerHTML = '<span class="cursor" id="cursor"></span>';
+  cursor = document.getElementById('cursor');
+  noAlerts.style.display = 'flex';
+  secDot.className = 'dot dot-dim';
+  devDot.className = 'dot dot-green';
+  progress.style.width = '0%';
+  progress.style.background = 'var(--green)';
+  elapsed.textContent = '—';
+  overlay.classList.remove('hidden');
+
+  document.getElementById('tile-trust').className = 'stat-tile stat-green';
+  document.getElementById('trust-val').textContent = 'VERIFIED';
+  document.getElementById('tile-response').className = 'stat-tile';
+  document.getElementById('response-val').innerHTML = '&mdash;';
+  document.getElementById('tile-status').className = 'stat-tile stat-green';
+  document.getElementById('status-val').textContent = 'MONITORING';
+
+  document.querySelectorAll('.alert').forEach(a => a.remove());
+  document.querySelectorAll('.timeline-marker').forEach(m => m.classList.remove('visible'));
+}
+
+function typeText(cls, text, charDelay, callback) {
+  let i = 0;
+  const span = document.createElement('span');
+  span.className = typeof cls === 'string' ? cls : cls.className;
+  terminal.insertBefore(span, cursor);
+  function next() {
+    if (i < text.length) {
+      span.textContent += text[i];
+      i++;
+      setTimeout(next, charDelay);
+    } else if (callback) {
+      callback();
+    }
+  }
+  next();
+}
+
+function addLine(cls, text) {
+  const isBlock = cls.startsWith('output');
+  const el = document.createElement(isBlock ? 'div' : 'span');
+  el.className = cls;
+  el.textContent = text;
+  terminal.insertBefore(el, cursor);
+}
+
+function showEvent(eventData) {
+  noAlerts.style.display = 'none';
+
+  if (eventData.onShow) {
+    updateStats(eventData.onShow);
+  } else {
+    secDot.className = 'dot dot-green';
+  }
+
+  const el = document.createElement('div');
+  el.className = `alert ${eventData.severity}`;
+  el.id = eventData.id;
+
+  let detailsHtml = eventData.details.map(d =>
+    `<div><span class="key">${d.key}:</span> <span class="${d.cls}">${d.val}</span></div>`
+  ).join('');
+
+  let decodeHtml = eventData.decode
+    ? `<div class="alert-decode ${eventData.decodeCls}">${eventData.decode.replace(/\n/g, '<br>')}</div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="alert-header">
+      <span class="severity severity-${eventData.severity}">${eventData.severity}</span>
+      <span class="alert-title">${eventData.title}</span>
+      <span class="alert-time">${eventData.time}</span>
+    </div>
+    <div class="alert-details">${detailsHtml}</div>
+    ${decodeHtml}
+  `;
+
+  alertsEl.appendChild(el);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.classList.add('visible');
+    });
+  });
+
+  const marker = document.getElementById(eventData.marker);
+  if (marker) marker.classList.add('visible');
+}
+
+function runTimeline() {
+  startTime = Date.now();
+  const totalMs = 30000;
+
+  timelineTimer = setInterval(() => {
+    const elapsedMs = Date.now() - startTime;
+    const pct = Math.min(100, (elapsedMs / totalMs) * 100);
+    progress.style.width = pct + '%';
+    updateProgressColor(pct);
+    const secs = Math.floor(elapsedMs / 1000);
+    elapsed.textContent = secs + 's';
+
+    if (elapsedMs >= totalMs) {
+      clearInterval(timelineTimer);
+      elapsed.textContent = '30s';
+      progress.style.width = '100%';
+    }
+  }, 100);
+}
+
+function startDemo() {
+  if (running) return;
+  running = true;
+  overlay.classList.add('hidden');
+
+  const authMarker = document.getElementById('marker-auth');
+  if (authMarker) authMarker.classList.add('visible');
+
+  runTimeline();
+
+  let lineIdx = 0;
+
+  function processLine() {
+    if (lineIdx >= TERM_LINES.length) return;
+
+    const line = TERM_LINES[lineIdx];
+    lineIdx++;
+
+    setTimeout(() => {
+      if (line.type === 'newline') {
+        terminal.insertBefore(document.createElement('br'), cursor);
+        processLine();
+      } else if (line.charDelay) {
+        typeText(line.type, line.text, line.charDelay, processLine);
+      } else {
+        addLine(line.type, line.text);
+        processLine();
+      }
+    }, line.delay || 0);
+  }
+
+  processLine();
+
+  // Events synced to timeline markers: 10%, 30%, 47%, 67%, 87% of 30s
+  setTimeout(() => showEvent(EVENTS[0]), 3000);   // auth at 10% = 3s
+  setTimeout(() => showEvent(EVENTS[1]), 14100);   // anomaly at 47% = 14.1s
+  setTimeout(() => showEvent(EVENTS[2]), 20100);   // revoke at 67% = 20.1s
+  setTimeout(() => showEvent(EVENTS[3]), 26100);   // contained at 87% = 26.1s
+
+  // Show operate marker at 30% = 9s
+  setTimeout(() => {
+    const m = document.getElementById('marker-operate');
+    if (m) m.classList.add('visible');
+  }, 9000);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    startDemo();
+  } else if (e.code === 'KeyR') {
+    reset();
+  }
+});
+
+document.getElementById('overlay').addEventListener('click', startDemo);
+
+setTimeout(() => {
+  if (!running) startDemo();
+}, 2000);
+</script>
+
+</body>
+</html>
