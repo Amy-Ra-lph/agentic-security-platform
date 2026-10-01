@@ -84,6 +84,7 @@
   become: true
   gather_facts: false
   strategy: free
+  connection: local
 
   tasks:
     - name: Expire SSSD cache for revoked principal
@@ -116,6 +117,7 @@
   hosts: agent_runners
   become: true
   gather_facts: false
+  connection: local
 
   tasks:
     - name: Find agent sandbox processes
@@ -139,10 +141,18 @@
       ignore_errors: true
 
     - name: Stop agent Podman container if running
-      containers.podman.podman_container:
-        name: "sandbox-{{ agent_principal }}"
-        state: absent
+      ansible.builtin.shell: |
+        podman stop "sandbox-{{ agent_principal }}" 2>/dev/null
+        podman rm -f "sandbox-{{ agent_principal }}" 2>/dev/null
+        true
+      changed_when: false
       ignore_errors: true
+
+    - name: Ensure OCSF log directory exists
+      ansible.builtin.file:
+        path: /var/log/ocsf
+        state: directory
+        mode: "0750"
 
     - name: Write OCSF incident event to audit log
       ansible.builtin.copy:
