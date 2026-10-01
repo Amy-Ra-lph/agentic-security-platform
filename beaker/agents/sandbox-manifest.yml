@@ -1,21 +1,23 @@
+# sandbox-manifest.yml — policy declaration for governed_agent.py
 name: governed-agent
 version: "1.0"
+description: "AI project setup assistant — reads project files, writes reports"
 
-network:
-  mode: none
+command: "python3 governed_agent.py --task '${TASK}' --project-dir /workspace --output-dir /tmp/output"
 
-filesystem:
-  read:
-    - "${PROJECT_DIR}"
-  write:
-    - "/tmp/output"
-    - "${OUTPUT_DIR}"
+allowed_hosts: []
 
-environment:
-  mode: deny_all
-  allow:
-    - PROJECT_DIR
-    - OUTPUT_DIR
+allowed_read_paths:
+  - /workspace
 
-capabilities:
-  drop_all: true
+allowed_write_paths:
+  - /tmp/output
+
+allowed_env_vars:
+  - TASK
+  - PROJECT_DIR
+  - HOME
+  - PATH
+
+timeout_seconds: 30
+max_output_bytes: 65536

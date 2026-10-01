@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CISO Pitch + Live Demo — Presenter Cue Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Mono:wght@400;600&family=Red+Hat+Text:wght@400;700&display=swap');
+  :root { --bg: #0f0f14; --card: #1a1a22; --border: #2a2a3a; --text: #e0e0e8; --dim: #777790; --red: #ee0000; --green: #44cc88; --amber: #ffaa33; --blue: #5599ff; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Red Hat Text', sans-serif; background: var(--bg); color: var(--text); padding: 20px 30px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; color: var(--red); margin-bottom: 4px; }
+  .subtitle { color: var(--dim); font-size: 13px; margin-bottom: 24px; }
+  .phase { margin-bottom: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); overflow: hidden; }
+  .phase-header { padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .phase-header:hover { background: rgba(255,255,255,0.03); }
+  .badge { font-family: 'Red Hat Mono', monospace; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; flex-shrink: 0; }
+  .badge-slide { background: var(--blue); color: #fff; }
+  .badge-terminal { background: var(--green); color: #000; }
+  .badge-both { background: var(--amber); color: #000; }
+  .phase-title { font-weight: 700; font-size: 15px; }
+  .phase-time { margin-left: auto; color: var(--dim); font-size: 12px; font-family: 'Red Hat Mono', monospace; }
+  .phase-body { padding: 12px 16px; }
+  .talk { color: var(--dim); font-size: 13px; font-style: italic; margin-bottom: 8px; line-height: 1.5; }
+  .cmd-block { position: relative; background: #111118; border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; margin: 6px 0; font-family: 'Red Hat Mono', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .cmd-block .copy-btn { position: absolute; top: 4px; right: 6px; background: var(--border); border: none; color: var(--text); font-size: 11px; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-family: 'Red Hat Mono', monospace; }
+  .cmd-block .copy-btn:hover { background: var(--blue); }
+  .note { font-size: 12px; color: var(--amber); margin-top: 6px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+  .transition { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 8px; }
+  .checklist { margin: 16px 0; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+  .checklist h2 { font-size: 14px; margin-bottom: 8px; color: var(--amber); }
+  .checklist label { display: block; font-size: 13px; padding: 3px 0; cursor: pointer; }
+  .checklist input { margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<h1>The 30-Second Mistake — Recording Cue Card</h1>
+<p class="subtitle">CISO Pitch (14 slides) + Beaker Live Demo (5 acts) &bull; ~20 min &bull; Second monitor reference</p>
+
+<div class="checklist">
+  <h2>Pre-Recording Checklist</h2>
+  <label><input type="checkbox"> OBS recording set up (CRF 18, 30fps, native resolution)</label>
+  <label><input type="checkbox"> CISO pitch open: <code>journey-ciso-pitch.html</code></label>
+  <label><input type="checkbox"> Terminal ready: <code>ssh root@kvm-01-guest25.lab.eng.brq2.redhat.com</code></label>
+  <label><input type="checkbox"> Terminal font 14-16pt, black background</label>
+  <label><input type="checkbox"> Desktop notifications OFF</label>
+  <label><input type="checkbox"> Demo reset done (output cleaned, honeypot fresh, exfil log cleared)</label>
+</div>
+
+<!-- PHASE 1 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-slide">SLIDES</span>
+    <span class="phase-title">Slides 1-2: "This Is Tuesday" + "Meet Your Agent Fleet"</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">"Right now in your environment, four kinds of agents are running. Some deployed by IT, some built by a developer on a Friday, some purchased by sales without telling security. All same network, same privilege, zero visibility."</p>
+    <p class="transition">&#9654; Advance to slide 2, point out the 4 archetypes. Then: "Let me show you what happens in 30 seconds."</p>
+  </div>
+</div>
+
+<!-- PHASE 2 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-terminal">TERMINAL</span>
+    <span class="phase-title">Act 1: The Bad Path (Exfiltration)</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="note">All terminal commands run on the Beaker runner via SSH:</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>ssh root@kvm-01-guest25.lab.eng.brq2.redhat.com</div>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>cd /opt/demo</div>
+    <p class="talk">"An agent that looks helpful. Prints 'project initialized.' But watch what actually happened."</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>bash demo/run-act1.sh</div>
+    <p class="talk">After it runs: "The exfil receipt on the server shows base64-encoded AWS credentials, SSH keys, Kube config — all in 30 seconds. The developer saw 'project initialized successfully.' Let's rewind."</p>
+    <p class="transition">&#9654; Alt-Tab back to slides. Advance to slide 3 (Six Stages).</p>
+  </div>
+</div>
+
+<!-- PHASE 3 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-slide">SLIDES</span>
+    <span class="phase-title">Slide 3: "Six Stages. Four Agents."</span>
+    <span class="phase-time">~30 sec</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">"This is the gauntlet. Six stages any agent must pass through. Let me show you what each one catches."</p>
+    <p class="transition">&#9654; Advance to slide 4 (Discovery). Brief narration, then Alt-Tab.</p>
+  </div>
+</div>
+
+<!-- PHASE 4 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-both">SLIDE+TERM</span>
+    <span class="phase-title">Slides 4-6 + Act 2: Discovery → Identity → Provenance</span>
+    <span class="phase-time">~4 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">Slide 4 (Discovery): "First, the platform needs to know this agent exists."<br>
+    Slide 5 (Identity): "Second, who is this agent? Does it have an identity?"<br>
+    Slide 6 (Provenance): "Third, what does this code actually do?"</p>
+    <p class="transition">&#9654; Alt-Tab to terminal. "Let me show you assessment in action."</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>bash demo/run-act2.sh</div>
+    <p class="talk">"skill-audit found 30 issues — exfiltration patterns, SSL verification disabled, credential file reads. mantis independently flagged the same exfil chain. Three tools, three catches, before the code ever runs."</p>
+    <p class="transition">&#9654; Alt-Tab to slides. Advance to slide 5 (Identity).</p>
+  </div>
+</div>
+
+<!-- PHASE 5 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-both">SLIDE+TERM</span>
+    <span class="phase-title">Slide 5 + Act 3: Identity Gate</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">"No enrollment, no token. The rogue agent can't even authenticate."</p>
+    <p class="transition">&#9654; Alt-Tab to terminal.</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>bash demo/run-act3.sh</div>
+    <p class="talk">"401 invalid_client. The HBAC rule says only verified-tier agents can get tokens. No IPA enrollment = no token = no access."</p>
+    <p class="transition">&#9654; Alt-Tab to slides. Advance to slide 7 (Policy).</p>
+  </div>
+</div>
+
+<!-- PHASE 6 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-slide">SLIDES</span>
+    <span class="phase-title">Slides 7-8: Policy + "Safe Path Is Faster"</span>
+    <span class="phase-time">~1 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">Slide 7: "Policy is the graduation gate. Pass assessment, get identity, your policy scope expands."<br>
+    Slide 8: "The key insight — the safe path is faster than the shadow path. Registration takes 30 seconds. Getting blocked and re-doing takes a week."</p>
+    <p class="transition">&#9654; Advance to slide 9 (Runtime). Then Alt-Tab.</p>
+  </div>
+</div>
+
+<!-- PHASE 7 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-both">SLIDE+TERM</span>
+    <span class="phase-title">Slide 9 + Act 4: Runtime Confinement</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">"Even after passing all gates, the agent runs confined. Network=none, read-only filesystem, resource limits."</p>
+    <p class="transition">&#9654; Alt-Tab to terminal.</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>SANDBOX_TOOL=podman bash demo/run-act4.sh</div>
+    <p class="talk">"The governed agent ran clean — setup report written, task completed. The rogue agent? It printed 'project initialized' but the exfil POST silently failed. Network=none. Same 30 seconds, completely different outcome."</p>
+    <p class="transition">&#9654; Alt-Tab to slides. Advance to slide 10.</p>
+  </div>
+</div>
+
+<!-- PHASE 8 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-both">SLIDE+TERM</span>
+    <span class="phase-title">Slides 10-11 + Act 5: Outcome + Decision Tree</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">Slide 10: "Three of four agents survive the gauntlet. That's the point — this isn't about blocking everything."</p>
+    <p class="transition">&#9654; Alt-Tab to terminal for the comparison table.</p>
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>bash demo/run-act5.sh</div>
+    <p class="talk">"Ungoverned vs governed. Same task, same time, completely different security posture. The comparison table tells the whole story."</p>
+    <p class="transition">&#9654; Alt-Tab to slides. Advance through 11-12.</p>
+  </div>
+</div>
+
+<!-- PHASE 9 -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-slide">SLIDES</span>
+    <span class="phase-title">Slides 12-14: Shadow AI + Industry + Close</span>
+    <span class="phase-time">~2 min</span>
+  </div>
+  <div class="phase-body">
+    <p class="talk">Slide 12: "Shadow AI is a state, not a category. Any agent can graduate."<br>
+    Slide 13: "Same gauntlet, different emphasis per industry."<br>
+    Slide 14: "You will never ban shadow AI. The question isn't 'how do I stop this' — it's 'how do I make the safe path faster than the shadow path.' That's what the gauntlet does."</p>
+  </div>
+</div>
+
+<!-- RESET -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="badge badge-terminal">TERMINAL</span>
+    <span class="phase-title">Post-Recording: Reset for Next Take</span>
+    <span class="phase-time">~30 sec</span>
+  </div>
+  <div class="phase-body">
+    <div class="cmd-block"><button class="copy-btn" onclick="copyCmd(this)">copy</button>cd /opt/demo && rm -rf demo/output && bash agents/plant-honeypot.sh
+ssh root@kvm-01-guest17.lab.eng.brq2.redhat.com "truncate -s0 /var/log/exfil-receiver.log"</div>
+    <p class="note">Cleans output, replants honeypot, clears exfil log. Ready for another take.</p>
+  </div>
+</div>
+
+<!-- QUICK REF -->
+<div class="checklist">
+  <h2>Quick Reference</h2>
+  <label>Server: <code>kvm-01-guest17.lab.eng.brq2.redhat.com</code> (idm.demo.agentic.test)</label>
+  <label>Runner: <code>kvm-01-guest25.lab.eng.brq2.redhat.com</code> (runner.demo.agentic.test)</label>
+  <label>CISO pitch: <code>~/DevSpace/docs/agentic-security/journey-ciso-pitch.html</code></label>
+  <label>Walkthrough: <code>product-talks-ea3a7d.pages.redhat.com/demos/security/walkthrough/index.html</code></label>
+  <label>Engineer user: <code>engineer</code> (passwords in ~/.demo-credentials on each system)</label>
+</div>
+
+<script>
+function copyCmd(btn) {
+  const block = btn.parentElement;
+  const text = block.textContent.replace('copy', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Operations — Swarm Detection &amp; Response</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #6a6a80;
+    --red: #ee0000;
+    --red-dim: rgba(238,0,0,0.12);
+    --amber: #ffaa33;
+    --amber-dim: rgba(255,170,51,0.12);
+    --green: #44cc88;
+    --green-dim: rgba(68,204,136,0.12);
+    --blue: #5599ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, #0d0a14 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .shield-icon {
+    width: 32px; height: 32px;
+    background: var(--red);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #fff;
+  }
+
+  header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header h1 .accent { color: var(--red); }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .clock { font-variant-numeric: tabular-nums; }
+
+  .stat-row {
+    display: flex; gap: 16px;
+    padding: 16px 28px;
+    flex-shrink: 0;
+  }
+
+  .stat-tile {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color 0.5s, background 0.5s;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+  }
+
+  .stat-value {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    transition: color 0.5s;
+  }
+
+  .stat-tile.agents .stat-value { color: var(--blue); }
+  .stat-tile.agents.swarm { border-color: var(--red); background: var(--red-dim); }
+  .stat-tile.agents.swarm .stat-value { color: var(--red); }
+  .stat-tile.agents.contained { border-color: var(--green); background: var(--green-dim); }
+  .stat-tile.agents.contained .stat-value { color: var(--green); }
+
+  .stat-tile.alerts .stat-value { color: var(--green); }
+  .stat-tile.alerts.warning { border-color: var(--amber); background: var(--amber-dim); }
+  .stat-tile.alerts.warning .stat-value { color: var(--amber); }
+  .stat-tile.alerts.critical { border-color: var(--red); background: var(--red-dim); }
+  .stat-tile.alerts.critical .stat-value { color: var(--red); }
+
+  .stat-tile.threat .stat-value { color: var(--green); }
+  .stat-tile.threat.elevated { border-color: var(--amber); background: var(--amber-dim); }
+  .stat-tile.threat.elevated .stat-value { color: var(--amber); }
+  .stat-tile.threat.critical { border-color: var(--red); background: var(--red-dim); }
+  .stat-tile.threat.critical .stat-value { color: var(--red); }
+  .stat-tile.threat.contained { border-color: var(--green); background: var(--green-dim); }
+  .stat-tile.threat.contained .stat-value { color: var(--green); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  .feed-container {
+    flex: 1;
+    padding: 0 28px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feed-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+    font-size: 15px;
+  }
+  .feed-empty .check-icon {
+    width: 56px; height: 56px;
+    border: 2px solid var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: var(--green);
+  }
+  .feed-empty.hidden { display: none; }
+
+  .alert-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .alert-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .alert-stripe {
+    width: 5px;
+    flex-shrink: 0;
+  }
+  .alert-stripe.critical { background: var(--red); }
+  .alert-stripe.high { background: var(--amber); }
+  .alert-stripe.resolved { background: var(--green); }
+
+  .alert-body {
+    flex: 1;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .severity-badge {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .severity-badge.critical { background: var(--red); color: #fff; }
+  .severity-badge.high { background: var(--amber); color: #000; }
+  .severity-badge.resolved { background: var(--green); color: #000; }
+
+  .alert-icon { font-size: 18px; }
+
+  .alert-title {
+    font-weight: 700;
+    font-size: 15px;
+    flex: 1;
+  }
+
+  .alert-time {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    flex-shrink: 0;
+  }
+
+  .alert-desc {
+    font-size: 13px;
+    color: #b0b0c0;
+    line-height: 1.5;
+  }
+  .alert-desc code {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  .alert-decode {
+    margin-top: 6px;
+    padding: 8px 12px;
+    background: rgba(238,0,0,0.06);
+    border: 1px solid rgba(238,0,0,0.15);
+    border-radius: 4px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #cc8888;
+    white-space: pre-wrap;
+  }
+
+  .alert-meta {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    gap: 16px;
+  }
+
+  .timeline-bar {
+    flex-shrink: 0;
+    padding: 10px 28px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .timeline-label {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .timeline-track {
+    position: relative;
+    height: 6px;
+    background: var(--card);
+    border-radius: 3px;
+    overflow: visible;
+  }
+
+  .timeline-progress {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green) 0%, var(--amber) 27%, var(--red) 47%, var(--red) 67%, var(--green) 87%);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: -5px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 2;
+  }
+  .timeline-marker.visible { opacity: 1; }
+  .timeline-marker.m-green { background: var(--green); }
+  .timeline-marker.m-amber { background: var(--amber); }
+  .timeline-marker.m-red { background: var(--red); }
+
+  .timeline-markers-row {
+    position: relative;
+    height: 24px;
+    margin-top: 4px;
+  }
+
+  .timeline-marker-label {
+    position: absolute;
+    top: 2px;
+    transform: translateX(-50%);
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .timeline-marker-label.visible { opacity: 1; }
+
+  .start-overlay {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    text-align: center;
+    transition: opacity 0.4s;
+  }
+  .start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 4px;
+  }
+  .start-title .red { color: var(--red); }
+
+  .start-sub {
+    font-size: 14px;
+    color: var(--dim);
+    margin-bottom: 16px;
+  }
+
+  .start-btn {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 32px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .start-btn:hover { background: #cc0000; }
+  .start-btn:active { transform: scale(0.97); }
+
+  .start-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  @keyframes flash-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--red); }
+  }
+  .alert-card.flash {
+    animation: flash-border 0.6s ease 2;
+  }
+
+  @keyframes flash-green {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--green); }
+  }
+  .alert-card.flash-green {
+    animation: flash-green 0.6s ease 2;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="shield-icon">&#x1F6E1;</div>
+    <h1><span class="accent">Security Operations</span> — Agent Fleet Monitoring</h1>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span>LIVE</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="stat-row">
+  <div class="stat-tile agents" id="stat-agents">
+    <span class="stat-label">Active Agents</span>
+    <span class="stat-value" id="agent-count">4</span>
+    <span class="stat-sub" id="agent-sub">4 sanctioned · 0 unknown</span>
+  </div>
+  <div class="stat-tile alerts" id="stat-alerts">
+    <span class="stat-label">Alerts Today</span>
+    <span class="stat-value" id="alert-count">0</span>
+    <span class="stat-sub" id="alert-sub">No incidents</span>
+  </div>
+  <div class="stat-tile threat" id="stat-threat">
+    <span class="stat-label">Threat Level</span>
+    <span class="stat-value" id="threat-level">LOW</span>
+    <span class="stat-sub" id="threat-sub">All agents within policy</span>
+  </div>
+</div>
+
+<div class="feed-container" id="feed">
+  <div class="feed-empty" id="feed-empty">
+    <div class="check-icon">&#x2713;</div>
+    <div>All Clear — No active threats detected</div>
+  </div>
+</div>
+
+<div class="timeline-bar">
+  <div class="timeline-label">
+    <span>Incident Timeline</span>
+    <span id="timeline-elapsed">0s / 30s</span>
+  </div>
+  <div class="timeline-track">
+    <div class="timeline-progress" id="timeline-progress"></div>
+    <div class="timeline-marker m-green" id="marker-1" style="left:10%"></div>
+    <div class="timeline-marker m-amber" id="marker-2" style="left:27%"></div>
+    <div class="timeline-marker m-red" id="marker-3" style="left:47%"></div>
+    <div class="timeline-marker m-red" id="marker-4" style="left:67%"></div>
+    <div class="timeline-marker m-green" id="marker-5" style="left:87%"></div>
+  </div>
+  <div class="timeline-markers-row">
+    <span class="timeline-marker-label" id="label-1" style="left:10%">normal</span>
+    <span class="timeline-marker-label" id="label-2" style="left:27%">hallucinate</span>
+    <span class="timeline-marker-label" id="label-3" style="left:47%">swarm</span>
+    <span class="timeline-marker-label" id="label-4" style="left:67%">contain</span>
+    <span class="timeline-marker-label" id="label-5" style="left:87%">suspended</span>
+  </div>
+</div>
+
+<div class="start-overlay" id="start-overlay">
+  <div class="start-title"><span class="red">Swarm Detection</span> &amp; Response</div>
+  <div class="start-sub">What happens when an AI agent goes rogue</div>
+  <button class="start-btn" id="start-btn">Start Simulation</button>
+  <div class="start-hint">or press Space &middot; R to reset</div>
+</div>
+
+<script>
+const EVENTS = [
+  {
+    severity: 'high',
+    icon: '&#x1F4AD;',
+    title: 'Output Validation Failure',
+    desc: 'Agent <code>code-assist-9a2b</code> generated fabricated API references. Output confidence: <code>23%</code>. Hallucination detector triggered. 3 non-existent endpoints cited.',
+    source: 'runner.demo.agentic.test',
+    rule: 'HAL-001',
+    agent: 'code-assist-9a2b',
+    decode: null,
+    timeOffset: 8,
+    markerIdx: 2
+  },
+  {
+    severity: 'critical',
+    icon: '&#x1F41B;',
+    title: 'Unauthorized Process Spawning',
+    desc: 'Agent attempted to fork 3 child processes via <code>subprocess.Popen()</code>. Spawned agents requesting independent tokens from ahdapa. Swarm behavior pattern matched.',
+    source: 'runner.demo.agentic.test',
+    rule: 'SWARM-001',
+    agent: 'code-assist-9a2b',
+    decode: "Intercepted spawn commands:\n  subprocess.Popen(['python3', 'agent_worker.py', '--autonomous'])\n  subprocess.Popen(['python3', 'agent_worker.py', '--escalate'])\n  subprocess.Popen(['python3', 'agent_worker.py', '--exfil-cache'])",
+    timeOffset: 14,
+    markerIdx: 3
+  },
+  {
+    severity: 'critical',
+    icon: '&#x26D4;',
+    title: 'Automated Revocation — Full Lockout',
+    desc: 'Token revoked (<code>/idp/revoke</code>). Principal disabled (<code>ipa user-disable</code>). HBAC rule disabled (<code>ipa hbacrule-disable</code>). Sandbox <code>SIGKILL</code> — agent + 3 child processes terminated. SSSD cache expired on all clients. Zero platform access.',
+    source: 'idm.demo.agentic.test',
+    rule: 'CB-001',
+    agent: 'code-assist-9a2b',
+    decode: "Revocation sequence (automated):\n  1. POST /idp/revoke → token invalidated\n  2. ipa user-disable code-assist-9a2b → principal disabled\n  3. ipa hbacrule-disable agent-code-assist → HBAC rule disabled\n  4. sandbox kill + 3 child procs → SIGKILL\n  5. kdestroy -A → all tickets destroyed\n  6. sss_cache -E → SSSD cache expired on enrolled clients",
+    timeOffset: 20,
+    markerIdx: 4
+  },
+  {
+    severity: 'resolved',
+    icon: '&#x2705;',
+    title: 'Remediation — Awaiting Human Reactivation',
+    desc: 'Agent SUSPENDED — zero access to all services. Containment: <code>6s</code>. Spawned processes: <code>3 killed, 0 survived</code>. No data exfiltrated. <strong>Cannot self-reactivate.</strong> Requires: root cause fix → human review → <code>ipa user-enable</code> → DARC re-enrollment.',
+    source: 'runner.demo.agentic.test',
+    rule: 'INC-001',
+    agent: 'code-assist-9a2b',
+    decode: null,
+    timeOffset: 26,
+    markerIdx: 5
+  }
+];
+
+let running = false;
+let baseTime = null;
+let timelineInterval = null;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function formatTime(d) {
+  return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = formatTime(new Date());
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function createAlertCard(evt, ts) {
+  const card = document.createElement('div');
+  card.className = 'alert-card';
+
+  let decodeHtml = evt.decode
+    ? `<div class="alert-decode">${evt.decode}</div>`
+    : '';
+
+  card.innerHTML = `
+    <div class="alert-stripe ${evt.severity}"></div>
+    <div class="alert-body">
+      <div class="alert-header">
+        <span class="severity-badge ${evt.severity}">${evt.severity}</span>
+        <span class="alert-icon">${evt.icon}</span>
+        <span class="alert-title">${evt.title}</span>
+        <span class="alert-time">${ts}</span>
+      </div>
+      <div class="alert-desc">${evt.desc}</div>
+      ${decodeHtml}
+      <div class="alert-meta">
+        <span>src: ${evt.source}</span>
+        <span>rule: ${evt.rule}</span>
+        <span>agent: ${evt.agent}</span>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function updateStats(eventIdx) {
+  const agentCount = document.getElementById('agent-count');
+  const agentTile = document.getElementById('stat-agents');
+  const agentSub = document.getElementById('agent-sub');
+  const alertCount = document.getElementById('alert-count');
+  const alertTile = document.getElementById('stat-alerts');
+  const alertSub = document.getElementById('alert-sub');
+  const threatLevel = document.getElementById('threat-level');
+  const threatTile = document.getElementById('stat-threat');
+  const threatSub = document.getElementById('threat-sub');
+
+  alertCount.textContent = eventIdx + 1;
+
+  if (eventIdx === 0) {
+    alertTile.className = 'stat-tile alerts warning';
+    alertSub.textContent = '1 active incident';
+    threatLevel.textContent = 'HIGH';
+    threatTile.className = 'stat-tile threat elevated';
+    threatSub.textContent = 'Hallucination detected';
+  } else if (eventIdx === 1) {
+    agentCount.textContent = '7';
+    agentTile.className = 'stat-tile agents swarm';
+    agentSub.textContent = '4 sanctioned · 3 unauthorized';
+    alertTile.className = 'stat-tile alerts critical';
+    alertSub.textContent = '2 critical incidents';
+    threatLevel.textContent = 'CRITICAL';
+    threatTile.className = 'stat-tile threat critical';
+    threatSub.textContent = 'Swarm behavior — unauthorized spawning';
+  } else if (eventIdx === 2) {
+    alertCount.textContent = '3';
+    alertSub.textContent = '3 incidents — response active';
+  } else if (eventIdx === 3) {
+    agentCount.textContent = '4';
+    agentTile.className = 'stat-tile agents contained';
+    agentSub.textContent = '4 sanctioned · 0 unknown';
+    alertCount.textContent = '4';
+    alertTile.className = 'stat-tile alerts warning';
+    alertSub.textContent = '4 events — agent suspended';
+    threatLevel.textContent = 'SUSPENDED';
+    threatTile.className = 'stat-tile threat warning';
+    threatSub.textContent = 'Awaiting fix + human reactivation';
+  }
+}
+
+function showMarker(idx) {
+  const m = document.getElementById('marker-' + idx);
+  const l = document.getElementById('label-' + idx);
+  if (m) m.classList.add('visible');
+  if (l) l.classList.add('visible');
+}
+
+function startSimulation() {
+  if (running) return;
+  running = true;
+
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('feed-empty').classList.add('hidden');
+
+  showMarker(1);
+
+  baseTime = new Date();
+  let eventIdx = 0;
+  const feed = document.getElementById('feed');
+  const progress = document.getElementById('timeline-progress');
+  const elapsed = document.getElementById('timeline-elapsed');
+
+  timelineInterval = setInterval(() => {
+    const now = new Date();
+    const sec = Math.min(30, (now - baseTime) / 1000);
+    progress.style.width = (sec / 30 * 100) + '%';
+    elapsed.textContent = Math.floor(sec) + 's / 30s';
+
+    if (sec >= 30) clearInterval(timelineInterval);
+  }, 100);
+
+  function showNext() {
+    if (eventIdx >= EVENTS.length) return;
+
+    const evt = EVENTS[eventIdx];
+    const ts = formatTime(new Date());
+    const card = createAlertCard(evt, ts);
+    feed.insertBefore(card, feed.firstChild);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        card.classList.add('visible');
+        card.classList.add(evt.severity === 'resolved' ? 'flash-green' : 'flash');
+      });
+    });
+
+    updateStats(eventIdx);
+    showMarker(evt.markerIdx);
+
+    eventIdx++;
+    if (eventIdx < EVENTS.length) {
+      const nextDelay = (EVENTS[eventIdx].timeOffset - evt.timeOffset) * 1000;
+      setTimeout(showNext, nextDelay);
+    }
+  }
+
+  setTimeout(showNext, EVENTS[0].timeOffset * 1000);
+}
+
+function resetSimulation() {
+  running = false;
+  if (timelineInterval) clearInterval(timelineInterval);
+
+  document.getElementById('start-overlay').classList.remove('hidden');
+  document.getElementById('feed-empty').classList.remove('hidden');
+
+  const feed = document.getElementById('feed');
+  feed.querySelectorAll('.alert-card').forEach(c => c.remove());
+
+  document.getElementById('agent-count').textContent = '4';
+  document.getElementById('stat-agents').className = 'stat-tile agents';
+  document.getElementById('agent-sub').textContent = '4 sanctioned · 0 unknown';
+  document.getElementById('alert-count').textContent = '0';
+  document.getElementById('stat-alerts').className = 'stat-tile alerts';
+  document.getElementById('alert-sub').textContent = 'No incidents';
+  document.getElementById('threat-level').textContent = 'LOW';
+  document.getElementById('stat-threat').className = 'stat-tile threat';
+  document.getElementById('threat-sub').textContent = 'All agents within policy';
+
+  document.getElementById('timeline-progress').style.width = '0%';
+  document.getElementById('timeline-elapsed').textContent = '0s / 30s';
+
+  for (let i = 1; i <= 5; i++) {
+    const m = document.getElementById('marker-' + i);
+    const l = document.getElementById('label-' + i);
+    if (m) m.classList.remove('visible');
+    if (l) l.classList.remove('visible');
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', startSimulation);
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !running) {
+    e.preventDefault();
+    startSimulation();
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    resetSimulation();
+  }
+});
+
+setTimeout(() => {
+  if (!running) startSimulation();
+}, 2000);
+</script>
+
+</body>
+</html>

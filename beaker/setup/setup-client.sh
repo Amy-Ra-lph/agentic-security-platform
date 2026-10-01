@@ -163,6 +163,20 @@ fi
 
 dnf install -y strace 2>/dev/null || true
 
+# ── 10. Create local engineer user with wheel access ────────────────────────
+
+CREDS_FILE="$HOME/.demo-credentials"
+if ! id engineer >/dev/null 2>&1; then
+    log "Creating engineer user..."
+    ENGINEER_PASSWORD=$(openssl rand -base64 16 | tr -d '=/+' | head -c 16)
+    echo "ENGINEER_PASSWORD=${ENGINEER_PASSWORD}" >> "$CREDS_FILE"
+    chmod 600 "$CREDS_FILE"
+    useradd -m -G wheel engineer
+    echo "engineer:${ENGINEER_PASSWORD}" | chpasswd
+else
+    log "engineer user already exists"
+fi
+
 log "System 2 setup complete"
 log "Honeypot data in ~/.aws, ~/.ssh, ~/.kube"
 log "Agents in /opt/demo/agents/"

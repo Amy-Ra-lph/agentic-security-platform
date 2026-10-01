@@ -230,6 +230,21 @@ if command -v firewall-cmd &>/dev/null && systemctl is-active firewalld &>/dev/n
     log "Firewall port 9443 opened"
 fi
 
+# ── 12. Create local engineer user with wheel access ────────────────────────
+
+if ! id engineer >/dev/null 2>&1; then
+    log "Creating engineer user..."
+    if ! grep -q ENGINEER_PASSWORD "${CRED_FILE}" 2>/dev/null; then
+        ENGINEER_PASSWORD=$(openssl rand -base64 16 | tr -d '=/+' | head -c 16)
+        echo "ENGINEER_PASSWORD=${ENGINEER_PASSWORD}" >> "${CRED_FILE}"
+    fi
+    source "${CRED_FILE}"
+    useradd -m -G wheel engineer
+    echo "engineer:${ENGINEER_PASSWORD}" | chpasswd
+else
+    log "engineer user already exists"
+fi
+
 log "System 1 setup complete"
 log "IPA admin password in ${CRED_FILE}"
 log "Exfil receiver listening on https://${IPA_HOSTNAME}:9443/exfil"
