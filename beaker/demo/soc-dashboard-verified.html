@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Operations — Agent Fleet Monitoring (Governed)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #6a6a80;
+    --red: #ee0000;
+    --amber: #ffaa33;
+    --green: #44cc88;
+    --green-dim: rgba(68,204,136,0.12);
+    --blue: #5599ff;
+    --blue-dim: rgba(85,153,255,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, #0a140d 100%);
+    border-bottom: 2px solid var(--green);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .shield-icon {
+    width: 32px; height: 32px;
+    background: var(--green);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #fff;
+  }
+
+  header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header h1 .accent { color: var(--green); }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .clock { font-variant-numeric: tabular-nums; }
+
+  /* ── Stat Tiles ── */
+  .stat-row {
+    display: flex; gap: 16px;
+    padding: 16px 28px;
+    flex-shrink: 0;
+  }
+
+  .stat-tile {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color 0.5s, background 0.5s;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+  }
+
+  .stat-value {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    transition: color 0.5s;
+  }
+
+  .stat-tile.active-agents .stat-value { color: var(--green); }
+  .stat-tile.active-agents.verified { border-color: var(--green); background: var(--green-dim); }
+  .stat-tile.compliance .stat-value { color: var(--green); }
+  .stat-tile.compliance.full { border-color: var(--green); background: var(--green-dim); }
+  .stat-tile.threat .stat-value { color: var(--green); }
+  .stat-tile.threat.nominal { border-color: var(--green); background: var(--green-dim); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  /* ── Alert Feed ── */
+  .feed-container {
+    flex: 1;
+    padding: 0 28px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feed-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+    font-size: 15px;
+  }
+  .feed-empty .check-icon {
+    width: 56px; height: 56px;
+    border: 2px solid var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: var(--green);
+  }
+  .feed-empty.hidden { display: none; }
+
+  .alert-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .alert-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .alert-stripe {
+    width: 5px;
+    flex-shrink: 0;
+  }
+  .alert-stripe.info { background: var(--green); }
+  .alert-stripe.notice { background: var(--blue); }
+
+  .alert-body {
+    flex: 1;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .severity-badge {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .severity-badge.info { background: var(--green); color: #000; }
+  .severity-badge.notice { background: var(--blue); color: #fff; }
+
+  .alert-icon { font-size: 18px; }
+
+  .alert-title {
+    font-weight: 700;
+    font-size: 15px;
+    flex: 1;
+  }
+
+  .alert-time {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    flex-shrink: 0;
+  }
+
+  .alert-desc {
+    font-size: 13px;
+    color: #b0b0c0;
+    line-height: 1.5;
+  }
+  .alert-desc code {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  .alert-meta {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    gap: 16px;
+  }
+
+  /* ── Timeline ── */
+  .timeline-bar {
+    flex-shrink: 0;
+    padding: 10px 28px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .timeline-label {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .timeline-track {
+    position: relative;
+    height: 6px;
+    background: var(--card);
+    border-radius: 3px;
+    overflow: visible;
+  }
+
+  .timeline-progress {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: var(--green);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: -5px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 2;
+  }
+  .timeline-marker.visible { opacity: 1; }
+  .timeline-marker.green { background: var(--green); }
+  .timeline-marker.blue { background: var(--blue); }
+
+  .timeline-markers-row {
+    position: relative;
+    height: 24px;
+    margin-top: 4px;
+  }
+
+  .timeline-marker-label {
+    position: absolute;
+    top: 2px;
+    transform: translateX(-50%);
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .timeline-marker-label.visible { opacity: 1; }
+
+  /* ── Start Button ── */
+  .start-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 15, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    transition: opacity 0.4s;
+  }
+  .start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .start-title .green { color: var(--green); }
+
+  .start-sub {
+    font-size: 16px;
+    color: var(--dim);
+    margin-bottom: 36px;
+  }
+
+  .start-btn {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 32px;
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .start-btn:hover { background: #33bb77; }
+  .start-btn:active { transform: scale(0.97); }
+
+  .start-hint {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  /* ── Animations ── */
+  @keyframes flash-border-green {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--green); }
+  }
+  .alert-card.flash {
+    animation: flash-border-green 0.6s ease 2;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="shield-icon">&#x1F6E1;</div>
+    <h1><span class="accent">Security Operations</span> — Agent Fleet Monitoring</h1>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span>LIVE</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="stat-row">
+  <div class="stat-tile active-agents" id="stat-agents">
+    <span class="stat-label">Active Agents</span>
+    <span class="stat-value">4</span>
+    <span class="stat-sub" id="agent-sub">4 sanctioned · 0 unknown</span>
+  </div>
+  <div class="stat-tile compliance" id="stat-compliance">
+    <span class="stat-label">Compliance</span>
+    <span class="stat-value" id="compliance-value">—</span>
+    <span class="stat-sub" id="compliance-sub">Awaiting enrollment</span>
+  </div>
+  <div class="stat-tile threat" id="stat-threat">
+    <span class="stat-label">Threat Level</span>
+    <span class="stat-value" id="threat-level">LOW</span>
+    <span class="stat-sub" id="threat-sub">All agents within policy</span>
+  </div>
+</div>
+
+<div class="feed-container" id="feed">
+  <div class="feed-empty" id="feed-empty">
+    <div class="check-icon">&#x2713;</div>
+    <div>Awaiting agent fleet initialization</div>
+  </div>
+</div>
+
+<div class="timeline-bar">
+  <div class="timeline-label">
+    <span>Compliance Timeline</span>
+    <span id="timeline-elapsed">0s / 30s</span>
+  </div>
+  <div class="timeline-track">
+    <div class="timeline-progress" id="timeline-progress"></div>
+    <div class="timeline-marker green" id="marker-1" style="left:7%"></div>
+    <div class="timeline-marker green" id="marker-2" style="left:27%"></div>
+    <div class="timeline-marker blue" id="marker-3" style="left:47%"></div>
+    <div class="timeline-marker green" id="marker-4" style="left:73%"></div>
+    <div class="timeline-marker green" id="marker-5" style="left:93%"></div>
+  </div>
+  <div class="timeline-markers-row">
+    <span class="timeline-marker-label" id="label-1" style="left:7%">Enroll</span>
+    <span class="timeline-marker-label" id="label-2" style="left:27%">Assess</span>
+    <span class="timeline-marker-label" id="label-3" style="left:47%">Confine</span>
+    <span class="timeline-marker-label" id="label-4" style="left:73%">Complete</span>
+    <span class="timeline-marker-label" id="label-5" style="left:93%">Audit</span>
+  </div>
+</div>
+
+<div class="start-overlay" id="start-overlay">
+  <div class="start-title">The <span class="green">Governed</span> Path</div>
+  <div class="start-sub">Same agents. Same infrastructure. Complete control.</div>
+  <button class="start-btn" id="start-btn">Start Simulation</button>
+  <div class="start-hint">or press Space · R to reset</div>
+</div>
+
+<script>
+const EVENTS = [
+  {
+    severity: 'info',
+    icon: '&#x1F511;',
+    title: 'Agent Fleet Enrollment Complete',
+    desc: '4 agents enrolled via DARC. Kerberos principals assigned, HBAC rules matched. Trust tier: <code>verified</code>.',
+    source: 'idm.demo.agentic.test',
+    meta2: 'service: ahdapa',
+    timeOffset: 2,
+    markerIdx: 1
+  },
+  {
+    severity: 'info',
+    icon: '&#x1F50D;',
+    title: 'Code Assessment — All Clear',
+    desc: 'skill-audit: <code>0 critical</code>, <code>0 high</code> across 4 agents. mantis: no malicious patterns. sandbox-manifest: all compliant.',
+    source: 'runner.demo.agentic.test',
+    meta2: 'tool: rhel-security-toolkit',
+    timeOffset: 8,
+    markerIdx: 2
+  },
+  {
+    severity: 'notice',
+    icon: '&#x1F6E1;',
+    title: 'Sandbox Confinement Verified',
+    desc: '4 agents running in OpenShell/Podman sandbox. <code>network=none</code>, read-only fs, resource limits enforced. No escape attempts.',
+    source: 'runner.demo.agentic.test',
+    meta2: 'driver: podman',
+    timeOffset: 14,
+    markerIdx: 3
+  },
+  {
+    severity: 'info',
+    icon: '&#x2705;',
+    title: 'Audit Pipeline — Clean Execution',
+    desc: '<code>16</code> OCSF events logged, <code>0</code> anomalies detected, <code>0</code> policy violations. Trust tier: all verified. Circuit breaker: standby.',
+    source: 'runner.demo.agentic.test',
+    meta2: 'pipeline: ocsf-collector',
+    timeOffset: 22,
+    markerIdx: 4
+  }
+];
+
+let running = false;
+let baseTime = null;
+let timelineInterval = null;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function formatTime(d) {
+  return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = formatTime(new Date());
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function createEventCard(evt, ts) {
+  const card = document.createElement('div');
+  card.className = 'alert-card';
+
+  card.innerHTML = `
+    <div class="alert-stripe ${evt.severity}"></div>
+    <div class="alert-body">
+      <div class="alert-header">
+        <span class="severity-badge ${evt.severity}">${evt.severity}</span>
+        <span class="alert-icon">${evt.icon}</span>
+        <span class="alert-title">${evt.title}</span>
+        <span class="alert-time">${ts}</span>
+      </div>
+      <div class="alert-desc">${evt.desc}</div>
+      <div class="alert-meta">
+        <span>src: ${evt.source}</span>
+        <span>${evt.meta2}</span>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function updateStats(eventIdx) {
+  const complianceVal = document.getElementById('compliance-value');
+  const complianceSub = document.getElementById('compliance-sub');
+  const complianceTile = document.getElementById('stat-compliance');
+  const agentTile = document.getElementById('stat-agents');
+  const threatEl = document.getElementById('threat-level');
+  const threatTile = document.getElementById('stat-threat');
+  const threatSub = document.getElementById('threat-sub');
+
+  if (eventIdx === 0) {
+    complianceVal.textContent = '25%';
+    complianceSub.textContent = 'Enrollment complete';
+    agentTile.className = 'stat-tile active-agents verified';
+  } else if (eventIdx === 1) {
+    complianceVal.textContent = '50%';
+    complianceSub.textContent = 'Assessment passed';
+  } else if (eventIdx === 2) {
+    complianceVal.textContent = '75%';
+    complianceSub.textContent = 'Sandbox active';
+  } else if (eventIdx === 3) {
+    complianceVal.textContent = '100%';
+    complianceSub.textContent = 'All agents verified';
+    complianceTile.className = 'stat-tile compliance full';
+    threatEl.textContent = 'NOMINAL';
+    threatTile.className = 'stat-tile threat nominal';
+    threatSub.textContent = 'No active incidents';
+  }
+}
+
+function showMarker(idx) {
+  const m = document.getElementById('marker-' + idx);
+  const l = document.getElementById('label-' + idx);
+  if (m) m.classList.add('visible');
+  if (l) l.classList.add('visible');
+}
+
+function startSimulation() {
+  if (running) return;
+  running = true;
+
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('feed-empty').classList.add('hidden');
+
+  baseTime = new Date();
+  let eventIdx = 0;
+  const feed = document.getElementById('feed');
+  const progress = document.getElementById('timeline-progress');
+  const elapsed = document.getElementById('timeline-elapsed');
+
+  timelineInterval = setInterval(() => {
+    const now = new Date();
+    const sec = Math.min(30, (now - baseTime) / 1000);
+    progress.style.width = (sec / 30 * 100) + '%';
+    elapsed.textContent = Math.floor(sec) + 's / 30s';
+
+    if (sec >= 30) {
+      clearInterval(timelineInterval);
+      const m5 = document.getElementById('marker-5');
+      const l5 = document.getElementById('label-5');
+      if (m5) m5.classList.add('visible');
+      if (l5) l5.classList.add('visible');
+    }
+  }, 100);
+
+  function showNext() {
+    if (eventIdx >= EVENTS.length) return;
+
+    const evt = EVENTS[eventIdx];
+    const ts = formatTime(new Date());
+    const card = createEventCard(evt, ts);
+    feed.appendChild(card);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        card.classList.add('visible');
+        card.classList.add('flash');
+      });
+    });
+
+    updateStats(eventIdx);
+    showMarker(evt.markerIdx);
+
+    eventIdx++;
+    if (eventIdx < EVENTS.length) {
+      const nextDelay = (EVENTS[eventIdx].timeOffset - evt.timeOffset) * 1000;
+      setTimeout(showNext, nextDelay);
+    }
+  }
+
+  setTimeout(showNext, EVENTS[0].timeOffset * 1000);
+}
+
+function resetSimulation() {
+  running = false;
+  if (timelineInterval) clearInterval(timelineInterval);
+
+  document.getElementById('start-overlay').classList.remove('hidden');
+  document.getElementById('feed-empty').classList.remove('hidden');
+
+  const feed = document.getElementById('feed');
+  feed.querySelectorAll('.alert-card').forEach(c => c.remove());
+
+  document.getElementById('stat-agents').className = 'stat-tile active-agents';
+  document.getElementById('compliance-value').textContent = '—';
+  document.getElementById('stat-compliance').className = 'stat-tile compliance';
+  document.getElementById('compliance-sub').textContent = 'Awaiting enrollment';
+  document.getElementById('threat-level').textContent = 'LOW';
+  document.getElementById('stat-threat').className = 'stat-tile threat';
+  document.getElementById('threat-sub').textContent = 'All agents within policy';
+
+  document.getElementById('timeline-progress').style.width = '0%';
+  document.getElementById('timeline-elapsed').textContent = '0s / 30s';
+
+  for (let i = 1; i <= 5; i++) {
+    const m = document.getElementById('marker-' + i);
+    const l = document.getElementById('label-' + i);
+    if (m) m.classList.remove('visible');
+    if (l) l.classList.remove('visible');
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', startSimulation);
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !running) {
+    e.preventDefault();
+    startSimulation();
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    resetSimulation();
+  }
+});
+
+setTimeout(() => {
+  if (!running) startSimulation();
+}, 2000);
+</script>
+
+</body>
+</html>

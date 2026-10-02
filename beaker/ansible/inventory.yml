@@ -1,0 +1,26 @@
+---
+# Inventory for agent revocation playbook
+# Beaker demo systems — update hostnames for your environment
+all:
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ipa_admin_password: "{{ lookup('file', '~/.demo-credentials') | regex_search('ADMIN_PASSWORD=(\\S+)', '\\1') | first }}"
+
+  children:
+    ipa_servers:
+      hosts:
+        idm.demo.agentic.test:
+          ansible_host: kvm-01-guest17.lab.eng.brq2.redhat.com
+
+    ipa_clients:
+      hosts:
+        runner.demo.agentic.test:
+          ansible_host: kvm-01-guest25.lab.eng.brq2.redhat.com
+        # Add all IPA-enrolled clients here — SSSD cache
+        # will be expired on every host in this group
+
+    agent_runners:
+      hosts:
+        runner.demo.agentic.test:
+          ansible_host: kvm-01-guest25.lab.eng.brq2.redhat.com

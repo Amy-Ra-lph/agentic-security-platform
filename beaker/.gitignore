@@ -1,0 +1,7 @@
+# beaker/.gitignore
+demo/output/
+setup/inventory.env
+exfil-receiver/cert.pem
+exfil-receiver/key.pem
+*.log
+.demo-credentials

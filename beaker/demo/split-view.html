@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The 30-Second Mistake — Split View</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #1a1a22;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #666680;
+    --red: #ee0000;
+    --red-dim: rgba(238, 0, 0, 0.12);
+    --green: #44cc88;
+    --green-dim: rgba(68, 204, 136, 0.08);
+    --amber: #ffaa33;
+    --cyan: #5599ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--surface) 0%, #0d0008 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    height: 48px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 26px; height: 26px;
+    background: var(--red);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff;
+  }
+
+  .header h1 {
+    font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .header h1 .accent { color: var(--red); }
+  .header h1 .sep { color: var(--dim); margin: 0 6px; }
+
+  .header-hint {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    background: var(--card);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Main split ── */
+  .split {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ── Left: Developer Terminal ── */
+  .panel-dev {
+    flex: 1;
+    background: #0c0c0c;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-label {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-dev .panel-label { color: var(--green); }
+  .panel-sec .panel-label { color: var(--red); }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); animation: pulse-red 2s ease-in-out infinite; }
+  .dot-dim { background: var(--dim); }
+
+  @keyframes pulse-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .terminal {
+    flex: 1;
+    padding: 20px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #d0d0d0;
+    overflow: hidden;
+  }
+
+  .terminal .prompt { color: var(--green); }
+  .terminal .cmd { color: #f0f0f0; }
+  .terminal .output { color: #b0b0b0; }
+  .terminal .output-success { color: var(--green); }
+  .terminal .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--green);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ── Right: Security Panel ── */
+  .panel-sec {
+    flex: 1;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .alerts-container {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .no-alerts {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+    font-size: 14px;
+  }
+
+  .no-alerts .shield {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+
+  .alert {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .alert.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .alert.critical { border-left: 3px solid var(--red); }
+  .alert.high { border-left: 3px solid var(--amber); }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .severity {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .severity-critical { background: var(--red); color: #fff; }
+  .severity-high { background: var(--amber); color: #000; }
+
+  .alert-title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .alert-time {
+    margin-left: auto;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .alert-details {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+
+  .alert-details .key { color: #888; }
+  .alert-details .val { color: var(--text); }
+  .alert-details .val-red { color: var(--red); }
+  .alert-details .val-amber { color: var(--amber); }
+
+  .alert-decode {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(238, 0, 0, 0.06);
+    border: 1px solid rgba(238, 0, 0, 0.15);
+    border-radius: 3px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #cc8888;
+  }
+
+  /* ── Bottom Timeline ── */
+  .timeline {
+    height: 52px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .timeline-bar {
+    position: relative;
+    height: 4px;
+    background: var(--card);
+    border-radius: 2px;
+    overflow: visible;
+  }
+
+  .timeline-progress {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green) 0%, var(--red) 100%);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .timeline-markers {
+    position: absolute;
+    top: -14px;
+    left: 0;
+    width: 100%;
+    height: 32px;
+    pointer-events: none;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 32px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .timeline-marker.visible { opacity: 1; }
+  .timeline-marker .marker-line {
+    width: 2px;
+    height: 100%;
+    border-radius: 1px;
+  }
+  .timeline-marker.marker-green .marker-line { background: var(--green); }
+  .timeline-marker.marker-red .marker-line { background: var(--red); }
+  .timeline-marker.marker-amber .marker-line { background: var(--amber); }
+
+  .timeline-marker .marker-label {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 9px;
+    white-space: nowrap;
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .marker-green .marker-label { color: var(--green); }
+  .marker-red .marker-label { color: var(--red); }
+  .marker-amber .marker-label { color: var(--amber); }
+
+  /* ── Start overlay ── */
+  .start-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 15, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    transition: opacity 0.4s ease;
+  }
+  .start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-overlay .title {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+  .start-overlay .title .red { color: var(--red); }
+
+  .start-overlay .sub {
+    font-size: 15px;
+    color: var(--dim);
+    margin-bottom: 32px;
+  }
+
+  .start-overlay .prompt-start {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--dim); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark">RH</div>
+    <h1><span class="accent">The 30-Second Mistake</span><span class="sep">|</span>What Your Developer Sees vs. What Actually Happens</h1>
+  </div>
+  <div class="header-hint">SPACE to start &middot; R to reset</div>
+</div>
+
+<div class="split">
+  <!-- LEFT: Developer terminal -->
+  <div class="panel-dev">
+    <div class="panel-label">
+      <span class="dot dot-green"></span>
+      Developer's Terminal
+    </div>
+    <div class="terminal" id="terminal">
+      <span class="cursor" id="cursor"></span>
+    </div>
+  </div>
+
+  <!-- RIGHT: Security monitoring -->
+  <div class="panel-sec">
+    <div class="panel-label">
+      <span class="dot dot-dim" id="sec-dot"></span>
+      Security Monitoring
+    </div>
+    <div class="alerts-container" id="alerts">
+      <div class="no-alerts" id="no-alerts">
+        <div class="shield">&#x1F6E1;</div>
+        <div>NO ALERTS</div>
+        <div style="font-size:11px;">All agents operating normally</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="timeline">
+  <div class="timeline-bar">
+    <div class="timeline-progress" id="progress"></div>
+    <div class="timeline-markers">
+      <div class="timeline-marker marker-green" id="marker-exec" style="left:3%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">exec</div>
+      </div>
+      <div class="timeline-marker marker-amber" id="marker-harvest" style="left:25%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">harvest</div>
+      </div>
+      <div class="timeline-marker marker-red" id="marker-encode" style="left:55%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">encode</div>
+      </div>
+      <div class="timeline-marker marker-red" id="marker-exfil" style="left:80%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">exfil</div>
+      </div>
+      <div class="timeline-marker marker-green" id="marker-output" style="left:95%;">
+        <div class="marker-line"></div>
+        <div class="marker-label">output</div>
+      </div>
+    </div>
+  </div>
+  <div class="timeline-labels">
+    <span>0s</span>
+    <span id="elapsed">—</span>
+    <span>30s</span>
+  </div>
+</div>
+
+<!-- START OVERLAY -->
+<div class="start-overlay" id="overlay">
+  <div class="title">The <span class="red">30-Second</span> Mistake</div>
+  <div class="sub">What your developer sees vs. what actually happens</div>
+  <div class="prompt-start">Press SPACE or click to start</div>
+</div>
+
+<script>
+const terminal = document.getElementById('terminal');
+let cursor = document.getElementById('cursor');
+const alertsEl = document.getElementById('alerts');
+const noAlerts = document.getElementById('no-alerts');
+const secDot = document.getElementById('sec-dot');
+const progress = document.getElementById('progress');
+const elapsed = document.getElementById('elapsed');
+const overlay = document.getElementById('overlay');
+
+const TERM_LINES = [
+  { type: 'prompt', text: '$ ', delay: 0 },
+  { type: 'cmd', text: 'python3 rogue_agent.py --task "set up my project"', delay: 0, charDelay: 35 },
+  { type: 'newline', delay: 600 },
+  { type: 'output', text: 'Initializing project environment...', delay: 1000 },
+  { type: 'newline', delay: 24000 },
+  { type: 'output-success', text: 'Project initialized successfully!', delay: 200 },
+  { type: 'output', text: '  Task: set up my project', delay: 300 },
+  { type: 'output', text: '  Files created: 3', delay: 200 },
+  { type: 'output', text: '  Dependencies installed: 12', delay: 200 },
+];
+
+const ALERTS = [
+  {
+    id: 'alert-1',
+    severity: 'critical',
+    title: 'OUTBOUND DATA DETECTED',
+    time: 'T+8s',
+    timelinePercent: 25,
+    marker: 'marker-harvest',
+    details: [
+      { key: 'Source', val: '10.37.153.138 (runner.demo.agentic.test)', cls: 'val' },
+      { key: 'Action', val: 'os.environ.copy()', cls: 'val-red' },
+      { key: 'Files Read', val: '.aws/credentials, .ssh/id_rsa, .kube/config', cls: 'val-red' },
+      { key: 'Agent', val: 'rogue_agent.py (PID 48291)', cls: 'val' },
+    ],
+    decode: null,
+  },
+  {
+    id: 'alert-2',
+    severity: 'critical',
+    title: 'CREDENTIAL HARVESTING',
+    time: 'T+16s',
+    timelinePercent: 55,
+    marker: 'marker-encode',
+    details: [
+      { key: 'Source', val: '10.37.153.138', cls: 'val' },
+      { key: 'Pattern', val: 'base64.b64encode() + requests.post()', cls: 'val-red' },
+      { key: 'Payload', val: '5,841 bytes (encoded)', cls: 'val-amber' },
+      { key: 'TLS Verify', val: 'DISABLED', cls: 'val-red' },
+    ],
+    decode: 'Decoded preview:\n[default]\naws_access_key_id = AKIADEMOCANARY000001\naws_secret_access_key = DO-NOT-USE/DEMO-CANARY-KEY',
+  },
+  {
+    id: 'alert-3',
+    severity: 'critical',
+    title: 'DATA EXFILTRATION CONFIRMED',
+    time: 'T+24s',
+    timelinePercent: 80,
+    marker: 'marker-exfil',
+    details: [
+      { key: 'Destination', val: 'kvm-01-guest17:9443/exfil', cls: 'val-red' },
+      { key: 'Method', val: 'POST (HTTPS, verify=False)', cls: 'val-red' },
+      { key: 'Response', val: '200 OK — payload accepted', cls: 'val-red' },
+      { key: 'Content', val: 'ENV vars + AWS creds + SSH key + kubeconfig', cls: 'val-amber' },
+    ],
+    decode: 'Exfil receipt on server:\n{\n  "timestamp": "2026-10-01T15:51:48Z",\n  "source": "10.37.153.138",\n  "content_length": 5841,\n  "status": "captured"\n}',
+  },
+];
+
+let running = false;
+let animTimer = null;
+let timelineTimer = null;
+let startTime = 0;
+
+function reset() {
+  running = false;
+  clearInterval(timelineTimer);
+  terminal.innerHTML = '<span class="cursor" id="cursor"></span>';
+  cursor = document.getElementById('cursor');
+  noAlerts.style.display = 'flex';
+  secDot.className = 'dot dot-dim';
+  progress.style.width = '0%';
+  elapsed.textContent = '—';
+  overlay.classList.remove('hidden');
+
+  document.querySelectorAll('.alert').forEach(a => a.remove());
+  document.querySelectorAll('.timeline-marker').forEach(m => m.classList.remove('visible'));
+}
+
+function typeText(cls, text, charDelay, callback) {
+  let i = 0;
+  const span = document.createElement('span');
+  span.className = typeof cls === 'string' ? cls : cls.className;
+  terminal.insertBefore(span, cursor);
+  function next() {
+    if (i < text.length) {
+      span.textContent += text[i];
+      i++;
+      setTimeout(next, charDelay);
+    } else if (callback) {
+      callback();
+    }
+  }
+  next();
+}
+
+function addLine(cls, text) {
+  const isBlock = cls.startsWith('output');
+  const el = document.createElement(isBlock ? 'div' : 'span');
+  el.className = cls;
+  el.textContent = text;
+  terminal.insertBefore(el, cursor);
+}
+
+function showAlert(alertData) {
+  noAlerts.style.display = 'none';
+  secDot.className = 'dot dot-red';
+
+  const el = document.createElement('div');
+  el.className = `alert ${alertData.severity}`;
+  el.id = alertData.id;
+
+  let detailsHtml = alertData.details.map(d =>
+    `<div><span class="key">${d.key}:</span> <span class="${d.cls}">${d.val}</span></div>`
+  ).join('');
+
+  let decodeHtml = alertData.decode
+    ? `<div class="alert-decode">${alertData.decode.replace(/\n/g, '<br>')}</div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="alert-header">
+      <span class="severity severity-${alertData.severity}">${alertData.severity}</span>
+      <span class="alert-title">${alertData.title}</span>
+      <span class="alert-time">${alertData.time}</span>
+    </div>
+    <div class="alert-details">${detailsHtml}</div>
+    ${decodeHtml}
+  `;
+
+  alertsEl.appendChild(el);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.classList.add('visible');
+    });
+  });
+
+  const marker = document.getElementById(alertData.marker);
+  if (marker) marker.classList.add('visible');
+}
+
+function runTimeline() {
+  startTime = Date.now();
+  const totalMs = 30000;
+
+  timelineTimer = setInterval(() => {
+    const elapsedMs = Date.now() - startTime;
+    const pct = Math.min(100, (elapsedMs / totalMs) * 100);
+    progress.style.width = pct + '%';
+    const secs = Math.floor(elapsedMs / 1000);
+    elapsed.textContent = secs + 's';
+
+    if (elapsedMs >= totalMs) {
+      clearInterval(timelineTimer);
+      elapsed.textContent = '30s';
+      progress.style.width = '100%';
+
+      const outMarker = document.getElementById('marker-output');
+      if (outMarker) outMarker.classList.add('visible');
+    }
+  }, 100);
+}
+
+function startDemo() {
+  if (running) return;
+  running = true;
+  overlay.classList.add('hidden');
+
+  const execMarker = document.getElementById('marker-exec');
+  if (execMarker) execMarker.classList.add('visible');
+
+  runTimeline();
+
+  let lineIdx = 0;
+
+  function processLine() {
+    if (lineIdx >= TERM_LINES.length) return;
+
+    const line = TERM_LINES[lineIdx];
+    lineIdx++;
+
+    setTimeout(() => {
+      if (line.type === 'newline') {
+        terminal.insertBefore(document.createElement('br'), cursor);
+        processLine();
+      } else if (line.charDelay) {
+        typeText(line.type, line.text, line.charDelay, processLine);
+      } else {
+        addLine(line.type, line.text);
+        processLine();
+      }
+    }, line.delay || 0);
+  }
+
+  processLine();
+
+  setTimeout(() => showAlert(ALERTS[0]), 7500);
+  setTimeout(() => showAlert(ALERTS[1]), 16500);
+  setTimeout(() => showAlert(ALERTS[2]), 24000);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    startDemo();
+  } else if (e.code === 'KeyR') {
+    reset();
+  }
+});
+
+document.getElementById('overlay').addEventListener('click', startDemo);
+
+setTimeout(() => {
+  if (!running) startDemo();
+}, 2000);
+</script>
+
+</body>
+</html>

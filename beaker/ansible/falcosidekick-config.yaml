@@ -1,0 +1,42 @@
+# Falcosidekick configuration — forwards Falco alerts to EDA webhook
+# Deploy to /etc/falcosidekick/config.yaml or mount as ConfigMap
+#
+# Falcosidekick receives gRPC/HTTP alerts from Falco and routes them
+# to the EDA rulebook webhook endpoint for automated remediation.
+
+debug: false
+
+webhook:
+  address: "http://localhost:5000"
+  method: "POST"
+  headers:
+    Authorization: "Bearer {{ eda_webhook_token }}"
+    Content-Type: "application/json"
+  customfields:
+    source: "falco"
+    environment: "demo.agentic.test"
+  minimumpriority: "warning"
+
+# Transform Falco output fields to match EDA rulebook expectations
+#
+# Falcosidekick sends:
+#   { "output": "...", "priority": "Critical", "rule": "Agent Swarm...",
+#     "tags": ["SWARM-001"], "output_fields": { "proc.pname": "python3", ... } }
+#
+# EDA rulebook expects:
+#   { "payload": { "alert_type": "swarm", "rule": "SWARM-001",
+#     "agent_principal": "code-assist-9a2b", ... } }
+#
+# Use Falcosidekick's templating or a lightweight transform proxy
+# to reshape the payload. Example transform (nginx/envoy sidecar or
+# python one-liner) documented in beaker/ansible/README.md.
+
+# Additional outputs for observability (optional)
+stdout:
+  enabled: true
+
+elasticsearch:
+  hostport: ""
+
+loki:
+  hostport: ""

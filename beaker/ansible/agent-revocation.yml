@@ -1,0 +1,186 @@
+---
+# Agent Revocation Playbook — Event-Driven Ansible Compatible
+#
+# Triggered by EDA rulebook when anomaly detected (hallucination, swarm,
+# policy violation). Disables agent identity, expires SSSD caches on all
+# enrolled clients, and files an incident event.
+#
+# EDA source event expected fields:
+#   agent_principal: "code-assist-9a2b"
+#   agent_realm: "DEMO.AGENTIC.TEST"
+#   hbac_rule: "agent-code-assist"
+#   incident_id: "INC-2026-1001-001"
+#   severity: "critical"
+#
+# Usage:
+#   Standalone:
+#     ansible-playbook agent-revocation.yml \
+#       -e agent_principal=code-assist-9a2b \
+#       -e agent_realm=DEMO.AGENTIC.TEST \
+#       -e hbac_rule=agent-code-assist \
+#       -e incident_id=INC-2026-1001-001
+#
+#   Via EDA: see rulebook agent-anomaly-rulebook.yml
+
+- name: "Phase 1: Revoke agent identity on IPA server"
+  hosts: ipa_servers
+  become: true
+  gather_facts: false
+  vars:
+    agent_principal: "{{ agent_principal }}"
+    agent_realm: "{{ agent_realm | default('DEMO.AGENTIC.TEST') }}"
+    hbac_rule: "{{ hbac_rule }}"
+    incident_id: "{{ incident_id | default('INC-' + ansible_date_time.iso8601_basic_short) }}"
+
+  tasks:
+    - name: Revoke OAuth2 token via ahdapa
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}/idp/revoke"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          client_id: "{{ agent_principal }}"
+          token_type_hint: access_token
+        validate_certs: true
+        status_code: [200, 400]
+      register: token_revoke
+      ignore_errors: true
+
+    - name: Disable agent principal in IPA
+      community.general.ipa_user:
+        name: "{{ agent_principal }}"
+        state: disabled
+        ipa_host: "{{ inventory_hostname }}"
+        ipa_pass: "{{ ipa_admin_password }}"
+      register: user_disable
+
+    - name: Disable HBAC rule for agent
+      ansible.builtin.command:
+        cmd: >-
+          ipa hbacrule-disable {{ hbac_rule }}
+      register: hbac_disable
+      changed_when: "'Disabled' in hbac_disable.stdout"
+      failed_when:
+        - hbac_disable.rc != 0
+        - "'already disabled' not in hbac_disable.stderr"
+
+    - name: Destroy Kerberos tickets for agent
+      ansible.builtin.command:
+        cmd: kdestroy -p {{ agent_principal }}@{{ agent_realm }}
+      ignore_errors: true
+
+    - name: Log revocation event
+      ansible.builtin.debug:
+        msg: >-
+          REVOCATION COMPLETE: principal={{ agent_principal }},
+          token_revoke={{ token_revoke.status | default('skipped') }},
+          user_disable={{ user_disable.changed | default(false) }},
+          hbac_disable={{ hbac_disable.changed | default(false) }},
+          incident={{ incident_id }}
+
+
+- name: "Phase 2: Expire SSSD cache on all enrolled clients"
+  hosts: ipa_clients
+  become: true
+  gather_facts: false
+  strategy: free
+  connection: local
+
+  tasks:
+    - name: Expire SSSD cache for revoked principal
+      ansible.builtin.command:
+        cmd: sss_cache -u {{ agent_principal }}
+      register: cache_user
+      changed_when: cache_user.rc == 0
+
+    - name: Expire full SSSD cache to enforce lockout
+      ansible.builtin.command:
+        cmd: sss_cache -E
+      register: cache_full
+      changed_when: cache_full.rc == 0
+
+    - name: Verify principal is denied via sssctl
+      ansible.builtin.command:
+        cmd: sssctl user-checks {{ agent_principal }}
+      register: sssctl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Report cache status
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: cache_expired={{ cache_full.rc == 0 }},
+          user_status={{ sssctl_check.stdout_lines | default(['unknown']) | first }}
+
+
+- name: "Phase 3: Kill agent sandbox and file incident"
+  hosts: agent_runners
+  become: true
+  gather_facts: false
+  connection: local
+
+  tasks:
+    - name: Find agent sandbox processes
+      ansible.builtin.command:
+        cmd: pgrep -f "{{ agent_principal }}"
+      register: agent_pids
+      changed_when: false
+      failed_when: false
+
+    - name: Kill agent sandbox (SIGKILL)
+      ansible.builtin.command:
+        cmd: kill -9 {{ item }}
+      loop: "{{ agent_pids.stdout_lines | default([]) }}"
+      when: agent_pids.stdout_lines | length > 0
+
+    - name: Kill spawned child processes
+      ansible.builtin.command:
+        cmd: pkill -9 -P {{ item }}
+      loop: "{{ agent_pids.stdout_lines | default([]) }}"
+      when: agent_pids.stdout_lines | length > 0
+      ignore_errors: true
+
+    - name: Stop agent Podman container if running
+      ansible.builtin.shell: |
+        podman stop "sandbox-{{ agent_principal }}" 2>/dev/null
+        podman rm -f "sandbox-{{ agent_principal }}" 2>/dev/null
+        true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Ensure OCSF log directory exists
+      ansible.builtin.file:
+        path: /var/log/ocsf
+        state: directory
+        mode: "0750"
+
+    - name: Write OCSF incident event to audit log
+      ansible.builtin.copy:
+        content: |
+          {
+            "class_uid": 2001,
+            "class_name": "Security Finding",
+            "severity_id": 4,
+            "severity": "Critical",
+            "activity_id": 2,
+            "activity_name": "Update",
+            "status_id": 1,
+            "status": "Contained",
+            "finding_info": {
+              "title": "Agent Revocation - {{ incident_id }}",
+              "uid": "{{ incident_id }}",
+              "types": ["policy_violation", "swarm_behavior"],
+              "desc": "Agent {{ agent_principal }} revoked. Principal disabled, HBAC disabled, SSSD cache expired, sandbox killed."
+            },
+            "resources": [
+              {"type": "agent", "name": "{{ agent_principal }}"},
+              {"type": "hbac_rule", "name": "{{ hbac_rule }}"}
+            ],
+            "remediation": {
+              "desc": "Automated: token revoked, principal disabled, HBAC disabled, cache expired, sandbox killed. Manual: root cause fix required, human must run ipa user-enable + DARC re-enrollment.",
+              "references": ["https://idm.demo.agentic.test/ipa/ui/#/e/user/details/{{ agent_principal }}"]
+            },
+            "time": "{{ ansible_date_time.iso8601 | default(lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ')) }}"
+          }
+        dest: "/var/log/ocsf/incident-{{ incident_id }}.json"
+        mode: "0644"

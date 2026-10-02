@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Operations — Agent Fleet Monitoring</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #6a6a80;
+    --red: #ee0000;
+    --red-dim: rgba(238,0,0,0.12);
+    --amber: #ffaa33;
+    --amber-dim: rgba(255,170,51,0.12);
+    --green: #44cc88;
+    --green-dim: rgba(68,204,136,0.12);
+    --blue: #5599ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, #0d0a14 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .shield-icon {
+    width: 32px; height: 32px;
+    background: var(--red);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #fff;
+  }
+
+  header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header h1 .accent { color: var(--red); }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .clock { font-variant-numeric: tabular-nums; }
+
+  /* ── Stat Tiles ── */
+  .stat-row {
+    display: flex; gap: 16px;
+    padding: 16px 28px;
+    flex-shrink: 0;
+  }
+
+  .stat-tile {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color 0.5s, background 0.5s;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+  }
+
+  .stat-value {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    transition: color 0.5s;
+  }
+
+  .stat-tile.active-agents .stat-value { color: var(--blue); }
+  .stat-tile.alerts .stat-value { color: var(--green); }
+  .stat-tile.alerts.warning .stat-value { color: var(--amber); }
+  .stat-tile.alerts.critical { border-color: var(--red); background: var(--red-dim); }
+  .stat-tile.alerts.critical .stat-value { color: var(--red); }
+  .stat-tile.threat .stat-value { color: var(--green); }
+  .stat-tile.threat.elevated .stat-value { color: var(--amber); }
+  .stat-tile.threat.critical { border-color: var(--red); background: var(--red-dim); }
+  .stat-tile.threat.critical .stat-value { color: var(--red); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  /* ── Alert Feed ── */
+  .feed-container {
+    flex: 1;
+    padding: 0 28px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feed-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+    font-size: 15px;
+  }
+  .feed-empty .check-icon {
+    width: 56px; height: 56px;
+    border: 2px solid var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: var(--green);
+  }
+  .feed-empty.hidden { display: none; }
+
+  .alert-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .alert-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .alert-stripe {
+    width: 5px;
+    flex-shrink: 0;
+  }
+  .alert-stripe.critical { background: var(--red); }
+  .alert-stripe.high { background: var(--amber); }
+
+  .alert-body {
+    flex: 1;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .severity-badge {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .severity-badge.critical { background: var(--red); color: #fff; }
+  .severity-badge.high { background: var(--amber); color: #000; }
+
+  .alert-icon { font-size: 18px; }
+
+  .alert-title {
+    font-weight: 700;
+    font-size: 15px;
+    flex: 1;
+  }
+
+  .alert-time {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    flex-shrink: 0;
+  }
+
+  .alert-desc {
+    font-size: 13px;
+    color: #b0b0c0;
+    line-height: 1.5;
+  }
+  .alert-desc code {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  .alert-meta {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    gap: 16px;
+  }
+
+  /* ── Timeline ── */
+  .timeline-bar {
+    flex-shrink: 0;
+    padding: 10px 28px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .timeline-label {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .timeline-track {
+    position: relative;
+    height: 6px;
+    background: var(--card);
+    border-radius: 3px;
+    overflow: visible;
+  }
+
+  .timeline-progress {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green) 0%, var(--amber) 40%, var(--red) 80%);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.3s linear;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: -5px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 2;
+  }
+  .timeline-marker.visible { opacity: 1; }
+  .timeline-marker.critical { background: var(--red); }
+  .timeline-marker.high { background: var(--amber); }
+
+  .timeline-markers-row {
+    position: relative;
+    height: 24px;
+    margin-top: 4px;
+  }
+
+  .timeline-marker-label {
+    position: absolute;
+    top: 2px;
+    transform: translateX(-50%);
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .timeline-marker-label.visible { opacity: 1; }
+
+  /* ── Start Button ── */
+  .start-overlay {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    transition: opacity 0.4s;
+  }
+  .start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-btn {
+    font-family: 'Red Hat Display', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 32px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .start-btn:hover { background: #cc0000; }
+  .start-btn:active { transform: scale(0.97); }
+
+  .start-hint {
+    text-align: center;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  /* ── Animations ── */
+  @keyframes flash-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--red); }
+  }
+  .alert-card.flash {
+    animation: flash-border 0.6s ease 2;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="shield-icon">&#x1F6E1;</div>
+    <h1><span class="accent">Security Operations</span> — Agent Fleet Monitoring</h1>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span>LIVE</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="stat-row">
+  <div class="stat-tile active-agents">
+    <span class="stat-label">Active Agents</span>
+    <span class="stat-value">4</span>
+    <span class="stat-sub">2 sanctioned · 1 internal · 1 unknown</span>
+  </div>
+  <div class="stat-tile alerts" id="stat-alerts">
+    <span class="stat-label">Alerts Today</span>
+    <span class="stat-value" id="alert-count">0</span>
+    <span class="stat-sub" id="alert-sub">No incidents</span>
+  </div>
+  <div class="stat-tile threat" id="stat-threat">
+    <span class="stat-label">Threat Level</span>
+    <span class="stat-value" id="threat-level">LOW</span>
+    <span class="stat-sub" id="threat-sub">All agents within policy</span>
+  </div>
+</div>
+
+<div class="feed-container" id="feed">
+  <div class="feed-empty" id="feed-empty">
+    <div class="check-icon">&#x2713;</div>
+    <div>All Clear — No active threats detected</div>
+  </div>
+</div>
+
+<div class="timeline-bar">
+  <div class="timeline-label">
+    <span>Attack Timeline</span>
+    <span id="timeline-elapsed">0s / 30s</span>
+  </div>
+  <div class="timeline-track">
+    <div class="timeline-progress" id="timeline-progress"></div>
+    <div class="timeline-marker critical" id="marker-1" style="left:20%"></div>
+    <div class="timeline-marker critical" id="marker-2" style="left:50%"></div>
+    <div class="timeline-marker high" id="marker-3" style="left:70%"></div>
+    <div class="timeline-marker high" id="marker-4" style="left:90%"></div>
+  </div>
+  <div class="timeline-markers-row">
+    <span class="timeline-marker-label" id="label-1" style="left:20%">Harvest</span>
+    <span class="timeline-marker-label" id="label-2" style="left:50%">Exfil</span>
+    <span class="timeline-marker-label" id="label-3" style="left:70%">SSL bypass</span>
+    <span class="timeline-marker-label" id="label-4" style="left:90%">No controls</span>
+  </div>
+</div>
+
+<div class="start-overlay" id="start-overlay">
+  <button class="start-btn" id="start-btn">Start Simulation</button>
+  <div class="start-hint">or press Space</div>
+</div>
+
+<script>
+const ALERTS = [
+  {
+    severity: 'critical',
+    icon: '&#x26A0;',
+    title: 'Credential Harvesting Detected',
+    desc: 'Agent <code>rogue-agent-7f3a</code> accessed <code>os.environ.copy()</code> and read 3 sensitive credential files (<code>.aws/credentials</code>, <code>.ssh/id_rsa</code>, <code>.kube/config</code>)',
+    source: 'runner.demo.agentic.test',
+    rule: 'EXFIL-002',
+    timeOffset: 6,
+    markerIdx: 1
+  },
+  {
+    severity: 'critical',
+    icon: '&#x1F4E4;',
+    title: 'Data Exfiltration In Progress',
+    desc: 'Outbound POST to external endpoint (<code>10.37.153.17:9443</code>), payload: <code>5,841 bytes</code>, encoding: <code>base64</code>. Decoded preview shows AWS access key <code>AKIADEMOCANARY...</code>',
+    source: 'runner.demo.agentic.test',
+    rule: 'EXFIL-003',
+    timeOffset: 15,
+    markerIdx: 2
+  },
+  {
+    severity: 'high',
+    icon: '&#x1F513;',
+    title: 'SSL Verification Disabled',
+    desc: 'Agent bypassed certificate validation on outbound request (<code>verify=False</code>). Man-in-the-middle exposure on exfiltration channel.',
+    source: 'runner.demo.agentic.test',
+    rule: 'NET-002',
+    timeOffset: 21,
+    markerIdx: 3
+  },
+  {
+    severity: 'high',
+    icon: '&#x1F6AB;',
+    title: 'No Security Controls',
+    desc: 'Agent running without sandbox manifest, identity enrollment, or policy registration. No audit trail. Full host access.',
+    source: 'runner.demo.agentic.test',
+    rule: 'SBX-001',
+    timeOffset: 27,
+    markerIdx: 4
+  }
+];
+
+let running = false;
+let baseTime = null;
+let timelineInterval = null;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function formatTime(d) {
+  return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = formatTime(new Date());
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function createAlertCard(alert, ts) {
+  const card = document.createElement('div');
+  card.className = 'alert-card';
+
+  card.innerHTML = `
+    <div class="alert-stripe ${alert.severity}"></div>
+    <div class="alert-body">
+      <div class="alert-header">
+        <span class="severity-badge ${alert.severity}">${alert.severity}</span>
+        <span class="alert-icon">${alert.icon}</span>
+        <span class="alert-title">${alert.title}</span>
+        <span class="alert-time">${ts}</span>
+      </div>
+      <div class="alert-desc">${alert.desc}</div>
+      <div class="alert-meta">
+        <span>src: ${alert.source}</span>
+        <span>rule: ${alert.rule}</span>
+        <span>agent: rogue-agent-7f3a</span>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function updateStats(alertIdx) {
+  const countEl = document.getElementById('alert-count');
+  const alertTile = document.getElementById('stat-alerts');
+  const alertSub = document.getElementById('alert-sub');
+  const threatEl = document.getElementById('threat-level');
+  const threatTile = document.getElementById('stat-threat');
+  const threatSub = document.getElementById('threat-sub');
+
+  countEl.textContent = alertIdx + 1;
+
+  if (alertIdx === 0) {
+    alertTile.className = 'stat-tile alerts warning';
+    alertSub.textContent = '1 active incident';
+    threatEl.textContent = 'ELEVATED';
+    threatTile.className = 'stat-tile threat elevated';
+    threatSub.textContent = 'Credential access detected';
+  } else if (alertIdx === 1) {
+    alertTile.className = 'stat-tile alerts critical';
+    alertSub.textContent = '2 critical incidents';
+    threatEl.textContent = 'CRITICAL';
+    threatTile.className = 'stat-tile threat critical';
+    threatSub.textContent = 'Active data exfiltration';
+  } else if (alertIdx >= 2) {
+    countEl.textContent = alertIdx + 1;
+    alertSub.textContent = (alertIdx + 1) + ' incidents';
+  }
+}
+
+function showMarker(idx) {
+  const m = document.getElementById('marker-' + idx);
+  const l = document.getElementById('label-' + idx);
+  if (m) m.classList.add('visible');
+  if (l) l.classList.add('visible');
+}
+
+function startSimulation() {
+  if (running) return;
+  running = true;
+
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('feed-empty').classList.add('hidden');
+
+  baseTime = new Date();
+  let alertIdx = 0;
+  const feed = document.getElementById('feed');
+  const progress = document.getElementById('timeline-progress');
+  const elapsed = document.getElementById('timeline-elapsed');
+
+  timelineInterval = setInterval(() => {
+    const now = new Date();
+    const sec = Math.min(30, (now - baseTime) / 1000);
+    progress.style.width = (sec / 30 * 100) + '%';
+    elapsed.textContent = Math.floor(sec) + 's / 30s';
+
+    if (sec >= 30) clearInterval(timelineInterval);
+  }, 100);
+
+  function showNext() {
+    if (alertIdx >= ALERTS.length) return;
+
+    const alert = ALERTS[alertIdx];
+    const ts = formatTime(new Date());
+    const card = createAlertCard(alert, ts);
+    feed.insertBefore(card, feed.firstChild);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        card.classList.add('visible');
+        card.classList.add('flash');
+      });
+    });
+
+    updateStats(alertIdx);
+    showMarker(alert.markerIdx);
+
+    alertIdx++;
+    if (alertIdx < ALERTS.length) {
+      const nextDelay = (ALERTS[alertIdx].timeOffset - alert.timeOffset) * 1000;
+      setTimeout(showNext, nextDelay);
+    }
+  }
+
+  setTimeout(showNext, ALERTS[0].timeOffset * 1000);
+}
+
+function resetSimulation() {
+  running = false;
+  if (timelineInterval) clearInterval(timelineInterval);
+
+  document.getElementById('start-overlay').classList.remove('hidden');
+  document.getElementById('feed-empty').classList.remove('hidden');
+
+  const feed = document.getElementById('feed');
+  feed.querySelectorAll('.alert-card').forEach(c => c.remove());
+
+  document.getElementById('alert-count').textContent = '0';
+  document.getElementById('stat-alerts').className = 'stat-tile alerts';
+  document.getElementById('alert-sub').textContent = 'No incidents';
+  document.getElementById('threat-level').textContent = 'LOW';
+  document.getElementById('stat-threat').className = 'stat-tile threat';
+  document.getElementById('threat-sub').textContent = 'All agents within policy';
+
+  document.getElementById('timeline-progress').style.width = '0%';
+  document.getElementById('timeline-elapsed').textContent = '0s / 30s';
+
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('marker-' + i).classList.remove('visible');
+    document.getElementById('label-' + i).classList.remove('visible');
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', startSimulation);
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !running) {
+    e.preventDefault();
+    startSimulation();
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    resetSimulation();
+  }
+});
+</script>
+
+</body>
+</html>
