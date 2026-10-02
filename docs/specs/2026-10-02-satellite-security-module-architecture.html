@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RHEL Security Configuration, Management & Remediation Architecture</title>
+<style>
+  :root {
+    --rh-red: #EE0000;
+    --rh-red-dark: #A30000;
+    --rh-blue: #06C;
+    --rh-blue-dark: #004080;
+    --rh-teal: #009596;
+    --rh-green: #3E8635;
+    --rh-orange: #F0AB00;
+    --rh-purple: #6753AC;
+    --rh-gray-1: #F5F5F5;
+    --rh-gray-2: #E0E0E0;
+    --rh-gray-3: #B8BBBE;
+    --rh-gray-6: #4D4D4D;
+    --rh-gray-8: #1A1A1A;
+    --fast-color: #EE0000;
+    --slow-color: #06C;
+    --iam-color: #6753AC;
+    --satellite-color: #3E8635;
+    --siem-color: #F0AB00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Red Hat Display', 'Segoe UI', system-ui, sans-serif;
+    background: var(--rh-gray-1);
+    color: var(--rh-gray-8);
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--rh-gray-8) 0%, #2a2a2a 100%);
+    color: white;
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header h1 { font-size: 1.6rem; font-weight: 700; line-height: 1.3; }
+  .header .subtitle { font-size: 0.9rem; color: var(--rh-gray-3); margin-top: 0.3rem; }
+  .header .badge {
+    background: var(--rh-red);
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  /* Main grid */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  /* Sections */
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-left: 4px solid var(--rh-gray-3);
+  }
+  .section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Host layer */
+  .host-section { border-left-color: var(--rh-gray-6); }
+  .host-section .section-title { color: var(--rh-gray-6); }
+
+  .event-sources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.2rem;
+  }
+  .event-source {
+    background: var(--rh-gray-1);
+    border: 1px solid var(--rh-gray-2);
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+  }
+  .event-source .name { font-weight: 600; font-size: 0.85rem; }
+  .event-source .detail { font-size: 0.7rem; color: var(--rh-gray-6); margin-top: 0.2rem; }
+
+  .collector {
+    background: var(--rh-gray-1);
+    border: 2px dashed var(--rh-gray-3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--rh-gray-6);
+  }
+  .collector .tag {
+    font-size: 0.65rem;
+    background: var(--rh-gray-2);
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+  }
+
+  /* Three paths */
+  .paths-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2rem;
+  }
+  @media (max-width: 900px) {
+    .paths-row { grid-template-columns: 1fr; }
+  }
+
+  .path-card {
+    border-radius: 12px;
+    padding: 1.2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .path-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+
+  .path-fast { background: #FFF5F5; border: 1px solid #FFCCCC; }
+  .path-fast::before { background: var(--fast-color); }
+  .path-fast .path-title { color: var(--fast-color); }
+
+  .path-slow { background: #F0F6FF; border: 1px solid #CCE0FF; }
+  .path-slow::before { background: var(--slow-color); }
+  .path-slow .path-title { color: var(--slow-color); }
+
+  .path-iam { background: #F5F0FF; border: 1px solid #D9CCF0; }
+  .path-iam::before { background: var(--iam-color); }
+  .path-iam .path-title { color: var(--iam-color); }
+
+  .path-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+  .path-speed {
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-bottom: 0.8rem;
+    opacity: 0.7;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.8rem;
+  }
+  .flow-step .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+  .path-fast .step-num { background: var(--fast-color); }
+  .path-slow .step-num { background: var(--slow-color); }
+  .path-iam .step-num { background: var(--iam-color); }
+
+  .flow-arrow {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--rh-gray-3);
+    padding: 0.15rem 0;
+  }
+
+  /* Satellite */
+  .satellite-section { border-left-color: var(--satellite-color); }
+  .satellite-section .section-title { color: var(--satellite-color); }
+
+  .tier-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 900px) {
+    .tier-row { grid-template-columns: 1fr; }
+  }
+
+  .tier-card {
+    border: 1px solid var(--rh-gray-2);
+    border-radius: 8px;
+    padding: 1rem;
+    background: var(--rh-gray-1);
+  }
+  .tier-num {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: var(--satellite-color);
+    margin-bottom: 0.3rem;
+  }
+  .tier-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .tier-component {
+    font-size: 0.75rem;
+    color: var(--rh-gray-6);
+    margin-bottom: 0.5rem;
+    font-style: italic;
+  }
+  .tier-items {
+    list-style: none;
+    font-size: 0.8rem;
+  }
+  .tier-items li {
+    padding: 0.2rem 0;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .tier-items li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--satellite-color);
+    font-weight: 700;
+  }
+
+  /* SIEM */
+  .siem-section { border-left-color: var(--siem-color); }
+  .siem-section .section-title { color: #8a6d00; }
+
+  .siem-formats {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .siem-format {
+    background: #FFF8E1;
+    border: 1px solid #FFE082;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .siem-format .label { font-weight: 700; font-size: 0.7rem; text-transform: uppercase; color: #8a6d00; }
+
+  /* Control mapping */
+  .controls-section { border-left-color: var(--rh-teal); }
+  .controls-section .section-title { color: var(--rh-teal); }
+
+  .control-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .control-tag {
+    background: #E6F7F7;
+    border: 1px solid #B2DFDF;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #006060;
+  }
+
+  /* Phasing */
+  .phases-section { border-left-color: var(--rh-gray-6); }
+  .phases-section .section-title { color: var(--rh-gray-6); }
+
+  .phase-timeline {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    position: relative;
+  }
+  @media (max-width: 900px) {
+    .phase-timeline { grid-template-columns: 1fr; }
+  }
+  .phase-card {
+    border: 1px solid var(--rh-gray-2);
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    position: relative;
+  }
+  .phase-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 8px 8px 0 0;
+  }
+  .phase-1::before { background: var(--rh-green); }
+  .phase-2::before { background: var(--rh-blue); }
+  .phase-3::before { background: var(--rh-purple); }
+
+  .phase-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .phase-1 .phase-label { color: var(--rh-green); }
+  .phase-2 .phase-label { color: var(--rh-blue); }
+  .phase-3 .phase-label { color: var(--rh-purple); }
+
+  .phase-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .phase-target { font-size: 0.7rem; color: var(--rh-gray-6); margin-bottom: 0.5rem; }
+  .phase-items {
+    list-style: none;
+    font-size: 0.78rem;
+  }
+  .phase-items li {
+    padding: 0.2rem 0;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .phase-items li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+  }
+  .phase-1 .phase-items li::before { color: var(--rh-green); }
+  .phase-2 .phase-items li::before { color: var(--rh-blue); }
+  .phase-3 .phase-items li::before { color: var(--rh-purple); }
+
+  /* PoC reference */
+  .poc-section { border-left-color: var(--rh-red); }
+  .poc-section .section-title { color: var(--rh-red); }
+
+  .poc-mapping {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.5rem 1rem;
+    font-size: 0.8rem;
+    align-items: center;
+  }
+  .poc-from {
+    text-align: right;
+    color: var(--rh-gray-6);
+  }
+  .poc-arrow {
+    color: var(--rh-red);
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .poc-to {
+    font-weight: 600;
+  }
+  .poc-divider {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rh-gray-2);
+    margin: 0.1rem 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.75rem;
+    color: var(--rh-gray-6);
+  }
+
+  /* Convergence arrows */
+  .convergence {
+    text-align: center;
+    padding: 0.5rem 0;
+  }
+  .convergence-arrow {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 30px solid transparent;
+    border-right: 30px solid transparent;
+    border-top: 18px solid var(--rh-gray-3);
+  }
+  .convergence-label {
+    font-size: 0.7rem;
+    color: var(--rh-gray-6);
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+  }
+
+  @media print {
+    body { padding: 0.5rem; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>RHEL Security Configuration, Management & Remediation</h1>
+    <div class="subtitle">Dual-Speed Architecture — Satellite + Lightspeed + Ansible + EDA + IdM</div>
+  </div>
+  <div class="badge">DRAFT — Oct 2026</div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--fast-color)"></div> Fast Path (real-time)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--slow-color)"></div> Slow Path (periodic)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--iam-color)"></div> IAM Path (event-driven)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--satellite-color)"></div> Satellite (convergence)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--siem-color)"></div> SIEM Egress</div>
+</div>
+
+<div class="arch-grid">
+
+  <!-- Managed RHEL Hosts -->
+  <div class="section host-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="8" r="1.2"/><line x1="7" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="9" x2="11" y2="9" stroke="currentColor" stroke-width="1.2"/></svg>
+      Managed RHEL Hosts — Event Sources
+    </div>
+    <div class="event-sources">
+      <div class="event-source">
+        <div class="name">SELinux</div>
+        <div class="detail">AVC denials</div>
+      </div>
+      <div class="event-source">
+        <div class="name">auditd</div>
+        <div class="detail">Syscall denials</div>
+      </div>
+      <div class="event-source">
+        <div class="name">crypto-policies</div>
+        <div class="detail">Cipher violations, policy drift</div>
+      </div>
+      <div class="event-source" style="border-color:#F0AB00; background:#FFFDE7;">
+        <div class="name">Crypto Audit Hooks</div>
+        <div class="detail">CRYPTO_* records, risky algo</div>
+      </div>
+      <div class="event-source" style="border-color:#F0AB00; background:#FFFDE7;">
+        <div class="name">PQC Readiness</div>
+        <div class="detail">Algorithm inventory, migration</div>
+      </div>
+      <div class="event-source">
+        <div class="name">firewalld / nftables</div>
+        <div class="detail">Dropped packets</div>
+      </div>
+      <div class="event-source">
+        <div class="name">fapolicyd</div>
+        <div class="detail">Unauthorized exec</div>
+      </div>
+      <div class="event-source">
+        <div class="name">OpenSCAP</div>
+        <div class="detail">Compliance scans</div>
+      </div>
+      <div class="event-source">
+        <div class="name">AIDE</div>
+        <div class="detail">File integrity</div>
+      </div>
+      <div class="event-source">
+        <div class="name">Config Drift</div>
+        <div class="detail">Baseline diff</div>
+      </div>
+    </div>
+    <div class="collector">
+      rsyslog <span class="tag">existing on every RHEL host</span>
+    </div>
+  </div>
+
+  <!-- Three Paths -->
+  <div class="paths-row">
+    <div class="path-card path-fast">
+      <div class="path-title">Fast Path</div>
+      <div class="path-speed">Seconds — real-time event stream</div>
+      <div class="flow-step"><span class="step-num">1</span> SELinux / auditd / firewall / fapolicyd event</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">2</span> rsyslog collects & forwards</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">3</span> EDA rulebook matches event pattern</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">4</span> Automated response (pre-approved)</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">5</span> Event counts → Satellite dashboard</div>
+    </div>
+
+    <div class="path-card path-slow">
+      <div class="path-title">Slow Path</div>
+      <div class="path-speed">Minutes–hours — periodic compliance</div>
+      <div class="flow-step"><span class="step-num">1</span> Satellite schedules SCAP / AIDE scan</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">2</span> Host runs scan, returns results</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">3</span> Satellite indexes findings + drift</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">4</span> Lightspeed generates remediation advice</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">5</span> Ansible remediates (manual or auto)</div>
+    </div>
+
+    <div class="path-card path-iam">
+      <div class="path-title">IAM Path</div>
+      <div class="path-speed">Event-triggered — identity response</div>
+      <div class="flow-step"><span class="step-num">1</span> Fast-path event triggers identity rule</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">2</span> EDA evaluates severity + threshold</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">3</span> IdM / FreeIPA action (HBAC, suspend)</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">4</span> ahdapa token revocation (if OAuth)</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step"><span class="step-num">5</span> Status reflected in Satellite</div>
+    </div>
+  </div>
+
+  <!-- Convergence -->
+  <div class="convergence">
+    <div class="convergence-label">All paths converge ▼</div>
+    <div class="convergence-arrow"></div>
+  </div>
+
+  <!-- Satellite -->
+  <div class="section satellite-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 3 L5.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 3 L10.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13 L5.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 13 L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Red Hat Satellite — Security Dashboard (Unified Posture View)
+    </div>
+    <div class="tier-row">
+      <div class="tier-card">
+        <div class="tier-num">Tier 1</div>
+        <div class="tier-name">Visibility</div>
+        <div class="tier-component">Satellite Security Dashboard</div>
+        <ul class="tier-items">
+          <li>Event counts by category per host</li>
+          <li>SCAP compliance scores + trends</li>
+          <li>Drift indicators (baseline divergence)</li>
+          <li>Identity status (suspensions, revocations)</li>
+          <li>Top findings by control mapping</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-num">Tier 2</div>
+        <div class="tier-name">Advice</div>
+        <div class="tier-component">Lightspeed On-Prem</div>
+        <ul class="tier-items">
+          <li>AI-generated remediation guidance</li>
+          <li>Host context + compliance baseline</li>
+          <li>Suggested Ansible playbook snippets</li>
+          <li>Advisory only — human approval required</li>
+          <li>On-prem only (no cloud data egress)</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-num">Tier 3</div>
+        <div class="tier-name">Remediation</div>
+        <div class="tier-component">Ansible + EDA</div>
+        <ul class="tier-items">
+          <li>Manual: Satellite launches playbook</li>
+          <li>Auto: EDA pre-approved rules</li>
+          <li>Post-remediation rescan confirms fix</li>
+          <li>Circuit breaker on repeated failures</li>
+          <li>IAM actions via IdM (not Satellite)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Control Mapping -->
+  <div class="section controls-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1 L14 4 V8 C14 12 8 15 8 15 C8 15 2 12 2 8 V4 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8 L7 9.5 L10.5 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Control Mapping — Every Event Carries Compliance References
+    </div>
+    <div class="control-tags">
+      <div class="control-tag">CIS Benchmarks</div>
+      <div class="control-tag">DISA STIG</div>
+      <div class="control-tag">PCI-DSS</div>
+      <div class="control-tag">NIST 800-53</div>
+      <div class="control-tag">Custom (CompliTime)</div>
+      <div class="control-tag">MITRE ATT&CK (from PoC)</div>
+    </div>
+  </div>
+
+  <!-- SIEM Egress -->
+  <div class="section siem-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4 H14 M2 8 H14 M2 12 H14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 2 L14 4 L11 6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      SIEM Webhook Egress — Customer's Existing SIEM
+    </div>
+    <div class="siem-formats">
+      <div class="siem-format"><div class="label">Default</div>syslog RFC 5424</div>
+      <div class="siem-format"><div class="label">Toggle</div>CEF Format</div>
+      <div class="siem-format"><div class="label">Configurable</div>Webhook JSON</div>
+      <div class="siem-format"><div class="label">Destinations</div>Splunk · QRadar · Elastic · Wazuh</div>
+    </div>
+  </div>
+
+  <!-- Crypto Auditing & Monitoring Modes -->
+  <div class="section" style="border-left-color: #F0AB00;">
+    <div class="section-title" style="color: #8a6d00;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1 L2 5 V8 C2 12 8 15 8 15 C8 15 14 12 14 8 V5 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8 H10 M8 6 V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Crypto Auditing &amp; PQC Readiness — Toggleable Monitoring Hooks
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div>
+        <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.6rem; color:#8a6d00;">Risky Crypto Detection (Fast Path)</div>
+        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+          <div style="background:#FFFDE7; border:1px solid #FFE082; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.78rem;">
+            <strong>RSA &lt; 3072</strong> — CNSA 2.0 non-compliant by 2030
+          </div>
+          <div style="background:#FFFDE7; border:1px solid #FFE082; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.78rem;">
+            <strong>SHA-1 certs</strong> — collision-vulnerable (CIS, FIPS 140-3)
+          </div>
+          <div style="background:#FFFDE7; border:1px solid #FFE082; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.78rem;">
+            <strong>3DES / RC4</strong> — known-broken (PCI-DSS 4.0 &sect;4.2.1)
+          </div>
+          <div style="background:#FFFDE7; border:1px solid #FFE082; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.78rem;">
+            <strong>ECDSA without PQC hybrid</strong> — harvest-now-decrypt-later risk
+          </div>
+          <div style="background:#FFFDE7; border:1px solid #FFE082; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.78rem;">
+            <strong>Policy != FIPS/FUTURE</strong> — weaker than org baseline
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.6rem; color:#8a6d00;">Monitoring Modes (Toggle per Host Group)</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:8px; padding:0.75rem; text-align:center;">
+            <div style="font-weight:700; font-size:0.85rem; color:#2E7D32;">Assessment</div>
+            <div style="font-size:0.72rem; color:#4D4D4D; margin-top:0.3rem;">All hooks enabled<br>Verbose logging<br>High volume (temporary)<br>Baseline discovery &amp; audit prep</div>
+          </div>
+          <div style="background:#E3F2FD; border:1px solid #90CAF9; border-radius:8px; padding:0.75rem; text-align:center;">
+            <div style="font-weight:700; font-size:0.85rem; color:#1565C0;">Continuous</div>
+            <div style="font-size:0.72rem; color:#4D4D4D; margin-top:0.3rem;">Violation-only hooks<br>Filtered logging<br>Low volume (sustained)<br>Day-to-day monitoring</div>
+          </div>
+        </div>
+        <div style="font-size:0.72rem; color:#4D4D4D; margin-top:0.5rem; font-style:italic; text-align:center;">
+          Toggle via Satellite &rarr; Ansible pushes audit rules + rsyslog filters
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phasing -->
+  <div class="section phases-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="8" x2="10" y2="8" stroke="currentColor" stroke-width="1.5"/></svg>
+      Phasing
+    </div>
+    <div class="phase-timeline">
+      <div class="phase-card phase-1">
+        <div class="phase-label">Phase 1</div>
+        <div class="phase-name">Visibility Foundation</div>
+        <div class="phase-target">Target: Satellite 6.22 / Nov 2027</div>
+        <ul class="phase-items">
+          <li>SELinux AVC event counts</li>
+          <li>SCAP compliance + control mapping</li>
+          <li>Host security posture score</li>
+          <li>SIEM webhook egress (syslog)</li>
+        </ul>
+      </div>
+      <div class="phase-card phase-2">
+        <div class="phase-label">Phase 2</div>
+        <div class="phase-name">Advice + Drift</div>
+        <div class="phase-target">Target: TBD (post Phase 1)</div>
+        <ul class="phase-items">
+          <li>Lightspeed integration</li>
+          <li>Config drift detection</li>
+          <li>Broader event sources</li>
+          <li>Multi-framework mapping</li>
+        </ul>
+      </div>
+      <div class="phase-card phase-3">
+        <div class="phase-label">Phase 3</div>
+        <div class="phase-name">Automated Response</div>
+        <div class="phase-target">Target: TBD (post Phase 2)</div>
+        <ul class="phase-items">
+          <li>EDA automated remediation</li>
+          <li>IAM response path (IdM)</li>
+          <li>Circuit breaker patterns</li>
+          <li>Partner plugin extension</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- PoC Reference -->
+  <div class="section poc-section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8 H6 L7 4 L9 12 L10 8 H14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Relationship to Agentic Security PoC (Working Reference Implementation)
+    </div>
+    <div class="poc-mapping">
+      <div class="poc-from">Falco eBPF rules</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">SELinux / auditd / firewall / fapolicyd</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">falco-siem-bridge</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">Control mapping service (CIS/STIG/PCI)</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">EDA revocation playbook</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">EDA remediation playbooks (Tier 3)</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">Wazuh SIEM dashboard</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">Satellite security dashboard (Tier 1)</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">MITRE ATT&CK mapping</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">Compliance control mapping</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">Agent trust tiers</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">Host compliance posture score</div>
+      <div class="poc-divider"></div>
+      <div class="poc-from">ahdapa token revocation</div>
+      <div class="poc-arrow">→</div>
+      <div class="poc-to">IdM HBAC / service principal actions</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  RHEL Security Architecture — Draft Oct 2026 — Amy Ralph, Lukas Vrabec — Stakeholders: Eric Helms, Emily Fox
+</div>
+
+</body>
+</html>
