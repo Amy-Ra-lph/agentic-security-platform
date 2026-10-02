@@ -1,0 +1,29 @@
+<job>
+  <whiteboard>PoC Lab — SIEM Dashboard (Wazuh)</whiteboard>
+  <recipeSet>
+    <recipe whiteboard="siem-dashboard" role="SIEM">
+      <distroRequires>
+        <and>
+          <distro_family op="=" value="RedHatEnterpriseLinux10"/>
+          <distro_tag op="=" value="RTT_ACCEPTED"/>
+          <distro_arch op="=" value="x86_64"/>
+        </and>
+      </distroRequires>
+      <hostRequires>
+        <and>
+          <system_type value="Machine"/>
+          <memory op=">=" value="8192"/>
+          <disk_size op=">=" value="40" units="GB"/>
+        </and>
+      </hostRequires>
+      <repos/>
+      <partitions/>
+      <task name="/distribution/install"/>
+      <task name="/distribution/reservesys">
+        <params>
+          <param name="RESERVETIME" value="172800"/>
+        </params>
+      </task>
+    </recipe>
+  </recipeSet>
+</job>

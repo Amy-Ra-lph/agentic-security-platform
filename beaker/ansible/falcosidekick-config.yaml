@@ -40,3 +40,12 @@ elasticsearch:
 
 loki:
   hostport: ""
+
+# Syslog output — DISABLED by default (demo uses bridge path).
+# Set host to SIEM IP to enable dual-path (Falcosidekick + bridge both emit).
+syslog:
+  host: ""
+  port: 514
+  protocol: "tcp"
+  minimumpriority: "warning"
+  format: "json"

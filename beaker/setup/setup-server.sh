@@ -122,7 +122,7 @@ done
 SVC_PRINC="governed-agent/${CLIENT_IPA}"
 if ! ipa service-show "${SVC_PRINC}" &>/dev/null; then
     ipa host-add "${CLIENT_IPA}" --force 2>/dev/null || true
-    ipa service-add "${SVC_PRINC}"
+    ipa service-add "${SVC_PRINC}" --force
     log "Created service principal: ${SVC_PRINC}"
 else
     log "Service principal ${SVC_PRINC} already exists"

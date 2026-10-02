@@ -1,0 +1,23 @@
+<!-- Custom decoder for agentic security syslog events (RFC 5424 SD). -->
+<!-- Deploy to /var/ossec/etc/decoders/agentic-security-decoder.xml -->
+
+<decoder name="agentic-security">
+  <prematch>falco-siem-bridge</prematch>
+</decoder>
+
+<decoder name="agentic-security-fields">
+  <parent>agentic-security</parent>
+  <regex>alert_type="(\S+)" agent_principal="(\S+)" agent_realm="(\S+)" mitre_id="(\S+)"</regex>
+  <order>alert_type,agent_principal,agent_realm,mitre_id</order>
+</decoder>
+
+<!-- Decoder for OCSF incident events forwarded via rsyslog -->
+<decoder name="ocsf-incident">
+  <prematch>ocsf-incident</prematch>
+</decoder>
+
+<decoder name="ocsf-incident-fields">
+  <parent>ocsf-incident</parent>
+  <regex>"class_name": "(\S+)"</regex>
+  <order>ocsf_class</order>
+</decoder>

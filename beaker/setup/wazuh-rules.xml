@@ -1,0 +1,52 @@
+<!-- Custom rules for agentic security alerts. -->
+<!-- Deploy to /var/ossec/etc/rules/agentic-security-rules.xml -->
+
+<group name="agentic-security,">
+
+  <rule id="100100" level="12">
+    <decoded_as>agentic-security</decoded_as>
+    <field name="alert_type">swarm</field>
+    <description>Agent swarm behavior detected: $(agent_principal)</description>
+    <mitre>
+      <id>T1059.006</id>
+    </mitre>
+    <group>agentic-security,swarm,</group>
+  </rule>
+
+  <rule id="100101" level="12">
+    <decoded_as>agentic-security</decoded_as>
+    <field name="alert_type">exfiltration</field>
+    <description>Agent exfiltration detected: $(agent_principal)</description>
+    <mitre>
+      <id>T1552.001</id>
+    </mitre>
+    <group>agentic-security,exfiltration,</group>
+  </rule>
+
+  <rule id="100102" level="10">
+    <decoded_as>agentic-security</decoded_as>
+    <field name="alert_type">escalation</field>
+    <description>Agent privilege escalation: $(agent_principal)</description>
+    <mitre>
+      <id>T1078.003</id>
+    </mitre>
+    <group>agentic-security,escalation,</group>
+  </rule>
+
+  <rule id="100103" level="14">
+    <decoded_as>agentic-security</decoded_as>
+    <field name="alert_type">escape</field>
+    <description>Agent sandbox escape attempt: $(agent_principal)</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>agentic-security,escape,</group>
+  </rule>
+
+  <rule id="100110" level="12">
+    <decoded_as>ocsf-incident</decoded_as>
+    <description>OCSF incident: agent revocation completed</description>
+    <group>agentic-security,incident,</group>
+  </rule>
+
+</group>

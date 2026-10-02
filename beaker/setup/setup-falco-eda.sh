@@ -54,23 +54,24 @@ mkdir -p /etc/falcosidekick
 cp "${ANSIBLE_DIR}/falcosidekick-config.yaml" /etc/falcosidekick/config.yaml
 echo "Deployed: /etc/falcosidekick/config.yaml"
 
-# ── 4. Deploy Falco→EDA bridge ──────────────────────────────────
-echo "--- Deploying Falco-EDA bridge ---"
+# ── 4. Deploy Falco→SIEM bridge ─────────────────────────────────
+echo "--- Deploying Falco-SIEM bridge ---"
 BRIDGE_DIR="/opt/demo/bridge"
 mkdir -p "$BRIDGE_DIR"
-cp "${ANSIBLE_DIR}/falco-eda-bridge.py" "${BRIDGE_DIR}/"
-chmod +x "${BRIDGE_DIR}/falco-eda-bridge.py"
-echo "Deployed: ${BRIDGE_DIR}/falco-eda-bridge.py"
+cp "${ANSIBLE_DIR}/falco_siem_bridge.py" "${BRIDGE_DIR}/"
+chmod +x "${BRIDGE_DIR}/falco_siem_bridge.py"
+echo "Deployed: ${BRIDGE_DIR}/falco_siem_bridge.py"
 
 # Create systemd unit for the bridge
-cat > /etc/systemd/system/falco-eda-bridge.service <<'UNIT'
+# --syslog-host is added by setup-siem.sh if SIEM VM is configured
+cat > /etc/systemd/system/falco-siem-bridge.service <<'UNIT'
 [Unit]
-Description=Falco to EDA Webhook Bridge
+Description=Falco to EDA + SIEM Webhook Bridge
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/demo/bridge/falco-eda-bridge.py --port 5001 --eda-url http://localhost:5000
+ExecStart=/usr/bin/python3 /opt/demo/bridge/falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000
 Restart=on-failure
 RestartSec=5
 
@@ -79,7 +80,7 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-echo "Created: falco-eda-bridge.service"
+echo "Created: falco-siem-bridge.service"
 
 # ── 5. Install ansible-rulebook (EDA) ───────────────────────────
 if ! command -v ansible-rulebook >/dev/null 2>&1; then
@@ -160,8 +161,8 @@ echo "=== Falco → EDA Pipeline Smoke Test ==="
 
 # Check bridge is listening
 if ! curl -sf http://localhost:5001/ >/dev/null 2>&1; then
-    echo "Bridge not running on :5001. Start with: systemctl start falco-eda-bridge"
-    echo "  or: python3 /opt/demo/bridge/falco-eda-bridge.py &"
+    echo "Bridge not running on :5001. Start with: systemctl start falco-siem-bridge"
+    echo "  or: python3 /opt/demo/bridge/falco_siem_bridge.py &"
     exit 1
 fi
 
@@ -202,7 +203,7 @@ else
 fi
 
 echo ""
-echo "Check bridge logs: journalctl -u falco-eda-bridge -f"
+echo "Check bridge logs: journalctl -u falco-siem-bridge -f"
 echo "Check EDA logs:    journalctl -u eda-agent-anomaly -f"
 SMOKE
 chmod +x /opt/demo/bridge/smoke-test.sh
@@ -215,14 +216,14 @@ echo ""
 echo "  Components:"
 echo "    Falco rules:      /etc/falco/rules.d/falco-rules-agent-security.yaml"
 echo "    Falcosidekick:    /etc/falcosidekick/config.yaml"
-echo "    Bridge:           /opt/demo/bridge/falco-eda-bridge.py"
+echo "    Bridge:           /opt/demo/bridge/falco_siem_bridge.py"
 echo "    EDA rulebook:     /opt/demo/ansible/agent-anomaly-rulebook.yml"
 echo "    Revocation:       /opt/demo/ansible/agent-revocation.yml"
 echo "    OCSF logs:        /var/log/ocsf/"
 echo ""
 echo "  Start services:"
 echo "    systemctl start falco"
-echo "    systemctl start falco-eda-bridge"
+echo "    systemctl start falco-siem-bridge"
 echo "    systemctl start eda-agent-anomaly"
 echo ""
 echo "  Or start Falcosidekick as container:"

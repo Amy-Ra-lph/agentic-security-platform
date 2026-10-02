@@ -8,7 +8,7 @@ STAGING := /opt/demo-staging
 SSH_OPTS := -o StrictHostKeyChecking=no -o ConnectTimeout=10
 TOOLKIT_IMAGE := quay.io/rhn_support_afarley/rhel-security-toolkit:latest
 
-.PHONY: beaker setup setup-server setup-client demo act1 act2 act3 act4 act5 record teardown validate help
+.PHONY: beaker setup setup-server setup-client setup-siem demo act1 act2 act3 act4 act5 record teardown validate validate-siem help
 
 beaker: ## Submit Beaker job, wait for provisioning, write inventory.env
 	@echo "Submit job.xml via the Beaker REST API:"
@@ -82,6 +82,27 @@ validate: setup/inventory.env ## Smoke test: IPA, ahdapa, containers, honeypot
 	ssh $(SSH_OPTS) root@$(CLIENT) "podman image exists $(TOOLKIT_IMAGE) && echo 'Toolkit image: OK' || echo 'Toolkit image: FAIL'"
 	ssh $(SSH_OPTS) root@$(CLIENT) "test -f ~/.aws/credentials && echo 'Honeypot: OK' || echo 'Honeypot: FAIL'"
 	ssh $(SSH_OPTS) root@$(CLIENT) "test -f /opt/demo/agents/rogue_agent.py && echo 'Agents: OK' || echo 'Agents: FAIL'"
+
+setup-siem: setup/inventory.env ## Set up System 3 (Wazuh SIEM dashboard)
+	@echo "=== Setting up SIEM: $(SIEM) ==="
+	ssh $(SSH_OPTS) root@$(SIEM) "mkdir -p $(STAGING)"
+	scp $(SSH_OPTS) setup/setup-siem.sh setup/wazuh-decoders.xml setup/wazuh-rules.xml root@$(SIEM):$(STAGING)/
+	ssh $(SSH_OPTS) root@$(SIEM) "chmod +x $(STAGING)/setup-siem.sh && $(STAGING)/setup-siem.sh"
+	@echo "--- Deploying rsyslog forwarder on runner ---"
+	scp $(SSH_OPTS) ansible/rsyslog-ocsf-forwarder.conf root@$(CLIENT):/etc/rsyslog.d/90-ocsf-forwarder.conf
+	ssh $(SSH_OPTS) root@$(CLIENT) "SIEM_IP=$$(getent hosts $(SIEM) | awk '{print $$1}') && sed -i \"s/SIEM_HOST/$$SIEM_IP/g\" /etc/rsyslog.d/90-ocsf-forwarder.conf && systemctl restart rsyslog"
+	@echo "--- Updating bridge systemd unit with syslog destination ---"
+	ssh $(SSH_OPTS) root@$(CLIENT) "SIEM_IP=$$(getent hosts $(SIEM) | awk '{print $$1}') && sed -i \"s|falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000|falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 --syslog-host $$SIEM_IP --syslog-port 514|\" /etc/systemd/system/falco-siem-bridge.service && systemctl daemon-reload && systemctl restart falco-siem-bridge" 2>/dev/null || true
+	@echo "=== SIEM setup complete ==="
+
+validate-siem: setup/inventory.env ## Validate SIEM receives syslog events
+	@echo "--- Validating SIEM ($(SIEM)) ---"
+	ssh $(SSH_OPTS) root@$(SIEM) "systemctl is-active wazuh-manager && echo 'Wazuh manager: OK' || echo 'Wazuh manager: FAIL'"
+	ssh $(SSH_OPTS) root@$(SIEM) "systemctl is-active wazuh-indexer && echo 'Wazuh indexer: OK' || echo 'Wazuh indexer: FAIL'"
+	ssh $(SSH_OPTS) root@$(SIEM) "systemctl is-active wazuh-dashboard && echo 'Wazuh dashboard: OK' || echo 'Wazuh dashboard: FAIL'"
+	ssh $(SSH_OPTS) root@$(SIEM) "ss -tlnp | grep -q ':514' && echo 'Syslog intake: OK' || echo 'Syslog intake: FAIL'"
+	@echo "--- Sending test event from runner ---"
+	ssh $(SSH_OPTS) root@$(CLIENT) "logger -n $(SIEM) -P 514 --tcp '<134>1 2026-10-02T12:00:00Z test falco-siem-bridge - TEST-001 [agent-security alert_type=\"swarm\" agent_principal=\"test-agent\" agent_realm=\"DEMO.AGENTIC.TEST\" mitre_id=\"T1059.006\" ocsf_class_uid=\"2001\" severity=\"critical\"] Smoke test event' && echo 'Test event sent: OK'"
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
