@@ -40,6 +40,19 @@ mkdir -p /etc/falco/rules.d
 cp "${ANSIBLE_DIR}/falco-rules-agent-security.yaml" /etc/falco/rules.d/
 echo "Deployed: /etc/falco/rules.d/falco-rules-agent-security.yaml"
 
+# Configure Falco: HTTP output → bridge, JSON mode
+mkdir -p /etc/falco/config.d
+cat > /etc/falco/config.d/http-output.yaml <<'HTTPCONF'
+http_output:
+  enabled: true
+  url: "http://localhost:5001"
+
+json_output: true
+json_include_output_property: true
+json_include_tags_property: true
+HTTPCONF
+echo "Configured: Falco http_output → bridge :5001"
+
 # ── 3. Install Falcosidekick ────────────────────────────────────
 if ! command -v falcosidekick >/dev/null 2>&1 && ! podman image exists docker.io/falcosecurity/falcosidekick:latest 2>/dev/null; then
     echo "--- Installing Falcosidekick ---"
@@ -62,25 +75,7 @@ cp "${ANSIBLE_DIR}/falco_siem_bridge.py" "${BRIDGE_DIR}/"
 chmod +x "${BRIDGE_DIR}/falco_siem_bridge.py"
 echo "Deployed: ${BRIDGE_DIR}/falco_siem_bridge.py"
 
-# Create systemd unit for the bridge
-# --syslog-host is added by setup-siem.sh if SIEM VM is configured
-cat > /etc/systemd/system/falco-siem-bridge.service <<'UNIT'
-[Unit]
-Description=Falco to EDA + SIEM Webhook Bridge
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 /opt/demo/bridge/falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-systemctl daemon-reload
-echo "Created: falco-siem-bridge.service"
+# Systemd unit created below after EDA token is generated (section 5)
 
 # ── 5. Install ansible-rulebook (EDA) ───────────────────────────
 if ! command -v ansible-rulebook >/dev/null 2>&1; then
@@ -123,7 +118,28 @@ VARS
     sed -i "s/{{ eda_webhook_token }}/${EDA_TOKEN}/" /etc/falcosidekick/config.yaml
 else
     echo "EDA vars already exist: ${EDA_VARS}"
+    EDA_TOKEN=$(grep eda_webhook_token "$EDA_VARS" | awk -F'"' '{print $2}')
 fi
+
+# Create systemd unit for the bridge (needs EDA token for auth)
+# --syslog-host is added by setup-siem.sh if SIEM VM is configured
+cat > /etc/systemd/system/falco-siem-bridge.service <<UNIT
+[Unit]
+Description=Falco to EDA + SIEM Webhook Bridge
+After=network.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/demo/bridge/falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 --eda-token ${EDA_TOKEN}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+echo "Created: falco-siem-bridge.service (with EDA auth token)"
 
 # Create systemd unit for EDA
 cat > /etc/systemd/system/eda-agent-anomaly.service <<UNIT

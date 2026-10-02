@@ -52,7 +52,7 @@ def extract_agent_principal(output_fields: dict, output: str) -> str:
     match = re.search(r"agent=(\S+)", output)
     if match:
         return match.group(1)
-    return output_fields.get("proc.pname", "unknown-agent")
+    return output_fields.get("proc.name", output_fields.get("proc.pname", "unknown-agent"))
 
 
 def transform(falco_event: dict) -> dict:
@@ -142,6 +142,7 @@ def send_syslog(payload: dict, host: str, port: int, proto: str, cef: bool):
 
 class BridgeHandler(BaseHTTPRequestHandler):
     eda_url = "http://localhost:5000"
+    eda_token = ""
     syslog_host = ""
     syslog_port = 514
     syslog_proto = "tcp"
@@ -164,10 +165,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
               f"{p['alert_type']}/{p['rule']} mitre={p['mitre_id']}")
 
         try:
+            headers = {"Content-Type": "application/json"}
+            if self.eda_token:
+                headers["Authorization"] = f"Bearer {self.eda_token}"
             req = Request(
                 self.eda_url,
                 data=json.dumps(eda_event).encode(),
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST",
             )
             with urlopen(req, timeout=5) as resp:
@@ -189,6 +193,8 @@ def main():
     parser = argparse.ArgumentParser(description="Falco → EDA + SIEM bridge")
     parser.add_argument("--port", type=int, default=5001)
     parser.add_argument("--eda-url", default="http://localhost:5000")
+    parser.add_argument("--eda-token", default="",
+                        help="Bearer token for EDA webhook authentication")
     parser.add_argument("--syslog-host", default="")
     parser.add_argument("--syslog-port", type=int, default=514)
     parser.add_argument("--syslog-proto", choices=["tcp", "udp"], default="tcp")
@@ -197,6 +203,7 @@ def main():
     args = parser.parse_args()
 
     BridgeHandler.eda_url = args.eda_url
+    BridgeHandler.eda_token = args.eda_token
     BridgeHandler.syslog_host = args.syslog_host
     BridgeHandler.syslog_port = args.syslog_port
     BridgeHandler.syslog_proto = args.syslog_proto

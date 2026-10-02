@@ -102,12 +102,19 @@ class TestTransform(unittest.TestCase):
         result = transform(event)
         self.assertEqual(result["payload"]["agent_principal"], "code-assist-9a2b")
 
-    def test_agent_principal_fallback_to_pname(self):
+    def test_agent_principal_fallback_to_proc_name(self):
         event = {**SAMPLE_FALCO_EVENT}
-        event["output_fields"] = {"proc.pname": "rogue-binary"}
+        event["output_fields"] = {"proc.name": "rogue-binary"}
         event["output"] = "no agent= tag here"
         result = transform(event)
         self.assertEqual(result["payload"]["agent_principal"], "rogue-binary")
+
+    def test_agent_principal_fallback_to_pname_when_no_proc_name(self):
+        event = {**SAMPLE_FALCO_EVENT}
+        event["output_fields"] = {"proc.pname": "parent-proc"}
+        event["output"] = "no agent= tag here"
+        result = transform(event)
+        self.assertEqual(result["payload"]["agent_principal"], "parent-proc")
 
 
 class TestSyslogFormat(unittest.TestCase):

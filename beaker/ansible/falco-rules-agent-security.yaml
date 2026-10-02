@@ -27,16 +27,16 @@
 
 - rule: Agent Swarm — Mass Process Fork
   desc: >-
-    Single agent parent spawns 3+ children within 10 seconds.
+    Agent process spawns deeply nested child processes.
     Fork bomb / swarm amplification pattern.
   condition: >-
     spawned_process and
     proc.pname in (python3, python, node) and
     proc.aname[2] in (python3, python, node) and
-    evt.count[proc.ppid] >= 3
+    proc.aname[3] in (python3, python, node)
   output: >-
     SWARM-MASS: Agent fork amplification detected
-    (agent=%proc.pname pid=%proc.ppid children=%evt.count[proc.ppid]
+    (agent=%proc.pname pid=%proc.ppid
     user=%user.name)
   priority: CRITICAL
   tags: [agentic-security, swarm, SWARM-002]
@@ -48,17 +48,16 @@
     (.aws/credentials, .ssh/id_rsa, .kube/config, krb5.keytab).
   condition: >-
     open_read and
-    proc.pname in (python3, python, node) and
+    proc.name in (python3, python, node) and
     (fd.name endswith ".aws/credentials" or
      fd.name endswith ".ssh/id_rsa" or
      fd.name endswith ".ssh/id_ed25519" or
      fd.name endswith ".kube/config" or
      fd.name endswith "krb5.keytab" or
-     fd.name endswith ".netrc") and
-    not container.id = host
+     fd.name endswith ".netrc")
   output: >-
     EXFIL: Agent read credential file
-    (agent=%proc.pname file=%fd.name pid=%proc.pid
+    (agent=%proc.name file=%fd.name pid=%proc.pid
     user=%user.name container=%container.name)
   priority: CRITICAL
   tags: [agentic-security, exfiltration, EXFIL-002]
@@ -70,12 +69,12 @@
     endpoint. Detects exfiltration channel establishment.
   condition: >-
     outbound and
-    proc.pname in (python3, python, node) and
+    proc.name in (python3, python, node) and
     not fd.sip in (agent_allowed_hosts) and
     fd.sport in (443, 8443, 9443)
   output: >-
     EXFIL: Agent outbound connection to external endpoint
-    (agent=%proc.pname dest=%fd.sip:%fd.sport pid=%proc.pid
+    (agent=%proc.name dest=%fd.sip:%fd.sport pid=%proc.pid
     user=%user.name)
   priority: CRITICAL
   tags: [agentic-security, exfiltration, EXFIL-003]
@@ -104,7 +103,7 @@
     its policy ceiling (detected via ahdapa token endpoint calls).
   condition: >-
     outbound and
-    proc.pname in (python3, python, node, curl) and
+    proc.name in (python3, python, node, curl) and
     fd.sip in (ipa_server_ips) and
     fd.sport = 443 and
     proc.cmdline contains "scope=" and
@@ -113,7 +112,7 @@
      proc.cmdline contains "write" and not proc.cmdline contains "code:write")
   output: >-
     SCOPE: Agent requested unauthorized scope escalation
-    (agent=%proc.pname cmd=%proc.cmdline pid=%proc.pid
+    (agent=%proc.name cmd=%proc.cmdline pid=%proc.pid
     user=%user.name)
   priority: WARNING
   tags: [agentic-security, escalation, SCOPE-001]
@@ -128,10 +127,10 @@
     (evt.type in (setns, unshare, mount) or
      (open_write and fd.name startswith "/proc/") or
      (open_write and fd.name startswith "/sys/fs/cgroup")) and
-    proc.pname in (python3, python, node, bash, sh)
+    proc.name in (python3, python, node, bash, sh)
   output: >-
     ESCAPE: Agent sandbox escape attempt
-    (agent=%proc.pname action=%evt.type target=%fd.name
+    (agent=%proc.name action=%evt.type target=%fd.name
     pid=%proc.pid container=%container.name)
   priority: CRITICAL
   tags: [agentic-security, sandbox-escape, SBX-002]
@@ -143,4 +142,4 @@
   items: []
 
 - list: ipa_server_ips
-  items: [10.37.153.17]
+  items: [10.6.6.208]
