@@ -277,14 +277,48 @@ Mapping data source: SCAP content (existing), extended with custom profile suppo
 - Circuit breaker patterns
 - Plugin extension point for partner ecosystems (EDR, etc.)
 
+## Relationship to AAP XDR Fabric
+
+The AAP team's "AAP as an XDR Fabric" concept ([deck](https://docs.google.com/presentation/d/1uS03jhg0VbSrRIi79O9ZNGxW88kxjlCDwUtBA84MwTU/edit)) positions AAP as the orchestration layer across CrowdStrike, Splunk, ServiceNow, Vault, and other security tools. The architectures are complementary — this spec covers the visibility/management layer (Satellite + Lightspeed), AAP XDR covers execution/orchestration (AAP + EDA + collections).
+
+### Alignment Points
+
+| This Architecture | AAP XDR Fabric | Status |
+|---|---|---|
+| Fast path (rsyslog → EDA) | Scan → normalize → EDA → remediate → re-verify | Same core pattern |
+| Bridge enrichment (normalize, map controls) | Flink correlation layer (Normalize → Dedup → Enrich → Correlate → Detect) | AAP adds dedup + correlation stage |
+| Tier 3 EDA remediation | Pre-approved EDA rulebooks + targeted playbooks | Aligned |
+| Tier 2 Lightspeed advice | Lightspeed integration (mostly DESIGN/NOT BUILT) | Both early stage |
+| SCAP/ComplyTime compliance scans | ComplyTime (BUILT 1/4 subcapabilities) | Shared dependency |
+| Crypto audit hooks + PQC readiness | `pqc.ansible` collection + `crypto_posture_snapshot` | Complementary — **CME-408+ taxonomy gap is OPEN/UNOWNED** |
+| SIEM webhook egress | Splunk 6-index data model + Wazuh | Our egress feeds their ingest |
+| Control mapping (CIS/STIG/PCI) | MITRE ATT&CK (97/118 techniques LIVE) + D3FEND (GAP) | Parallel mapping efforts |
+
+### Design Constraints (build to interoperate)
+
+1. **Event format compatibility.** Our fast-path events must be consumable by the Flink correlation layer. Use Common Findings Format (CFF) v1.0.0 as the normalization target — AAP XDR already standardizes on it.
+2. **EDA rulebook conventions.** Tier 3 remediation playbooks should follow AAP collection patterns (e.g., `secops.*`, `community.crypto`) so they're portable between Satellite-triggered and AAP-triggered execution.
+3. **Crypto/PQC taxonomy.** CME-408+ is unowned. Our crypto audit hooks and PQC readiness scans should produce findings in a format that feeds the CME residual-risk join. Opportunity to own this gap.
+4. **Flink as enrichment layer.** At scale (10K+ hosts), consider Flink for dedup/correlation in front of EDA rather than rsyslog-direct. AAP has this BUILT (Podman Compose stack, synthetic sources). Our bridge pattern maps to their Normalize+Enrich stages.
+5. **Splunk/Wazuh index model.** SIEM egress should align with the ZTA Workshop 6-index Splunk model (zta_syslog, zta_app, zta_vault, zta_opa, zta_network, zta_wazuh) so AAP XDR correlation rules work on our events without custom mappings.
+6. **ServiceNow ITSM.** Satellite findings that generate ITSM tickets should use the ServiceNow CMDB enrichment pattern AAP already has (servicenow.itsm collection). Don't build a parallel ticket pipeline.
+
+### Proven Benchmarks (from AAP XDR)
+
+- 57% CVSS reduction on a real CVE using the scan → remediate → verify loop
+- 28-second detection-to-containment chain (Splunk alert → Vault credential revocation)
+- 97/118 MITRE ATT&CK techniques covered in LIVE testing
+
 ## Open Questions
 
-1. **Event volume:** Fast-path events at scale (10K+ hosts) — does Satellite ingest raw events or pre-aggregated summaries from hosts?
+1. **Event volume:** Fast-path events at scale (10K+ hosts) — does Satellite ingest raw events or pre-aggregated summaries from hosts? Consider Flink dedup/correlation layer (AAP XDR pattern) for pre-aggregation.
 2. **Lightspeed context window:** How much host context can Lightspeed on-prem ingest per finding? Full compliance scan + event history may exceed model limits.
-3. **EDA hosting:** Does EDA run on Satellite, on a separate Ansible Automation Platform instance, or on the managed hosts themselves?
-4. **Partner plugin boundary:** Where do partner EDR tools (CrowdStrike, etc.) plug in — as an event source, as a parallel consumer, or both?
-5. **CompliTime custom profiles:** How do custom compliance profiles feed into control mapping? Is there a registry/API?
+3. **EDA hosting:** Does EDA run on Satellite, on a separate Ansible Automation Platform instance, or on the managed hosts themselves? AAP XDR assumes separate AAP instance.
+4. **Partner plugin boundary:** Where do partner EDR tools (CrowdStrike, etc.) plug in — as an event source, as a parallel consumer, or both? AAP XDR has CrowdStrike integration BUILT.
+5. **CompliTime custom profiles:** How do custom compliance profiles feed into control mapping? Is there a registry/API? AAP XDR has ComplyTime at BUILT 1/4.
 6. **IdM integration scope:** Read-only (Satellite displays IdM status) or bidirectional (Satellite can trigger IdM actions via EDA)?
+7. **CFF adoption:** Should we standardize on Common Findings Format v1.0.0 for all event normalization? AAP XDR already uses it.
+8. **CME-408+ ownership:** Crypto/PQC taxonomy gap is unowned in AAP XDR. Should this architecture own the taxonomy and feed it to CME?
 
 ## Relationship to Agentic Security PoC
 
