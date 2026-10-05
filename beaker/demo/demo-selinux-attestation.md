@@ -7,6 +7,7 @@
 **VMs:**  
 - **SERVER** — `kvm-08-guest03.lab.eng.rdu2.dc.redhat.com` (Keylime verifier + registrar)  
 - **CLIENT** — `dell-r640-094-vm-01.bkr.lab.eng.rdu2.dc.redhat.com` (Keylime agent + swtpm + SELinux enforcing)  
+- **SIEM** — `kvm-04-guest28.lab.eng.rdu2.dc.redhat.com` (Wazuh manager)  
 - **Login:** `engineer` / `Demo2026!` (passwordless sudo)
 
 ---
@@ -180,6 +181,22 @@ sudo journalctl -u eda-agent-anomaly --no-pager -n 30 --since "60s ago" --output
 
 **SAY:** "EDA matched the swarm rule and launched the revocation playbook. It SSHs to the IPA server and attempts to revoke the agent's OAuth2 token via ahdapa and disable the principal in IPA. The key point: detection to remediation is fully automated — no human in the loop for critical threats."
 
+### Verify SIEM Correlation
+
+**SAY:** "The same alert also flows to the SIEM — Wazuh on a separate VM — via syslog. This is the SOC visibility path."
+
+**DO:** SSH into SIEM (third terminal):
+```bash
+ssh engineer@kvm-04-guest28.lab.eng.rdu2.dc.redhat.com
+```
+
+**DO:** Check Wazuh alerts:
+```bash
+sudo grep "agentic-security" /var/ossec/logs/alerts/alerts.log | tail -5
+```
+
+**SAY:** "Wazuh received the alert via UDP syslog, decoded it with our custom decoder, and matched rule 100100 — level 12, tagged with MITRE T1059.006. The SOC sees the same event that EDA just acted on, with full MITRE mapping."
+
 ---
 
 ## Part 4: Tie It Together
@@ -190,9 +207,9 @@ sudo journalctl -u eda-agent-anomaly --no-pager -n 30 --since "60s ago" --output
 
 2. **L4b Blastwall (SELinux)** — mandatory access control compartmentalizes processes. Each service runs in its own domain with least-privilege policies.
 
-3. **L5 Audit + Response (Falco → EDA)** — behavioral anomaly detection triggers automated identity revocation through IPA.
+3. **L5 Audit + Response (Falco → EDA → Wazuh)** — behavioral anomaly detection triggers automated identity revocation through IPA AND provides SOC visibility through Wazuh with MITRE ATT&CK mapping.
 
-The chain is: Falco detects → bridge classifies with MITRE mapping → EDA matches rule → Ansible revokes the agent's identity in IPA. Detection to response in seconds, not hours. And because it flows through IPA, the revocation propagates to every enrolled host via SSSD — the agent loses access everywhere, not just the box where the anomaly was detected."
+The chain is: Falco detects → bridge classifies with MITRE mapping → dual path: EDA matches rule and revokes the agent's identity in IPA, AND syslog delivers to Wazuh for SOC correlation. Detection to response in seconds, not hours. And because it flows through IPA, the revocation propagates to every enrolled host via SSSD — the agent loses access everywhere, not just the box where the anomaly was detected."
 
 ---
 
