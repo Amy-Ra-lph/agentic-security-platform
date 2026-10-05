@@ -141,6 +141,22 @@ UNIT
 
 echo "Created: falco-siem-bridge.service (with EDA auth token)"
 
+# Add syslog drop-in if SIEM is configured
+source "${SCRIPT_DIR}/inventory.env"
+if [[ -n "${SIEM:-}" ]]; then
+    SIEM_IP=$(getent hosts "${SIEM}" | awk '{print $1}' | head -1)
+    if [[ -n "${SIEM_IP}" ]]; then
+        mkdir -p /etc/systemd/system/falco-siem-bridge.service.d
+        cat > /etc/systemd/system/falco-siem-bridge.service.d/syslog.conf <<DROPIN
+[Service]
+ExecStart=
+ExecStart=/usr/bin/python3 /opt/demo/bridge/falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 --eda-token ${EDA_TOKEN} --syslog-host ${SIEM_IP} --syslog-port 514 --syslog-proto udp
+DROPIN
+        systemctl daemon-reload
+        echo "Created: syslog drop-in → ${SIEM_IP}:514/udp"
+    fi
+fi
+
 # Create systemd unit for EDA
 cat > /etc/systemd/system/eda-agent-anomaly.service <<UNIT
 [Unit]

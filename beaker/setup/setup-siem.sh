@@ -28,19 +28,25 @@ fi
 OSSEC_CONF="/var/ossec/etc/ossec.conf"
 
 if ! grep -q "connection>syslog" "${OSSEC_CONF}" 2>/dev/null; then
-    log "Configuring syslog intake on 514/tcp..."
+    log "Configuring syslog intake on 514/udp..."
 
     sed -i '/<\/ossec_config>/i \
   <remote>\
     <connection>syslog</connection>\
     <port>514</port>\
-    <protocol>tcp</protocol>\
+    <protocol>udp</protocol>\
     <allowed-ips>0.0.0.0/0</allowed-ips>\
   </remote>' "${OSSEC_CONF}"
 
     log "Syslog intake configured"
 else
     log "Syslog intake already configured"
+fi
+
+# Enable logall for debugging/archiving all events
+if grep -q '<logall>no</logall>' "${OSSEC_CONF}" 2>/dev/null; then
+    sed -i 's/<logall>no<\/logall>/<logall>yes<\/logall>/' "${OSSEC_CONF}"
+    log "Enabled logall for archive visibility"
 fi
 
 # ── 3. Deploy custom decoder and rules ───────────────────────────────────────
@@ -65,6 +71,7 @@ log "Wazuh manager restarted"
 # ── 5. Open firewall ports ───────────────────────────────────────────────────
 
 if command -v firewall-cmd &>/dev/null && systemctl is-active firewalld &>/dev/null; then
+    firewall-cmd --permanent --add-port=514/udp 2>/dev/null || true
     firewall-cmd --permanent --add-port=514/tcp 2>/dev/null || true
     firewall-cmd --permanent --add-port=443/tcp 2>/dev/null || true
     firewall-cmd --permanent --add-port=1514/tcp 2>/dev/null || true

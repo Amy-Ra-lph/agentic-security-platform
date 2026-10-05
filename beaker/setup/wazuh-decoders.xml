@@ -1,19 +1,33 @@
-<!-- Custom decoder for agentic security syslog events (RFC 5424 SD). -->
+<!-- Custom decoder for agentic security syslog events. -->
 <!-- Deploy to /var/ossec/etc/decoders/agentic-security-decoder.xml -->
+<!-- Uses program_name (not prematch) because Wazuh pre-decoder strips -->
+<!-- the syslog header — prematch only sees the message body. -->
 
 <decoder name="agentic-security">
-  <prematch>falco-siem-bridge</prematch>
+  <program_name>^falco-siem-bridge</program_name>
 </decoder>
 
-<decoder name="agentic-security-fields">
+<decoder name="agentic-security-alert-type">
   <parent>agentic-security</parent>
-  <regex>alert_type="(\S+)" agent_principal="(\S+)" agent_realm="(\S+)" mitre_id="(\S+)"</regex>
-  <order>alert_type,agent_principal,agent_realm,mitre_id</order>
+  <regex>alert_type="(\S+)"</regex>
+  <order>alert_type</order>
+</decoder>
+
+<decoder name="agentic-security-principal">
+  <parent>agentic-security</parent>
+  <regex>agent_principal="(\S+)"</regex>
+  <order>agent_principal</order>
+</decoder>
+
+<decoder name="agentic-security-mitre">
+  <parent>agentic-security</parent>
+  <regex>mitre_id="(\S+)"</regex>
+  <order>mitre_id</order>
 </decoder>
 
 <!-- Decoder for OCSF incident events forwarded via rsyslog -->
 <decoder name="ocsf-incident">
-  <prematch>ocsf-incident</prematch>
+  <program_name>^ocsf-incident</program_name>
 </decoder>
 
 <decoder name="ocsf-incident-fields">

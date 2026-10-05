@@ -4,13 +4,13 @@
 Receives Falco alerts via Falcosidekick webhook, enriches with agent
 context and MITRE ATT&CK mapping, forwards to:
   1. EDA webhook (:5000) — automated response (existing behavior)
-  2. Syslog RFC 5424 / CEF (:514) — SOC visibility (new)
+  2. Syslog BSD / CEF (:514) — SOC visibility via Wazuh
 
 Without --syslog-host, behaves identically to falco-eda-bridge.py.
 
 Run:
     python3 falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 \
-        --syslog-host 10.x.x.x --syslog-port 514 --syslog-proto tcp
+        --syslog-host 10.x.x.x --syslog-port 514 --syslog-proto udp
 """
 
 import argparse
@@ -87,21 +87,18 @@ def transform(falco_event: dict) -> dict:
     }
 
 
-def format_rfc5424(payload: dict) -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    hostname = payload.get("source_host", "-")
-    rule = payload.get("rule", "-")
-    severity = payload.get("falco_priority", "warning").lower()
-    sd = (
-        f'[agent-security alert_type="{payload.get("alert_type", "unknown")}"'
+def format_syslog(payload: dict) -> str:
+    """BSD syslog (RFC 3164) — Wazuh pre-decoder extracts program_name from this format."""
+    ts = datetime.now(timezone.utc).strftime("%b %d %H:%M:%S")
+    hostname = payload.get("source_host", "agent-host")
+    fields = (
+        f'alert_type="{payload.get("alert_type", "unknown")}"'
         f' agent_principal="{payload.get("agent_principal", "unknown")}"'
-        f' agent_realm="{payload.get("agent_realm", "")}"'
         f' mitre_id="{payload.get("mitre_id", "")}"'
-        f' ocsf_class_uid="{payload.get("ocsf_class_uid", "")}"'
-        f' severity="{severity}"]'
+        f' rule="{payload.get("rule", "")}"'
     )
     msg = payload.get("falco_output", "")
-    return f"<134>1 {ts} {hostname} falco-siem-bridge - {rule} {sd} {msg}"
+    return f"<134>{ts} {hostname} falco-siem-bridge: {fields} {msg}"
 
 
 def format_cef(payload: dict) -> str:
@@ -122,7 +119,7 @@ def format_cef(payload: dict) -> str:
 def send_syslog(payload: dict, host: str, port: int, proto: str, cef: bool):
     if not host:
         return
-    msg = format_cef(payload) if cef else format_rfc5424(payload)
+    msg = format_cef(payload) if cef else format_syslog(payload)
     try:
         if proto == "udp":
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -194,7 +191,7 @@ def main():
                         help="Bearer token for EDA webhook authentication")
     parser.add_argument("--syslog-host", default="")
     parser.add_argument("--syslog-port", type=int, default=514)
-    parser.add_argument("--syslog-proto", choices=["tcp", "udp"], default="tcp")
+    parser.add_argument("--syslog-proto", choices=["tcp", "udp"], default="udp")
     parser.add_argument("--cef", action="store_true",
                         help="Use CEF format instead of RFC 5424")
     args = parser.parse_args()
