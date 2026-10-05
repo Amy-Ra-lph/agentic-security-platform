@@ -91,6 +91,7 @@ cat > /etc/keylime/agent.conf.d/poc.conf << EOF
 [agent]
 registrar_ip = "${SERVER_IP}"
 ek_handle = "generate"
+ip = "0.0.0.0"
 EOF
 
 # Disable privilege drop for swtpm TCP access
@@ -136,6 +137,36 @@ else
     log "ERROR: Keylime agent failed to start"
     journalctl -u keylime_agent --no-pager -n 15
     exit 1
+fi
+
+# ── 7. Deploy verifier CA cert for mTLS ────────────────────────────────────────
+
+CV_CA_DIR="/var/lib/keylime/cv_ca"
+if [[ ! -f "${CV_CA_DIR}/cacert.crt" ]]; then
+    mkdir -p "${CV_CA_DIR}"
+    if scp -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+        root@"${SERVER}":/var/lib/keylime/cv_ca/cacert.crt \
+        "${CV_CA_DIR}/cacert.crt" 2>/dev/null; then
+        log "Deployed verifier CA cert from SERVER"
+    else
+        log "WARNING: Could not fetch CV CA cert from SERVER"
+        log "  Copy manually: scp SERVER:/var/lib/keylime/cv_ca/cacert.crt ${CV_CA_DIR}/"
+    fi
+fi
+
+# ── 8. Set up SSH key for EDA playbook (CLIENT→SERVER) ────────────────────────
+
+if [[ ! -f /root/.ssh/id_rsa ]] || grep -q "DEMO-CANARY" /root/.ssh/id_rsa.pub 2>/dev/null; then
+    ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -C "eda-automation" -q
+    log "Generated SSH key for EDA automation"
+fi
+
+if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 root@"${SERVER}" hostname &>/dev/null; then
+    log "SSH to SERVER already works (key deployed)"
+else
+    log "NOTE: Deploy /root/.ssh/id_rsa.pub to SERVER for EDA playbook:"
+    log "  ssh-copy-id root@${SERVER}"
+    log "  Or run: make -C beaker setup-ssh-keys"
 fi
 
 log "Keylime client setup complete"

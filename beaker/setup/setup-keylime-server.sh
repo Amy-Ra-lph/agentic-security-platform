@@ -53,4 +53,26 @@ else
     systemctl status keylime_verifier --no-pager || true
 fi
 
+# ── 5. Configure tenant (no EK cert for swtpm) ────────────────────────────────
+
+mkdir -p /etc/keylime/tenant.conf.d
+
+cat > /etc/keylime/tenant.conf.d/poc.conf << 'EOF'
+[tenant]
+require_ek_cert = false
+EOF
+
+log "Tenant configured (no EK cert requirement)"
+
+# ── 6. Export CV CA cert for client deployment ─────────────────────────────────
+
+CV_CA="/var/lib/keylime/cv_ca/cacert.crt"
+EXPORT_DIR="/opt/demo/keylime-ca"
+if [[ -f "${CV_CA}" ]]; then
+    mkdir -p "${EXPORT_DIR}"
+    cp "${CV_CA}" "${EXPORT_DIR}/cacert.crt"
+    log "CV CA cert exported to ${EXPORT_DIR}/cacert.crt"
+    log "  Deploy to client: scp ${EXPORT_DIR}/cacert.crt CLIENT:/var/lib/keylime/cv_ca/"
+fi
+
 log "Keylime server setup complete"
