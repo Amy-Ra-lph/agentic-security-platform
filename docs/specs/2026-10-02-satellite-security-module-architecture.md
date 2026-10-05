@@ -326,6 +326,8 @@ The PoC proved the detection→enrichment→response→visibility pattern at sma
 
 | PoC Component | Generalized Component |
 |--------------|----------------------|
+| L0 Keylime attestation | Host integrity verification (Satellite could surface attestation status per host) |
+| L0.5 Sigstore (cosign/Rekor) | Code/image provenance verification (Satellite could track signed vs unsigned across fleet) |
 | Falco eBPF rules | SELinux/auditd/firewall/fapolicyd |
 | falco-siem-bridge (enricher) | Control mapping service (CIS/STIG/PCI) |
 | EDA revocation playbook | EDA remediation playbooks (Tier 3) |
@@ -333,5 +335,6 @@ The PoC proved the detection→enrichment→response→visibility pattern at sma
 | MITRE ATT&CK mapping | Compliance control mapping |
 | Agent trust tiers | Host compliance posture score |
 | ahdapa token revocation | IdM HBAC/service principal actions |
+| L4b Blastwall MCS compartmentalization | SELinux MCS category enforcement per host group (Satellite could manage MCS policy modules) |
 
 The PoC is a working reference implementation of the fast path + IAM path. This architecture adds the slow path (compliance/drift), Lightspeed advice layer, and Satellite as the fleet-wide aggregation point.

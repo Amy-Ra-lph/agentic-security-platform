@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-Demonstrate the complete lifecycle of agentic security on RHEL — from agent enrollment through credential issuance, delegation, runtime authorization, execution confinement, and audit — using a trust tier model that scales from 50 to 50,000 agents without per-agent policy.
+Demonstrate the complete lifecycle of agentic security on RHEL — from platform attestation through agent enrollment, credential issuance, delegation, runtime authorization, execution confinement, and audit — using a trust tier model that scales from 50 to 50,000 agents without per-agent policy.
 
 ### 1.1 Problem Statement
 
@@ -15,7 +15,7 @@ Enterprises deploying AI agent fleets face privilege misalignment: agents are ei
 
 ### 1.2 Success Criteria
 
-- A single PoC scenario traverses all five enforcement layers end-to-end
+- A single PoC scenario traverses all six enforcement layers end-to-end (L0-L5)
 - Three agent trust tiers produce three different outcomes for the same operation
 - Delegation between agents demonstrably narrows privileges (never widens)
 - Breach response detects, contains, and reports within seconds
@@ -26,18 +26,30 @@ Enterprises deploying AI agent fleets face privilege misalignment: agents are ei
 
 | Audience | Deliverable | What They See |
 |----------|-------------|---------------|
-| Engineering (AB, twoerner, azaalouk) | Test harness with assertion checks per layer | 5 layers integrated, each independently testable, clean interfaces |
-| Strategy (CY27 review, leadership) | Architecture diagram + executive pitch + competitive table | DARC+WID+WIMSE+OpenShell+Audit = complete stack no competitor has |
+| Engineering (AB, twoerner, azaalouk) | Test harness with assertion checks per layer | 6 layers integrated (L0-L5), each independently testable, clean interfaces |
+| Strategy (CY27 review, leadership) | Architecture diagram + executive pitch + competitive table | Attestation+DARC+WID+WIMSE+OpenShell+Audit = complete stack no competitor has |
 | Customer (UPS, Ericsson, financial) | 7-act narrated demo + arcade | "Here's how you manage your agent fleet" |
 
-## 2. Architecture — Five-Layer Enforcement Stack
+## 2. Architecture — Six-Layer Enforcement Stack
 
-Each layer has a specific job and enforcement mechanism. An agent request passes through all five in sequence. Any layer can deny.
+Each layer has a specific job and enforcement mechanism. An agent request passes through all six in sequence (L0-L5). Any layer can deny.
 
 ```
-User enrolls agent
+Host boots / agent arrives
         │
         ▼
+┌─────────────────┐
+│  L0: Attestation │  Platform integrity verification
+│  (Keylime)       │  TPM quote + IMA log + measured boot
+└────────┬────────┘
+         │ attested? ──no──→ Sovereign denied, fall to Verified/Untrusted
+         ▼ yes
+┌─────────────────┐
+│  L0.5: Sigstore  │  Code provenance verification
+│  (cosign/Rekor)  │  Image/binary signature + transparency log
+└────────┬────────┘
+         │ signed? ──no──→ Enrollment denied (Blocked)
+         ▼ yes
 ┌─────────────────┐
 │  L1: DARC        │  Credential issuance
 │  (ahdapa AS)     │  confirmation_required per tier + profile
@@ -57,8 +69,8 @@ User enrolls agent
 │  L4a: OpenShell  │  Namespace + syscall confinement
 │  (ODIS profiles) │  Sandbox per tier: network, FS, syscalls
 ├─────────────────┤
-│  L4b: Blastwall  │  SELinux MAC confinement (always on)
-│  (policy modules)│  Type enforcement + MLS/MCS labels
+│  L4b: Blastwall  │  SELinux MCS compartmentalization (always on)
+│  (Greg Procunier)│  MCS category per tier — process/container isolation
 └────────┬────────┘
          ▼
 ┌─────────────────┐
@@ -67,18 +79,18 @@ User enrolls agent
 └─────────────────┘
 ```
 
-**Key principle:** Layers are independent. A Verified agent with valid tokens (L1-L2) can still be denied at L3 (policy), contained at L4 (sandbox), and flagged at L5 (anomaly). Defense in depth — no single layer is the whole story.
+**Key principle:** Layers are independent. An agent on an attested host (L0) with signed code (L0.5) and valid tokens (L1-L2) can still be denied at L3 (policy), contained at L4 (sandbox + MCS), and flagged at L5 (anomaly). Defense in depth — no single layer is the whole story.
 
 ## 3. Trust Tiers
 
 Four tiers mapped to IPA groups. Tier determines the outer boundary of what an agent class can do.
 
-| Tier | Value Statement | IPA Group | Who | Max Scopes | Confinement |
-|------|----------------|-----------|-----|------------|-------------|
-| **Sovereign** | Full speed on trusted infrastructure — internal agents operate without friction on attested platforms | `agent-tier-sovereign` | Internal SOC/ops agents on IPA-enrolled hosts | Full (read, write, admin, cross-realm) | None |
-| **Verified** | Do your job, nothing more — known agents get exactly the access their role requires | `agent-tier-verified` | Known agents (Claude, Copilot) with device pairing | Read + scoped write, no admin | Namespace isolation, filtered syscalls |
-| **Untrusted** | Prove yourself first — new agents can observe but can't change anything until they earn trust | `agent-tier-untrusted` | New third-party plugins, unknown agents | Read-only, no delegation | Strict sandbox: no network, read-only FS |
-| **Blocked** | No access until we know you're safe — protect the platform from known threats and compromised agents | `agent-tier-blocked` | Known-bad, post-revocation, compliance-restricted | None — enrollment denied at L1 | N/A — no execution |
+| Tier | Value Statement | IPA Group | Who | Attestation (L0) | Code Provenance (L0.5) | Max Scopes | Confinement |
+|------|----------------|-----------|-----|-----------------|----------------------|------------|-------------|
+| **Sovereign** | Full speed on trusted infrastructure — internal agents operate without friction on attested platforms | `agent-tier-sovereign` | Internal SOC/ops agents on IPA-enrolled hosts | **Required** — TPM quote + IMA + measured boot | **Required** — cosign signature verified | Full (read, write, admin, cross-realm) | MCS category only (no sandbox) |
+| **Verified** | Do your job, nothing more — known agents get exactly the access their role requires | `agent-tier-verified` | Known agents (Claude, Copilot) with device pairing | Optional — IPA enrollment sufficient | **Required** — cosign signature verified | Read + scoped write, no admin | Namespace isolation, filtered syscalls, MCS category |
+| **Untrusted** | Prove yourself first — new agents can observe but can't change anything until they earn trust | `agent-tier-untrusted` | New third-party plugins, unknown agents | Not required | Not required (assessed in sandbox) | Read-only, no delegation | Strict sandbox: no network, read-only FS, MCS category |
+| **Blocked** | No access until we know you're safe — protect the platform from known threats and compromised agents | `agent-tier-blocked` | Known-bad, post-revocation, compliance-restricted | Failed attestation → auto-blocked | Failed signature → auto-blocked | None — enrollment denied at L1 | N/A — no execution |
 
 ### 3.1 Tier Classification Decision
 
@@ -119,7 +131,7 @@ Blocked → Untrusted → Verified → Sovereign
    (revocation / circuit breaker / blocklist)
 ```
 
-- **Graduation up:** Requires new evidence (attestation, device pairing, IPA enrollment). Untrusted→Verified: code-verified + DPoP. Verified→Sovereign: platform-attested + IPA host enrollment.
+- **Graduation up:** Requires new evidence (attestation, code provenance, device pairing, IPA enrollment). Untrusted→Verified: code-verified (cosign) + DPoP. Verified→Sovereign: platform-attested (Keylime TPM) + IPA host enrollment + cosign-signed code.
 - **Demotion down:** Any tier → Blocked on revocation, circuit breaker escalation, or blocklist match. Blocked → Untrusted requires manual admin approval.
 - **Phase 2.5:** Manual tier changes (admin updates IPA group membership). **Phase 3:** Automated promotion via attestation evidence at token refresh.
 
@@ -280,6 +292,62 @@ Policy  = should this action happen now    (contextual, per request)
 - Policy is the runtime floor (Cedar/OPA rules)
 
 ## 5. Layer Details
+
+### 5.0 L0: Attestation — Platform Integrity Verification
+
+**Component:** Keylime (verifier + registrar on SERVER, keylime_agent on CLIENT)
+
+Platform attestation verifies host integrity before any agent credentials are issued. Sovereign tier requires a passing attestation — agents on unattested hosts cannot reach Sovereign regardless of their identity.
+
+**Behavior per tier:**
+
+| Tier | Attestation Requirement | Failure Behavior |
+|------|------------------------|-----------------|
+| Sovereign | **Required** — TPM 2.0 quote + IMA measurement log + measured boot chain | Denied Sovereign, demoted to Verified or Untrusted |
+| Verified | Optional — IPA enrollment is sufficient platform trust | No impact (L0 is informational for this tier) |
+| Untrusted | Not required | No impact |
+| Blocked | Failed attestation is a blocking signal | Auto-blocked at enrollment |
+
+**Keylime components:**
+
+| Component | Host | Role |
+|-----------|------|------|
+| `keylime_verifier` | SERVER | Validates TPM quotes and IMA logs from enrolled agents |
+| `keylime_registrar` | SERVER | Stores AIK (Attestation Identity Key) certificates |
+| `keylime_agent` | CLIENT | Runs on agent host, responds to attestation challenges |
+| `keylime_tenant` | SERVER | CLI for enrolling/managing attested hosts |
+
+**PoC implementation:** swtpm (software TPM) for Beaker demo. IMA policy monitors critical files (`/etc/krb5.keytab`, `/etc/ipa/`, ahdapa config). Real deployments use hardware TPM 2.0.
+
+**Attestation flow:**
+1. CLIENT boots, keylime_agent starts, registers AIK with registrar
+2. Verifier periodically requests TPM quote + IMA measurement log
+3. If IMA shows tampered files or boot chain violation → attestation fails
+4. L1 (DARC) checks attestation status before issuing Sovereign credentials
+5. Failed attestation on a previously-attested host triggers L5 alert + potential demotion
+
+### 5.0.5 L0.5: Sigstore — Code Provenance Verification
+
+**Component:** cosign + Rekor transparency log (RHEL ships cosign, integrates with Podman image trust)
+
+Code provenance verification ensures agent code/images are signed by a known publisher before credentials are issued. This gate sits between platform attestation (L0) and credential issuance (L1).
+
+**Behavior per tier:**
+
+| Tier | Provenance Requirement | Failure Behavior |
+|------|----------------------|-----------------|
+| Sovereign | **Required** — cosign signature + Rekor log entry | Enrollment denied, moved to Blocked |
+| Verified | **Required** — cosign signature verified | Enrollment denied, moved to Blocked |
+| Untrusted | Not required (assessed in sandbox instead) | No impact — sandbox provides runtime verification |
+| Blocked | Signature failure is a blocking signal | Auto-blocked |
+
+**Verification checks:**
+- Container image signatures via `cosign verify` (Podman `--signature-verification` policy)
+- Binary attestations via in-toto/SLSA provenance
+- Rekor transparency log lookup — was this artifact published by a known entity?
+- SBOM signature verification (CycloneDX CBOM v1.6 for crypto artifacts)
+
+**PoC implementation:** Verify the RHEL Security Toolkit container image (`quay.io/rhn_support_afarley/rhel-security-toolkit`) signature before agent execution on CLIENT. Unsigned or tampered images are rejected before L1 enrollment begins.
 
 ### 5.1 L1: DARC — Credential Issuance
 
@@ -460,11 +528,11 @@ untrusted.profile:
 
 **When to use:** Agent executes arbitrary code or scripts. CLI tools, MCP tool servers, plugin runtimes.
 
-#### 5.4.2 L4b: Blastwall — SELinux MAC Confinement
+#### 5.4.2 L4b: Blastwall — SELinux MCS Compartmentalization
 
-**Component:** Blastwall SELinux policy modules, one per trust tier.
+**Component:** Blastwall SELinux policy modules (Greg Procunier), one per trust tier. MCS (Multi-Category Security) provides per-tier process and container compartmentalization. Not eBPF — kernel-level MAC enforcement via SELinux type enforcement and MCS categories.
 
-**What it enforces:** Mandatory Access Control at the kernel level. Controls file access, IPC, network socket types, device access. Operates independently of OpenShell — even if namespace/seccomp is bypassed, SELinux MAC still blocks.
+**What it enforces:** Mandatory Access Control at the kernel level. MCS categories ensure a compromised Untrusted agent cannot read Sovereign agent data — each tier gets a unique MCS category range. Controls file access, IPC, network socket types, device access. Operates independently of OpenShell — even if namespace/seccomp is bypassed, SELinux MAC still blocks.
 
 **Tier mapping via MLS/MCS labels:**
 
