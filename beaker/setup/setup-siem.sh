@@ -16,7 +16,7 @@ if [ ! -d /var/ossec ]; then
     curl -sO https://packages.wazuh.com/4.11/wazuh-install.sh
     chmod +x wazuh-install.sh
 
-    bash wazuh-install.sh -a
+    bash wazuh-install.sh -a -i
 
     log "Wazuh installed"
 else
