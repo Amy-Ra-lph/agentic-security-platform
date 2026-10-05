@@ -71,21 +71,19 @@ def transform(falco_event: dict) -> dict:
     mitre_id = MITRE_MAP.get(rule_id, "")
 
     return {
-        "payload": {
-            "alert_type": alert_type,
-            "rule": rule_id,
-            "agent_principal": extract_agent_principal(output_fields, output),
-            "agent_realm": "DEMO.AGENTIC.TEST",
-            "timestamp": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
-            "falco_priority": falco_event.get("priority", ""),
-            "falco_rule": falco_event.get("rule", ""),
-            "falco_output": output,
-            "source_host": output_fields.get("container.name", "host"),
-            "pid": output_fields.get("proc.pid", ""),
-            "cmdline": output_fields.get("proc.cmdline", ""),
-            "mitre_id": mitre_id,
-            "ocsf_class_uid": OCSF_CLASS_UID,
-        }
+        "alert_type": alert_type,
+        "rule": rule_id,
+        "agent_principal": extract_agent_principal(output_fields, output),
+        "agent_realm": "DEMO.AGENTIC.TEST",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "falco_priority": falco_event.get("priority", ""),
+        "falco_rule": falco_event.get("rule", ""),
+        "falco_output": output,
+        "source_host": output_fields.get("container.name", "host"),
+        "pid": output_fields.get("proc.pid", ""),
+        "cmdline": output_fields.get("proc.cmdline", ""),
+        "mitre_id": mitre_id,
+        "ocsf_class_uid": OCSF_CLASS_UID,
     }
 
 
@@ -160,9 +158,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
 
         eda_event = transform(falco_event)
-        p = eda_event["payload"]
         print(f"[bridge] {falco_event.get('rule', '?')} → "
-              f"{p['alert_type']}/{p['rule']} mitre={p['mitre_id']}")
+              f"{eda_event['alert_type']}/{eda_event['rule']} mitre={eda_event['mitre_id']}")
 
         try:
             headers = {"Content-Type": "application/json"}
@@ -182,7 +179,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         self.end_headers()
 
-        send_syslog(p, self.syslog_host, self.syslog_port,
+        send_syslog(eda_event, self.syslog_host, self.syslog_port,
                     self.syslog_proto, self.syslog_cef)
 
     def log_message(self, format, *args):

@@ -1,8 +1,9 @@
-# Demo Script: SELinux + Attestation (L0 + L4b)
+# Demo Script: Full Enforcement Stack (L0 + L4b + L5)
 
-**For:** Lukas Vrabec  
-**Duration:** ~15 minutes  
+**For:** Lukas Vrabec (SELinux + Attestation + Detection Pipeline)  
+**Duration:** ~20 minutes  
 **Format:** SAY/DO walk-through  
+**See also:** `demo-attestation-only.md` — shorter attestation-focused script  
 **VMs:**  
 - **SERVER** — `kvm-08-guest03.lab.eng.rdu2.dc.redhat.com` (Keylime verifier + registrar)  
 - **CLIENT** — `dell-r640-094-vm-01.bkr.lab.eng.rdu2.dc.redhat.com` (Keylime agent + swtpm + SELinux enforcing)  
@@ -132,19 +133,66 @@ ls -Z /usr/bin/keylime_agent
 
 ---
 
-## Part 3: Tie It Together
+## Part 3: Detection Pipeline (L5 — Falco → EDA)
 
-**SAY:** "So what we've shown is two layers of the enforcement stack:
+### Show Detection Stack
+
+**SAY:** "Now let's see the detection and response pipeline. This is where everything connects. Falco watches for anomalous behavior, classifies it, and EDA triggers automated remediation — including identity revocation through IPA."
+
+**DO:** On CLIENT, show all detection services are running:
+```bash
+sudo systemctl is-active falco falco-siem-bridge eda-agent-anomaly
+```
+
+**SAY:** "Three services: Falco for eBPF-based syscall monitoring, the bridge for classification and routing, and EDA for automated playbook execution."
+
+### Trigger a Detection Event
+
+**SAY:** "Let me trigger a simulated swarm detection — an agent spawning unauthorized processes. In production, Falco catches this from kernel syscalls. Here I'll inject the alert directly."
+
+**DO:** Send a fake swarm alert through the bridge:
+```bash
+curl -s -X POST http://localhost:5001/ \
+    -H "Content-Type: application/json" \
+    -d '{
+  "rule": "Agent Swarm — Unauthorized Process Spawning",
+  "priority": "Critical",
+  "output": "SWARM: Agent spawned unauthorized child process (agent=rogue-agent-7f3c pid=99999)",
+  "tags": ["agentic-security", "swarm", "SWARM-001"],
+  "output_fields": {"proc.pname": "python3", "proc.pid": 99999, "user.name": "rogue-agent-7f3c"},
+  "time": "'$(date -u +%Y-%m-%dT%H:%M:%S.000000000Z)'"
+}'
+```
+
+**SAY:** "Bridge accepted it — HTTP 200. It classified the event as `swarm/SWARM-001`, mapped it to MITRE ATT&CK T1059.006 (Command and Scripting Interpreter: Python), and forwarded to EDA."
+
+**DO:** Show the bridge classification:
+```bash
+sudo journalctl -u falco-siem-bridge --no-pager -n 3 --since "30s ago" --output=cat
+```
+
+### Show Automated Response
+
+**DO:** Wait 5-10 seconds, then show EDA's response:
+```bash
+sudo journalctl -u eda-agent-anomaly --no-pager -n 30 --since "60s ago" --output=cat
+```
+
+**SAY:** "EDA matched the swarm rule and launched the revocation playbook. It SSHs to the IPA server and attempts to revoke the agent's OAuth2 token via ahdapa and disable the principal in IPA. The key point: detection to remediation is fully automated — no human in the loop for critical threats."
+
+---
+
+## Part 4: Tie It Together
+
+**SAY:** "So what we've shown is three layers of the enforcement stack working together:
 
 1. **L0 Attestation (Keylime)** — the agent proves the system hasn't been tampered with by providing TPM-backed quotes. The verifier on the server validates these continuously.
 
 2. **L4b Blastwall (SELinux)** — mandatory access control compartmentalizes processes. Each service runs in its own domain with least-privilege policies.
 
-In the full architecture spec, these connect through the EDA pipeline:
-- Keylime detects integrity violation → EDA event
-- SELinux denial on sensitive file → audit event → EDA
-- Both converge in Satellite for fleet-wide visibility
-- Automated remediation through Ansible"
+3. **L5 Audit + Response (Falco → EDA)** — behavioral anomaly detection triggers automated identity revocation through IPA.
+
+The chain is: Falco detects → bridge classifies with MITRE mapping → EDA matches rule → Ansible revokes the agent's identity in IPA. Detection to response in seconds, not hours. And because it flows through IPA, the revocation propagates to every enrolled host via SSSD — the agent loses access everywhere, not just the box where the anomaly was detected."
 
 ---
 
