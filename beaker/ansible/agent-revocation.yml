@@ -1,39 +1,20 @@
 ---
 # Agent Revocation Playbook — Event-Driven Ansible Compatible
 #
-# Triggered by EDA rulebook when anomaly detected (hallucination, swarm,
-# policy violation). Disables agent identity, expires SSSD caches on all
-# enrolled clients, and files an incident event.
+# Triggered by EDA rulebook when anomaly detected. Best-effort
+# revocation: tries each step, logs result, always writes OCSF
+# incident regardless of individual failures.
 #
-# EDA source event expected fields:
-#   agent_principal: "code-assist-9a2b"
-#   agent_realm: "DEMO.AGENTIC.TEST"
-#   hbac_rule: "agent-code-assist"
-#   incident_id: "INC-2026-1001-001"
-#   severity: "critical"
-#
-# Usage:
-#   Standalone:
-#     ansible-playbook agent-revocation.yml \
-#       -e agent_principal=code-assist-9a2b \
-#       -e agent_realm=DEMO.AGENTIC.TEST \
-#       -e hbac_rule=agent-code-assist \
-#       -e incident_id=INC-2026-1001-001
-#
-#   Via EDA: see rulebook agent-anomaly-rulebook.yml
+# Expected extra_vars (from EDA or -e):
+#   agent_principal, alert_type, incident_id, agent_realm (optional)
 
 - name: "Phase 1: Revoke agent identity on IPA server"
   hosts: ipa_servers
   become: true
   gather_facts: false
-  vars:
-    agent_principal: "{{ agent_principal }}"
-    agent_realm: "{{ agent_realm | default('DEMO.AGENTIC.TEST') }}"
-    hbac_rule: "{{ hbac_rule }}"
-    incident_id: "{{ incident_id | default('INC-' + ansible_date_time.iso8601_basic_short) }}"
 
   tasks:
-    - name: Revoke OAuth2 token via ahdapa
+    - name: Revoke OAuth2 token via ahdapa (best-effort)
       ansible.builtin.uri:
         url: "https://{{ inventory_hostname }}/idp/revoke"
         method: POST
@@ -41,50 +22,58 @@
         body:
           client_id: "{{ agent_principal }}"
           token_type_hint: access_token
-        validate_certs: true
-        status_code: [200, 400]
+        validate_certs: false
+        status_code: [200, 400, 404, 503]
+        timeout: 5
       register: token_revoke
       ignore_errors: true
 
+    - name: Check if agent principal exists in IPA
+      ansible.builtin.command:
+        cmd: ipa user-show {{ agent_principal }}
+      register: user_exists
+      changed_when: false
+      failed_when: false
+
     - name: Disable agent principal in IPA
-      community.general.ipa_user:
-        name: "{{ agent_principal }}"
-        state: disabled
-        ipa_host: "{{ inventory_hostname }}"
-        ipa_pass: "{{ ipa_admin_password }}"
+      ansible.builtin.command:
+        cmd: ipa user-disable {{ agent_principal }}
       register: user_disable
+      when: user_exists.rc == 0
+      failed_when: false
+
+    - name: Check if HBAC rule exists
+      ansible.builtin.command:
+        cmd: "ipa hbacrule-show agent-{{ agent_principal }}"
+      register: hbac_exists
+      changed_when: false
+      failed_when: false
 
     - name: Disable HBAC rule for agent
       ansible.builtin.command:
-        cmd: >-
-          ipa hbacrule-disable {{ hbac_rule }}
+        cmd: "ipa hbacrule-disable agent-{{ agent_principal }}"
       register: hbac_disable
-      changed_when: "'Disabled' in hbac_disable.stdout"
-      failed_when:
-        - hbac_disable.rc != 0
-        - "'already disabled' not in hbac_disable.stderr"
+      when: hbac_exists.rc == 0
+      failed_when: false
 
-    - name: Destroy Kerberos tickets for agent
-      ansible.builtin.command:
-        cmd: kdestroy -p {{ agent_principal }}@{{ agent_realm }}
-      ignore_errors: true
-
-    - name: Log revocation event
+    - name: Log revocation result
       ansible.builtin.debug:
         msg: >-
-          REVOCATION COMPLETE: principal={{ agent_principal }},
-          token_revoke={{ token_revoke.status | default('skipped') }},
-          user_disable={{ user_disable.changed | default(false) }},
-          hbac_disable={{ hbac_disable.changed | default(false) }},
+          REVOCATION: principal={{ agent_principal }}
+          alert={{ alert_type | default('unknown') }}
+          token={{ token_revoke.status | default('skipped') }}
+          user_found={{ user_exists.rc == 0 }}
+          user_disabled={{ user_disable.changed | default(false) }}
+          hbac_disabled={{ hbac_disable.changed | default(false) }}
           incident={{ incident_id }}
 
 
-- name: "Phase 2: Expire SSSD cache on all enrolled clients"
+- name: "Phase 2: Expire SSSD cache on enrolled clients"
   hosts: ipa_clients
   become: true
   gather_facts: false
-  strategy: free
   connection: local
+  strategy: free
 
   tasks:
     - name: Expire SSSD cache for revoked principal
@@ -92,55 +81,45 @@
         cmd: sss_cache -u {{ agent_principal }}
       register: cache_user
       changed_when: cache_user.rc == 0
+      failed_when: false
 
-    - name: Expire full SSSD cache to enforce lockout
+    - name: Expire full SSSD cache
       ansible.builtin.command:
         cmd: sss_cache -E
       register: cache_full
       changed_when: cache_full.rc == 0
-
-    - name: Verify principal is denied via sssctl
-      ansible.builtin.command:
-        cmd: sssctl user-checks {{ agent_principal }}
-      register: sssctl_check
-      changed_when: false
       failed_when: false
 
-    - name: Report cache status
-      ansible.builtin.debug:
-        msg: >-
-          {{ inventory_hostname }}: cache_expired={{ cache_full.rc == 0 }},
-          user_status={{ sssctl_check.stdout_lines | default(['unknown']) | first }}
 
-
-- name: "Phase 3: Kill agent sandbox and file incident"
+- name: "Phase 3: Contain agent and file incident"
   hosts: agent_runners
   become: true
   gather_facts: false
   connection: local
 
   tasks:
-    - name: Find agent sandbox processes
-      ansible.builtin.command:
-        cmd: pgrep -f "{{ agent_principal }}"
+    - name: Find agent processes (excluding infrastructure)
+      ansible.builtin.shell: |
+        pgrep -f "{{ agent_principal }}" | while read pid; do
+          cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ')
+          case "$cmdline" in
+            *falco_siem_bridge*|*ansible*|*rulebook*) continue ;;
+          esac
+          echo "$pid"
+        done
+        true
       register: agent_pids
       changed_when: false
       failed_when: false
 
-    - name: Kill agent sandbox (SIGKILL)
+    - name: Kill agent processes
       ansible.builtin.command:
         cmd: kill -9 {{ item }}
       loop: "{{ agent_pids.stdout_lines | default([]) }}"
-      when: agent_pids.stdout_lines | length > 0
-
-    - name: Kill spawned child processes
-      ansible.builtin.command:
-        cmd: pkill -9 -P {{ item }}
-      loop: "{{ agent_pids.stdout_lines | default([]) }}"
-      when: agent_pids.stdout_lines | length > 0
+      when: agent_pids.stdout_lines | default([]) | length > 0
       ignore_errors: true
 
-    - name: Stop agent Podman container if running
+    - name: Stop agent container (best-effort)
       ansible.builtin.shell: |
         podman stop "sandbox-{{ agent_principal }}" 2>/dev/null
         podman rm -f "sandbox-{{ agent_principal }}" 2>/dev/null
@@ -154,7 +133,7 @@
         state: directory
         mode: "0750"
 
-    - name: Write OCSF incident event to audit log
+    - name: Write OCSF incident event
       ansible.builtin.copy:
         content: |
           {
@@ -169,18 +148,20 @@
             "finding_info": {
               "title": "Agent Revocation - {{ incident_id }}",
               "uid": "{{ incident_id }}",
-              "types": ["policy_violation", "swarm_behavior"],
-              "desc": "Agent {{ agent_principal }} revoked. Principal disabled, HBAC disabled, SSSD cache expired, sandbox killed."
+              "types": ["{{ alert_type | default('unknown') }}"],
+              "desc": "Agent {{ agent_principal }} revoked via automated response."
             },
             "resources": [
-              {"type": "agent", "name": "{{ agent_principal }}"},
-              {"type": "hbac_rule", "name": "{{ hbac_rule }}"}
+              {"type": "agent", "name": "{{ agent_principal }}"}
             ],
             "remediation": {
-              "desc": "Automated: token revoked, principal disabled, HBAC disabled, cache expired, sandbox killed. Manual: root cause fix required, human must run ipa user-enable + DARC re-enrollment.",
-              "references": ["https://idm.demo.agentic.test/ipa/ui/#/e/user/details/{{ agent_principal }}"]
+              "desc": "Automated: token revoke attempted, principal disable attempted, SSSD cache expired, agent processes killed."
             },
-            "time": "{{ ansible_date_time.iso8601 | default(lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ')) }}"
+            "time": "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
           }
         dest: "/var/log/ocsf/incident-{{ incident_id }}.json"
         mode: "0644"
+
+    - name: Report incident filed
+      ansible.builtin.debug:
+        msg: "INCIDENT FILED: /var/log/ocsf/incident-{{ incident_id }}.json"

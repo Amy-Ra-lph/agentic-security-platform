@@ -1,13 +1,12 @@
 ---
 # Event-Driven Ansible Rulebook — Agent Anomaly Response
 #
-# Listens for anomaly events from detection sources (Falco, Tetragon,
-# custom webhook) and triggers the revocation playbook.
+# Listens for anomaly events from the Falco SIEM bridge and triggers
+# the revocation playbook.
 #
-# Event sources:
-#   - Webhook: POST to EDA controller with JSON payload
-#   - Alertmanager: Prometheus alerts forwarded from monitoring
-#   - Kafka: OCSF events from audit pipeline
+# Bridge sends flat JSON (no payload wrapper) to EDA webhook.
+# EDA webhook source puts POST body under event.payload.
+# So fields are: event.payload.alert_type, event.payload.rule, etc.
 #
 # Run:
 #   ansible-rulebook --rulebook agent-anomaly-rulebook.yml \
@@ -32,37 +31,8 @@
           extra_vars:
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
-            hbac_rule: "{{ event.payload.hbac_rule | default('agent-' + event.payload.agent_principal) }}"
+            alert_type: swarm
             incident_id: "{{ event.payload.incident_id | default('INC-SWARM-' + event.payload.timestamp) }}"
-            severity: critical
-
-    - name: Hallucination detected — output validation failure
-      condition: >-
-        event.payload.alert_type == "hallucination" or
-        event.payload.rule in ["HAL-001", "HAL-002"]
-      action:
-        run_playbook:
-          name: agent-revocation.yml
-          extra_vars:
-            agent_principal: "{{ event.payload.agent_principal }}"
-            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
-            hbac_rule: "{{ event.payload.hbac_rule | default('agent-' + event.payload.agent_principal) }}"
-            incident_id: "{{ event.payload.incident_id | default('INC-HAL-' + event.payload.timestamp) }}"
-            severity: high
-
-    - name: Privilege escalation attempt
-      condition: >-
-        event.payload.alert_type == "escalation" or
-        event.payload.rule in ["SCOPE-001", "PRIV-001"]
-      action:
-        run_playbook:
-          name: agent-revocation.yml
-          extra_vars:
-            agent_principal: "{{ event.payload.agent_principal }}"
-            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
-            hbac_rule: "{{ event.payload.hbac_rule | default('agent-' + event.payload.agent_principal) }}"
-            incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
-            severity: critical
 
     - name: Data exfiltration detected
       condition: >-
@@ -74,6 +44,31 @@
           extra_vars:
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
-            hbac_rule: "{{ event.payload.hbac_rule | default('agent-' + event.payload.agent_principal) }}"
+            alert_type: exfiltration
             incident_id: "{{ event.payload.incident_id | default('INC-EXFIL-' + event.payload.timestamp) }}"
-            severity: critical
+
+    - name: Privilege escalation attempt
+      condition: >-
+        event.payload.alert_type == "escalation" or
+        event.payload.rule in ["SCOPE-001", "PRIV-001"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: escalation
+            incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
+
+    - name: Sandbox escape attempt
+      condition: >-
+        event.payload.alert_type == "escape" or
+        event.payload.rule in ["SBX-001", "SBX-002"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: escape
+            incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
