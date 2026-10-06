@@ -89,6 +89,7 @@ if ! command -v ansible-rulebook >/dev/null 2>&1; then
             echo "WARNING: ansible-rulebook not available. Install manually."
     }
     ansible-galaxy collection install ansible.eda 2>/dev/null || true
+    ansible-galaxy collection install servicenow.itsm 2>/dev/null || true
 else
     echo "ansible-rulebook already installed: $(ansible-rulebook --version 2>/dev/null | head -1)"
 fi

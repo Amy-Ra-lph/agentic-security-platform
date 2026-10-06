@@ -174,3 +174,43 @@
     - name: Report incident filed
       ansible.builtin.debug:
         msg: "INCIDENT FILED: /var/log/ocsf/incident-{{ incident_id }}.json"
+
+
+- name: "Phase 4: Create ServiceNow incident (optional)"
+  hosts: agent_runners
+  become: false
+  gather_facts: false
+  connection: local
+
+  tasks:
+    - name: Check ServiceNow credentials available
+      ansible.builtin.set_fact:
+        snow_enabled: "{{ (lookup('env', 'SN_HOST') | length > 0) or (servicenow_host is defined) }}"
+
+    - name: Create ServiceNow security incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_host | default(lookup('env', 'SN_HOST')) }}"
+          username: "{{ servicenow_user | default(lookup('env', 'SN_USERNAME')) }}"
+          password: "{{ servicenow_pass | default(lookup('env', 'SN_PASSWORD')) }}"
+        state: new
+        caller: agentic.security
+        short_description: "Agent Revocation - {{ incident_id }}"
+        description: >-
+          Automated revocation triggered by {{ alert_type | default('unknown') }} detection.
+          Agent principal: {{ agent_principal }}.
+          MITRE ATT&CK: {{ mitre_id | default('N/A') }}.
+          OCSF incident: /var/log/ocsf/incident-{{ incident_id }}.json
+        impact: high
+        urgency: high
+        other:
+          category: Security
+          subcategory: "AI Agent Anomaly"
+      register: snow_incident
+      when: snow_enabled | bool
+      ignore_errors: true
+
+    - name: Log ServiceNow ticket
+      ansible.builtin.debug:
+        msg: "SNOW TICKET: {{ snow_incident.record.number | default('SKIPPED — no ServiceNow credentials') }}"
+      when: snow_enabled | bool

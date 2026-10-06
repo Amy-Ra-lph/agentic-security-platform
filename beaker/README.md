@@ -105,15 +105,18 @@ The detection pipeline runs on CLIENT with dual output:
 
 ```
 Falco (eBPF)
-  └→ falco-siem-bridge (classify + MITRE map)
+  └→ falco-siem-bridge (classify + MITRE map, OCSF output)
        ├→ EDA webhook (automated revocation)
        │    └→ agent-revocation.yml
        │         ├ Phase 1: IPA token revoke + user disable + HBAC disable
        │         ├ Phase 2: SSSD cache expire on enrolled clients
-       │         └ Phase 3: contain agent + write OCSF incident
+       │         ├ Phase 3: contain agent + write OCSF incident
+       │         └ Phase 4: create ServiceNow incident (optional)
        └→ UDP syslog → Wazuh (SIEM correlation)
-            └→ rules 100100/100101/100102 with MITRE tags
+            └→ rules 100100/100102 with MITRE tags
 ```
+
+ServiceNow integration requires `SN_HOST`, `SN_USERNAME`, `SN_PASSWORD` env vars or extra_vars. Phase 4 is skipped automatically when credentials aren't configured. Free [Personal Developer Instance](https://developer.servicenow.com) available for PoC.
 
 MITRE ATT&CK mappings:
 - **SWARM-001/002** → T1059.006 (Command and Scripting Interpreter: Python)

@@ -250,7 +250,7 @@ def main():
     parser.add_argument("--syslog-port", type=int, default=514)
     parser.add_argument("--syslog-proto", choices=["tcp", "udp"], default="udp")
     parser.add_argument("--cef", action="store_true",
-                        help="Use CEF format instead of RFC 5424")
+                        help="Use CEF format instead of BSD syslog")
     args = parser.parse_args()
 
     BridgeHandler.eda_url = args.eda_url
