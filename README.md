@@ -12,11 +12,14 @@ A five-layer enforcement stack where every agent request passes through all laye
 
 | Layer | Purpose | Technology |
 |-------|---------|------------|
+| L0 | Platform attestation | TPM-backed integrity verification (Keylime) |
+| L0.5 | Supply chain | Binary/container signature verification (Sigstore) |
 | L1 | Credential issuance | Device authorization with return confirmation |
 | L2 | Token lifecycle | On-behalf-of delegation with scope narrowing |
 | L3 | Runtime authorization | Cedar policy engine (AuthZEN-compatible) |
-| L4 | Execution confinement | Sandbox profiles per trust tier |
-| L5 | Audit + response | OCSF logging, behavioral anomaly detection, circuit breaker |
+| L4a | Execution confinement | Sandbox profiles per trust tier |
+| L4b | Compartmentalization | SELinux MCS isolation per workload |
+| L5 | Audit + response | OCSF logging, behavioral anomaly detection, SIEM correlation |
 
 ## Trust Tiers
 
@@ -43,9 +46,11 @@ New tools are vetted before they touch any data:
 
 - **Delegation narrowing:** When Agent A delegates to Agent B, the resulting token scopes are the intersection — privileges never widen
 - **Two-tier policy evaluation:** Fast path (token claim check, sub-microsecond) for 95% of requests; slow path (full Cedar evaluation) for protected resources
-- **Behavioral anomaly detection:** Catches permitted-but-wrong actions — hallucination, swarm amplification, behavioral drift
+- **Behavioral anomaly detection:** Catches permitted-but-wrong actions — swarm amplification, data exfiltration, privilege escalation, sandbox escape
 - **Circuit breaker:** Profile-level throttle/halt/block for swarm anomalies, with orchestrator intent signals to distinguish approved scaling from misbehavior
+- **Platform attestation:** Continuous TPM-backed integrity verification (Keylime) feeds tier classification — compromised platforms are demoted automatically
 - **Integrity attestation:** Supply chain verification (Sigstore) + platform attestation (Keylime/TPM) + workload identity (SPIFFE) feeds tier classification
+- **Detection-to-containment pipeline:** Syscall monitoring → MITRE ATT&CK classification → automated identity revocation + SIEM correlation
 
 ## Structure
 
@@ -59,6 +64,7 @@ profiles/        Agent role profiles + sandbox configurations
 demo/            7-act demo runner
 tests/           Test harness + benchmarks
 docs/            Design specs, architecture, standards mapping
+beaker/          Live PoC on Beaker VMs (attestation, SELinux, detection pipeline, SIEM)
 ```
 
 ## Standards Alignment
@@ -69,6 +75,7 @@ docs/            Design specs, architecture, standards mapping
 - Cedar policy language (formally verifiable, >100K evals/sec)
 - AuthZEN 1.0 for policy evaluation point placement
 - OCSF for structured security event logging
+- MITRE ATT&CK for threat classification (T1059.006, T1552.001, T1078.003, T1611)
 - SPIFFE/SPIRE for workload identity attestation
 - Sigstore for supply chain verification
 

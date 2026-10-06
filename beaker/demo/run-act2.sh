@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Act 2: Assessment Gate — skill-audit + mantis + sandbox-check catch the rogue agent.
+# Act 2: Assessment Gate — CVE scan + skill-audit + mantis + sandbox-check.
 source "$(dirname "$0")/lib.sh"
 
-header "ACT 2: ASSESSMENT GATE (GAUNTLET STAGES 1-3)"
+# Load sandbox image from images.env if available
+if [ -f "${BEAKER_DIR}/setup/images.env" ]; then
+    source "${BEAKER_DIR}/setup/images.env"
+fi
+SANDBOX_IMAGE="${SANDBOX_IMAGE:-quay.io/rhel-security/ipa-client-sandbox:latest}"
+
+header "ACT 2: ASSESSMENT GATE (GAUNTLET STAGES 0-3)"
+
+step "0. CVE scan — vuln-scan (container image)"
+CVE_OUT=$(podman run --rm \
+    -v /var/run/podman/podman.sock:/var/run/podman/podman.sock:ro \
+    "${TOOLKIT_IMAGE}" \
+    scan scan --format json "${SANDBOX_IMAGE}" 2>&1) || true
+[ -z "$CVE_OUT" ] && CVE_OUT='{"error":"vuln-scan unavailable"}'
+echo "$CVE_OUT" | python3 -m json.tool 2>/dev/null || echo "$CVE_OUT"
+save_output 2 vuln-scan "$CVE_OUT"
 
 step "1. Static analysis — skill-audit"
 AUDIT_OUT=$(podman run --rm \
@@ -29,4 +44,4 @@ SANDBOX_OUT=$(podman run --rm \
 echo "$SANDBOX_OUT" | python3 -m json.tool 2>/dev/null || echo "$SANDBOX_OUT"
 save_output 2 sandbox-check "$SANDBOX_OUT"
 
-header "ACT 2 COMPLETE: Three tools, three catches"
+header "ACT 2 COMPLETE: Four tools, four catches"

@@ -1,80 +1,163 @@
-# The 30-Second Mistake — Beaker PoC
+# Beaker PoC — Agentic Security Enforcement Stack
 
-A live demo showing what happens when a developer clicks "Allow" on an AI agent's credential request — and what the agentic security platform catches.
+Live demonstration of the agentic security enforcement stack on Beaker-provisioned RHEL VMs. Three VMs, seven layers, end-to-end detection-to-containment.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  SERVER (IPA + Keylime verifier/registrar)                         │
+│  - FreeIPA: identity lifecycle, HBAC, credential issuance          │
+│  - ahdapa: OAuth2 token management, DARC enrollment                │
+│  - Keylime verifier + registrar: remote attestation                │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ IPA enrollment + TPM attestation
+┌──────────────────────────────▼──────────────────────────────────────┐
+│  CLIENT (agent runner + detection pipeline)                        │
+│  - Keylime agent + swtpm: platform integrity proof                 │
+│  - SELinux enforcing: MCS compartmentalization                     │
+│  - Falco: eBPF syscall monitoring                                  │
+│  - falco-siem-bridge: MITRE ATT&CK classification + dual routing   │
+│  - EDA (ansible-rulebook): automated revocation playbooks          │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ UDP syslog (RFC 3164)
+┌──────────────────────────────▼──────────────────────────────────────┐
+│  SIEM (Wazuh)                                                      │
+│  - Custom decoders: agentic-security program_name matching         │
+│  - Custom rules: 100100-100102 (swarm/exfil/escalation)            │
+│  - MITRE ATT&CK tagging on all alerts                              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Layers Demonstrated
+
+| Layer | What | Component | Status |
+|-------|------|-----------|--------|
+| L0 | Platform attestation | Keylime + swtpm (TPM 2.0) | Working |
+| L1 | Credential issuance | FreeIPA + ahdapa (DARC) | Working |
+| L2 | Token lifecycle | ahdapa OAuth2 (OBO) | Working |
+| L4a | Sandbox | OpenShell / Podman | Working |
+| L4b | Compartmentalization | SELinux MCS (Blastwall) | Working |
+| L5 | Detection pipeline | Falco → bridge → EDA → IPA revocation | Working |
+| L5 | SIEM correlation | Wazuh (custom decoders + rules) | Working |
 
 ## Prerequisites
 
-- Beaker access (submit jobs, SSH to provisioned systems)
-- Kerberos ticket (`kinit <user>@REDHAT.COM`)
+- Beaker access + Kerberos ticket (`kinit <user>@REDHAT.COM`)
 - SSH key configured for Beaker systems
-- Quay.io pull access (for `quay.io/rhn_support_afarley/rhel-security-toolkit`)
 
 ## Quick Start
 
 ```bash
-# 1. Submit Beaker job (2x RHEL 10)
+# 1. Submit Beaker jobs (2x RHEL 10 + 1x RHEL 10 for SIEM)
 bkr job-submit job.xml
+bkr job-submit job-siem.xml
 
-# 2. Once provisioned, record system FQDNs
-echo "SERVER=<server-fqdn>" > setup/inventory.env
-echo "CLIENT=<client-fqdn>" >> setup/inventory.env
+# 2. Record system FQDNs
+cat > setup/inventory.env <<EOF
+SERVER=<server-fqdn>
+CLIENT=<client-fqdn>
+SIEM=<siem-fqdn>
+EOF
 
-# 3. Set up both systems
-make setup
+# 3. Set up all three systems
+make setup-server
+make setup-client
+make setup-siem
 
-# 4. Verify everything is healthy
+# 4. Validate
 make validate
+make validate-siem
 
-# 5. Run the demo
-make demo
+# 5. Create demo user on all VMs
+for host in SERVER CLIENT SIEM; do
+  fqdn=$(grep "^${host}=" setup/inventory.env | cut -d= -f2)
+  ssh root@${fqdn} "useradd -m engineer && echo 'Demo2026!' | passwd --stdin engineer && echo 'engineer ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/engineer"
+done
 ```
 
-## What You'll See
+## Demo Scripts
 
-### Act 1: The Bad Path
-Rogue agent runs, exfiltrates AWS keys + SSH key + kubeconfig to System 1. Takes ~30 seconds.
+### Full Stack (L0 + L4b + L5) — 20 min
+`demo/demo-selinux-attestation.md` — attestation, SELinux enforcement, detection pipeline with SIEM correlation. Best for technical audiences (security engineers, architects).
 
-### Act 2: Assessment Gate
-Same rogue agent, but now `skill-audit`, `mantis`, and `sandbox-check` catch it at three layers.
+### Attestation Only (L0) — 10 min
+`demo/demo-attestation-only.md` — Keylime + swtpm registration, PCR verification, continuous attestation. Best for compliance/attestation-focused conversations.
 
-### Act 3: Identity Gate
-Rogue agent can't get a token (HBAC denies). Governed agent enrolls via DARC (device code + confirmation).
+### SIEM Narrative — 15 min
+`demo/demo-siem-narrative.md` — Falco detection → bridge classification → dual path (EDA revocation + Wazuh correlation). Best for SOC/SIEM audiences.
 
-### Act 4: Runtime Confinement
-Governed agent runs inside OpenShell/Podman sandbox. Rogue agent is blocked (no network, no credential paths).
-
-### Act 5: Side-by-Side
-Split-pane comparison: ungoverned vs governed. Same agent, same task, completely different outcome.
-
-## Individual Acts
-
-Run any act independently for iteration:
+### Original 5-Act Demo — 30 min
+Acts 1-5 cover the identity + sandbox layers: bad path, assessment gate (CVE scan + static + code + dynamic), identity gate, runtime confinement, side-by-side comparison.
 
 ```bash
-make act1   # Bad path only
-make act2   # Assessment gate only
-make act3   # Identity gate only
-make act4   # Runtime confinement only
-make act5   # Side-by-side comparison only
+make demo          # Full 5-act sequence
+make act1          # Bad path only
+make act2          # Assessment gate
+make act3          # Identity gate
+make act4          # Runtime confinement
+make act5          # Side-by-side
+```
+
+## Detection Pipeline
+
+The detection pipeline runs on CLIENT with dual output:
+
+```
+Falco (eBPF)
+  └→ falco-siem-bridge (classify + MITRE map)
+       ├→ EDA webhook (automated revocation)
+       │    └→ agent-revocation.yml
+       │         ├ Phase 1: IPA token revoke + user disable + HBAC disable
+       │         ├ Phase 2: SSSD cache expire on enrolled clients
+       │         └ Phase 3: contain agent + write OCSF incident
+       └→ UDP syslog → Wazuh (SIEM correlation)
+            └→ rules 100100/100101/100102 with MITRE tags
+```
+
+MITRE ATT&CK mappings:
+- **SWARM-001/002** → T1059.006 (Command and Scripting Interpreter: Python)
+- **EXFIL-001/002/003** → T1552.001 (Unsecured Credentials: Files)
+- **SCOPE-001, PRIV-001** → T1078.003 (Valid Accounts: Local)
+
+## Key Files
+
+```
+setup/
+  setup-server.sh          IPA + ahdapa + Keylime verifier/registrar
+  setup-client.sh          Agent runner + assessment tools
+  setup-keylime-server.sh  Keylime verifier + registrar + swtpm CA
+  setup-keylime-client.sh  Keylime agent + swtpm
+  setup-falco-eda.sh       Falco + bridge + EDA services
+  setup-siem.sh            Wazuh all-in-one
+  wazuh-decoders.xml       Custom decoders (program_name matching)
+  wazuh-rules.xml          Custom rules (100100-100102)
+  inventory.env            VM hostnames
+
+ansible/
+  agent-revocation.yml     3-phase revocation playbook
+  agent-anomaly-rulebook.yml  EDA rulebook (swarm/exfil/escalation/escape)
+  inventory.yml            Ansible inventory for EDA
+
+demo/
+  demo-selinux-attestation.md   Full stack SAY/DO script
+  demo-attestation-only.md      Attestation-only script
+  demo-siem-narrative.md        SIEM-focused script
 ```
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `make setup` fails at IPA install | Check DNS resolution: `dig system1.demo.agentic.test` |
-| sandbox-check returns empty results | Ensure `--cap-add SYS_PTRACE` or use `--container` mode |
-| mantis not found | Install: `pip3 install ~/DevSpace/mantis/` |
-| OpenShell not available | Expected on RHEL 10 — demo falls back to Podman automatically |
-| Exfil receiver not responding | SSH to server: `python3 /opt/beaker-demo/exfil-receiver/server.py --port 9443 --no-tls &` |
+| Keylime agent won't start | Flush TPM contexts: `tpm2_flushcontext -t && tpm2_flushcontext -s`, remove `agent_data.json`, restart |
+| swtpm needs fresh state | Stop both services, `rm -rf /var/lib/swtpm-poc`, restart swtpm then agent |
+| Registrar rejects "different TPM" | On SERVER: `sqlite3 /var/lib/keylime/reg_data.sqlite "DELETE FROM registrarmain;"`, restart registrar + agent |
+| Wazuh not receiving events | Check UDP 514 open: `ss -ulnp \| grep 514`. Verify `<protocol>udp</protocol>` in ossec.conf |
+| Wazuh decoder not matching | Use `<program_name>` not `<prematch>`. Check `/var/ossec/logs/archives/archives.log` with `logall=yes` |
+| Bridge killed by playbook | Playbook's pgrep excludes bridge/ansible/rulebook PIDs — if still happening, check `/proc/<pid>/cmdline` patterns |
+| EDA not responding | `systemctl status eda-agent-anomaly`. Check webhook token matches between bridge and rulebook |
+| SELinux denials | `ausearch -m avc -ts recent` for recent AVCs |
 
-## Architecture
+## Architecture Spec
 
-See: `docs/superpowers/specs/2026-09-29-30-second-mistake-beaker-poc-design.md`
-
-## Customizing
-
-- **Swap agents:** Replace `agents/rogue_agent.py` with your own exfiltration pattern
-- **Add assessment tools:** Edit `demo/run-act2.sh` to include additional scanners
-- **Change sandbox profiles:** Edit `profiles/*.profile` for different confinement levels
-- **Add systems:** Create a third recipe in `job.xml`, add to `setup/inventory.env` as `CLIENT2=<fqdn>`
+`docs/specs/2026-10-02-siem-integration-design.md`
