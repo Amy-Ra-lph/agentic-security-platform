@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Security — UX Workflows &amp; User Stories</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;600;700;900&family=Red+Hat+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --border: #d2d2d2;
+    --text: #1a1a1a;
+    --dim: #6a6a6a;
+    --red: #ee0000;
+    --red-light: #fff0f0;
+    --amber: #c58a00;
+    --amber-light: #fff8e6;
+    --green: #1e8a50;
+    --green-light: #edf7f0;
+    --blue: #0066cc;
+    --blue-light: #e8f0ff;
+    --purple: #6b21a8;
+    --purple-light: #f3e8ff;
+    --teal: #0d7377;
+    --teal-light: #e6f7f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Red Hat Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a0a0a 100%);
+    color: white;
+    padding: 2rem 3rem;
+    border-bottom: 4px solid var(--red);
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  header .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.7;
+    margin-top: 0.3rem;
+  }
+
+  header .meta {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    opacity: 0.5;
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  .confidential {
+    background: var(--red);
+    color: white;
+    padding: 0.15rem 0.6rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-top: 0.5rem;
+  }
+
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 3rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  nav .nav-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  nav a {
+    text-decoration: none;
+    color: var(--dim);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+
+  nav a:hover { background: var(--red-light); color: var(--red); }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 3rem 4rem;
+  }
+
+  .personas {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .persona-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    border-top: 3px solid var(--blue);
+  }
+
+  .persona-card h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+
+  .persona-card p {
+    font-size: 0.78rem;
+    color: var(--dim);
+  }
+
+  .persona-card .tools {
+    margin-top: 0.6rem;
+    font-size: 0.72rem;
+    font-family: 'Red Hat Mono', monospace;
+    color: var(--blue);
+  }
+
+  .layer-section {
+    margin-top: 3rem;
+    scroll-margin-top: 4rem;
+  }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .layer-badge {
+    font-family: 'Red Hat Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .layer-header h2 {
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  .layer-header .status {
+    margin-left: auto;
+    font-size: 0.72rem;
+    font-family: 'Red Hat Mono', monospace;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+  }
+
+  .status-working { background: var(--green-light); color: var(--green); }
+  .status-design { background: var(--amber-light); color: var(--amber); }
+
+  .sdc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .sdc-column {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .sdc-column-header {
+    padding: 0.6rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .see-header { background: var(--blue-light); color: var(--blue); }
+  .do-header { background: var(--green-light); color: var(--green); }
+  .configure-header { background: var(--purple-light); color: var(--purple); }
+
+  .sdc-item {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .sdc-item:last-child { border-bottom: none; }
+
+  .sdc-item .label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+
+  .sdc-item .detail {
+    font-size: 0.74rem;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+  }
+
+  .user-stories {
+    margin-top: 1.5rem;
+  }
+
+  .user-stories h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .story {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 0 6px 6px 0;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .story .as-a {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--red);
+    margin-bottom: 0.2rem;
+  }
+
+  .story .want {
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .story .so-that {
+    font-size: 0.78rem;
+    color: var(--dim);
+    margin-top: 0.2rem;
+  }
+
+  .story .acceptance {
+    margin-top: 0.5rem;
+    font-size: 0.74rem;
+    color: var(--dim);
+    font-family: 'Red Hat Mono', monospace;
+    padding-left: 1rem;
+    border-left: 2px solid #e0e0e0;
+  }
+
+  .story .acceptance li {
+    margin-bottom: 0.15rem;
+  }
+
+  .cross-layer {
+    margin-top: 3rem;
+    scroll-margin-top: 4rem;
+  }
+
+  .workflow-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .workflow-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+
+  .workflow-card .trigger {
+    font-size: 0.78rem;
+    color: var(--dim);
+    margin-bottom: 0.8rem;
+  }
+
+  .workflow-steps {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .workflow-step {
+    font-size: 0.72rem;
+    font-family: 'Red Hat Mono', monospace;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    background: #f5f5f5;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .workflow-step .arrow {
+    color: var(--dim);
+    font-size: 0.9rem;
+  }
+
+  .layer-tags {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .layer-tag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  .tag-l0 { background: var(--teal-light); color: var(--teal); }
+  .tag-l1 { background: var(--blue-light); color: var(--blue); }
+  .tag-l2 { background: var(--blue-light); color: var(--blue); }
+  .tag-l3 { background: var(--amber-light); color: var(--amber); }
+  .tag-l4 { background: var(--purple-light); color: var(--purple); }
+  .tag-l5 { background: var(--red-light); color: var(--red); }
+
+  @media print {
+    nav { display: none; }
+    header { padding: 1rem 2rem; }
+    main { padding: 1rem 2rem; max-width: none; }
+    .sdc-grid { grid-template-columns: repeat(3, 1fr); }
+    .personas { grid-template-columns: repeat(4, 1fr); }
+    .story { break-inside: avoid; }
+    .workflow-card { break-inside: avoid; }
+  }
+
+  @media (max-width: 768px) {
+    .sdc-grid { grid-template-columns: 1fr; }
+    .personas { grid-template-columns: repeat(2, 1fr); }
+    header { padding: 1.5rem; }
+    main { padding: 1.5rem; }
+    nav { padding: 0.5rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Agentic Security UX Workflows &amp; User Stories</h1>
+  <div class="subtitle">Seven-layer enforcement stack — interaction paths per persona</div>
+  <div class="meta">
+    <span>2026-10-06</span>
+    <span>RHEL Agentic Security PoC</span>
+    <span>Beaker 3-VM demo</span>
+  </div>
+  <div class="confidential">Red Hat Only</div>
+</header>
+
+<nav>
+  <div class="nav-links">
+    <a href="#personas">Personas</a>
+    <a href="#l0">L0 Attestation</a>
+    <a href="#l1l2">L1/L2 Identity</a>
+    <a href="#l3">L3 Policy</a>
+    <a href="#l4">L4 Sandbox</a>
+    <a href="#l5">L5 Detection</a>
+    <a href="#cross">Cross-Layer</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ═══ PERSONAS ═══ -->
+<section id="personas">
+  <h2 style="font-size: 1.2rem; font-weight: 900; margin-bottom: 0.3rem;">Personas</h2>
+  <p style="font-size: 0.82rem; color: var(--dim); margin-bottom: 1rem;">Four primary users interact with the enforcement stack through different tools and at different layers.</p>
+
+  <div class="personas">
+    <div class="persona-card">
+      <h3>SOC Analyst</h3>
+      <p>Real-time monitoring, incident triage, alert investigation. First responder for agent anomalies.</p>
+      <div class="tools">Wazuh Dashboard, OCSF logs, ServiceNow</div>
+    </div>
+    <div class="persona-card">
+      <h3>Security Architect</h3>
+      <p>Policy design, trust tier definitions, enforcement stack configuration. Sets the rules agents live by.</p>
+      <div class="tools">IPA WebUI, Cedar policies, Falco rules</div>
+    </div>
+    <div class="persona-card">
+      <h3>Platform Admin</h3>
+      <p>Fleet operations, VM provisioning, service health. Keeps the infrastructure running.</p>
+      <div class="tools">Satellite, Ansible, Keylime, systemctl</div>
+    </div>
+    <div class="persona-card">
+      <h3>CISO / Security Lead</h3>
+      <p>Posture assessment, compliance reporting, risk dashboards. Needs the 10,000-foot view.</p>
+      <div class="tools">Satellite / Insights, Wazuh overview, OCSF reports</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ L0 — ATTESTATION ═══ -->
+<section class="layer-section" id="l0">
+  <div class="layer-header">
+    <span class="layer-badge tag-l0">L0</span>
+    <h2>Platform Attestation — Keylime + swtpm</h2>
+    <span class="status status-working">Working</span>
+  </div>
+
+  <div class="sdc-grid">
+    <div class="sdc-column">
+      <div class="sdc-column-header see-header">See</div>
+      <div class="sdc-item">
+        <div class="label">Agent registration status</div>
+        <div class="detail">sqlite3 reg_data.sqlite — active/inactive per UUID</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">PCR values</div>
+        <div class="detail">tpm2_pcrread sha256:0,1,2,3,7 — boot chain integrity</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Attestation quote results</div>
+        <div class="detail">Verifier logs — pass/fail per agent</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">TPM health</div>
+        <div class="detail">tpm2_getrandom — confirms TPM responsive</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header do-header">Do</div>
+      <div class="sdc-item">
+        <div class="label">Register new agent</div>
+        <div class="detail">keylime_agent start → registrar auto-enroll</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Revoke compromised agent</div>
+        <div class="detail">DELETE from registrarmain → triggers revocation actions</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Re-attest after remediation</div>
+        <div class="detail">Flush TPM contexts → restart agent → re-register</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Investigate PCR mismatch</div>
+        <div class="detail">Compare current PCRs vs known-good baseline</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header configure-header">Configure</div>
+      <div class="sdc-item">
+        <div class="label">Allowlist PCR values</div>
+        <div class="detail">Verifier policy — which PCR banks to check</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Attestation frequency</div>
+        <div class="detail">Verifier polling interval (default: continuous)</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Revocation actions</div>
+        <div class="detail">Scripts triggered on attestation failure</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-stories">
+    <h3>User Stories</h3>
+    <div class="story">
+      <div class="as-a">Platform Admin</div>
+      <div class="want">I want to see which agents are registered and their attestation status at a glance</div>
+      <div class="so-that">so that I can confirm all fleet hosts are attesting before deploying workloads.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Query registrar DB returns agent UUID + active/inactive flag</li>
+          <li>Stale registrations (no quote in 24h) are flagged</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Security Architect</div>
+      <div class="want">I want to set a PCR allowlist so only known-good boot chains are trusted</div>
+      <div class="so-that">so that a compromised bootloader or kernel triggers automatic revocation.</div>
+      <div class="acceptance">
+        <ul>
+          <li>PCR mismatch → verifier marks agent "failed"</li>
+          <li>Revocation action fires within attestation polling interval</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want attestation failures to appear in Wazuh as security events</div>
+      <div class="so-that">so that I can correlate TPM failures with other suspicious activity on the same host.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Keylime revocation triggers OCSF event with class_uid 2001</li>
+          <li>Event includes agent UUID, PCR bank, expected vs actual values</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">CISO</div>
+      <div class="want">I want a fleet-wide attestation posture summary</div>
+      <div class="so-that">so that I can report the percentage of hosts with verified boot integrity to auditors.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Single query returns total registered / attesting / failed counts</li>
+          <li>Export-friendly for compliance reports</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ L1/L2 — IDENTITY ═══ -->
+<section class="layer-section" id="l1l2">
+  <div class="layer-header">
+    <span class="layer-badge tag-l1">L1/L2</span>
+    <h2>Identity &amp; Token Lifecycle — FreeIPA + ahdapa</h2>
+    <span class="status status-working">Working</span>
+  </div>
+
+  <div class="sdc-grid">
+    <div class="sdc-column">
+      <div class="sdc-column-header see-header">See</div>
+      <div class="sdc-item">
+        <div class="label">Enrolled agent principals</div>
+        <div class="detail">ipa user-find --all — service accounts + trust tier</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Active OAuth2 tokens</div>
+        <div class="detail">ahdapa token list — scope, expiry, delegation chain</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">HBAC rule matches</div>
+        <div class="detail">ipa hbactest — which agents can access which services</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Kerberos ticket state</div>
+        <div class="detail">klist — active tickets + expiry times</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header do-header">Do</div>
+      <div class="sdc-item">
+        <div class="label">Enroll new agent (DARC)</div>
+        <div class="detail">kinit + ahdapa register — gets scoped credentials</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Revoke agent identity</div>
+        <div class="detail">ipa user-disable + ipa-otpd token-revoke</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Change trust tier</div>
+        <div class="detail">Update HBAC group membership + OBO scope ceiling</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Expire SSSD caches</div>
+        <div class="detail">sss_cache -E — force identity refresh on all clients</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Issue scoped token</div>
+        <div class="detail">ahdapa token issue --scope project:read</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header configure-header">Configure</div>
+      <div class="sdc-item">
+        <div class="label">Trust tier definitions</div>
+        <div class="detail">HBAC rules + user groups per tier</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Token scope ceilings</div>
+        <div class="detail">ahdapa config — max scope per trust tier</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">SSSD cache TTLs</div>
+        <div class="detail">sssd.conf entry_cache_timeout</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Delegation chain depth</div>
+        <div class="detail">Max OBO nesting for agent-to-agent delegation</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-stories">
+    <h3>User Stories</h3>
+    <div class="story">
+      <div class="as-a">Security Architect</div>
+      <div class="want">I want to define trust tiers (Blocked/Untrusted/Verified/Sovereign) with different scope ceilings</div>
+      <div class="so-that">so that newly deployed agents start with minimal privileges and earn broader access.</div>
+      <div class="acceptance">
+        <ul>
+          <li>4 HBAC groups created, each with different service access</li>
+          <li>OBO scope ceiling enforced per group (e.g., Untrusted = read-only)</li>
+          <li>Promotion from Untrusted→Verified requires explicit admin action</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Platform Admin</div>
+      <div class="want">I want agent revocation to propagate to all enrolled hosts within seconds</div>
+      <div class="so-that">so that a compromised agent cannot continue operating on hosts with stale SSSD caches.</div>
+      <div class="acceptance">
+        <ul>
+          <li>sss_cache -E runs on all IPA clients after user-disable</li>
+          <li>Agent's next auth attempt fails within SSSD refresh window</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want to see the delegation chain for any active token</div>
+      <div class="so-that">so that during incident triage I can trace which agent delegated credentials to which downstream agent.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Token introspection shows parent→child delegation path</li>
+          <li>Each hop includes timestamp and scope narrowing</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">CISO</div>
+      <div class="want">I want a report of all agent identities and their trust tiers</div>
+      <div class="so-that">so that I can audit the blast radius if any single tier is compromised.</div>
+      <div class="acceptance">
+        <ul>
+          <li>ipa user-find filtered by trust-tier group returns count + principals</li>
+          <li>Identifies over-privileged agents (Sovereign tier with no recent attestation)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ L3 — POLICY ═══ -->
+<section class="layer-section" id="l3">
+  <div class="layer-header">
+    <span class="layer-badge tag-l3">L3</span>
+    <h2>Policy Engine — Cedar / AuthZEN</h2>
+    <span class="status status-design">Design Only</span>
+  </div>
+
+  <div class="sdc-grid">
+    <div class="sdc-column">
+      <div class="sdc-column-header see-header">See</div>
+      <div class="sdc-item">
+        <div class="label">Policy evaluation results</div>
+        <div class="detail">AuthZEN decision log — permit/deny per request</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Policy coverage map</div>
+        <div class="detail">Which actions have explicit allow/deny vs implicit deny</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Decision latency</div>
+        <div class="detail">Fast path (cached) vs slow path (full eval) timing</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header do-header">Do</div>
+      <div class="sdc-item">
+        <div class="label">Test policy before deploy</div>
+        <div class="detail">cedar test — dry-run against sample requests</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Hot-reload policy</div>
+        <div class="detail">Update Cedar policy set without service restart</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Override for incident</div>
+        <div class="detail">Emergency deny-all for a specific agent principal</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header configure-header">Configure</div>
+      <div class="sdc-item">
+        <div class="label">Policy sets per trust tier</div>
+        <div class="detail">Cedar policies grouped by Blocked/Untrusted/Verified/Sovereign</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Fast path cache TTL</div>
+        <div class="detail">How long cached permit decisions are trusted</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">AuthZEN endpoint</div>
+        <div class="detail">Sidecar binding, upstream PDP connection</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-stories">
+    <h3>User Stories</h3>
+    <div class="story">
+      <div class="as-a">Security Architect</div>
+      <div class="want">I want to write Cedar policies that restrict Untrusted agents to read-only operations</div>
+      <div class="so-that">so that a newly enrolled agent cannot modify production resources until promoted.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Cedar policy: forbid(principal in AgentGroup::"untrusted", action in [Action::"write", Action::"delete"])</li>
+          <li>Policy test suite validates deny for write attempts from untrusted principal</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want policy denials to generate OCSF events with the denied action and reason</div>
+      <div class="so-that">so that I can detect agents probing for unauthorized capabilities.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Each deny logs: principal, action attempted, resource, policy that matched</li>
+          <li>Repeated denials from same principal trigger alert escalation</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Platform Admin</div>
+      <div class="want">I want to hot-reload policy changes without restarting the Cedar sidecar</div>
+      <div class="so-that">so that emergency policy updates take effect immediately during incidents.</div>
+      <div class="acceptance">
+        <ul>
+          <li>SIGHUP or API call triggers policy reload</li>
+          <li>New policy applies to next evaluation, not mid-request</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ L4 — SANDBOX ═══ -->
+<section class="layer-section" id="l4">
+  <div class="layer-header">
+    <span class="layer-badge tag-l4">L4a/L4b</span>
+    <h2>Sandbox + Compartmentalization — OpenShell + SELinux MCS</h2>
+    <span class="status status-working">Working</span>
+  </div>
+
+  <div class="sdc-grid">
+    <div class="sdc-column">
+      <div class="sdc-column-header see-header">See</div>
+      <div class="sdc-item">
+        <div class="label">Running sandboxes</div>
+        <div class="detail">podman ps / openshell list — active agent containers</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">SELinux context per process</div>
+        <div class="detail">ps -eZ — domain labels for each running agent</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">AVC denials</div>
+        <div class="detail">ausearch -m avc — SELinux policy violations in real time</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Sandbox resource usage</div>
+        <div class="detail">podman stats — CPU, memory, I/O per container</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Network isolation status</div>
+        <div class="detail">Confirm network=none enforced for untrusted agents</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header do-header">Do</div>
+      <div class="sdc-item">
+        <div class="label">Launch sandboxed agent</div>
+        <div class="detail">openshell sandbox create --policy verified.profile</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Kill escaped agent</div>
+        <div class="detail">podman stop + cleanup workspace</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Inspect sandbox output</div>
+        <div class="detail">Read /workspace/output/ for agent results</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header configure-header">Configure</div>
+      <div class="sdc-item">
+        <div class="label">ODIS sandbox profiles</div>
+        <div class="detail">Per-tier profiles: network, fs, resource limits</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">SELinux policy modules</div>
+        <div class="detail">Custom types for agent domains + MCS categories</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Resource limits</div>
+        <div class="detail">CPU, memory, tmp size per trust tier</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Volume mount allowlist</div>
+        <div class="detail">Which host paths agents can read/write</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-stories">
+    <h3>User Stories</h3>
+    <div class="story">
+      <div class="as-a">Platform Admin</div>
+      <div class="want">I want to launch agents in network-isolated sandboxes with read-only filesystems</div>
+      <div class="so-that">so that even a compromised agent cannot exfiltrate data or modify the host.</div>
+      <div class="acceptance">
+        <ul>
+          <li>podman run --network=none --read-only enforced for Untrusted tier</li>
+          <li>Agent output only via designated /workspace/output volume</li>
+          <li>DNS resolution fails inside container</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Security Architect</div>
+      <div class="want">I want SELinux MCS categories to prevent cross-agent data access</div>
+      <div class="so-that">so that agent A's workspace is invisible to agent B even if both run on the same host.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Each agent container gets unique MCS category (c0,c1 etc.)</li>
+          <li>Cross-category file access returns EACCES with AVC denial</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want SELinux AVC denials for agent processes to appear as OCSF events</div>
+      <div class="so-that">so that sandbox escape attempts are visible alongside detection alerts in my SIEM.</div>
+      <div class="acceptance">
+        <ul>
+          <li>ausearch AVCs for agent domains forward through rsyslog→Wazuh</li>
+          <li>Wazuh rule maps AVC to MITRE T1611 (Container Escape)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">CISO</div>
+      <div class="want">I want sandbox profile compliance reported per fleet host</div>
+      <div class="so-that">so that I can verify all hosts enforce the correct confinement for each trust tier.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Satellite content view shows ODIS profile version per host</li>
+          <li>Drift detection flags hosts running agents without correct profile</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ L5 — DETECTION ═══ -->
+<section class="layer-section" id="l5">
+  <div class="layer-header">
+    <span class="layer-badge tag-l5">L5</span>
+    <h2>Detection + Response — Falco &rarr; EDA &rarr; SIEM</h2>
+    <span class="status status-working">Working</span>
+  </div>
+
+  <div class="sdc-grid">
+    <div class="sdc-column">
+      <div class="sdc-column-header see-header">See</div>
+      <div class="sdc-item">
+        <div class="label">Real-time Falco alerts</div>
+        <div class="detail">journalctl -u falco-modern-bpf — syscall detections</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Bridge classification</div>
+        <div class="detail">journalctl -u falco-siem-bridge — MITRE mapping + OCSF</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">EDA playbook runs</div>
+        <div class="detail">journalctl -u eda-agent-anomaly — rule matches + actions</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">OCSF incident files</div>
+        <div class="detail">/var/log/ocsf/incident-*.json — structured incident records</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Wazuh dashboard alerts</div>
+        <div class="detail">rule.groups: agentic-security + MITRE ATT&CK heatmap</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">ServiceNow tickets</div>
+        <div class="detail">Auto-created incidents with OCSF cross-reference</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Revocation audit trail</div>
+        <div class="detail">4-phase playbook output: IPA→SSSD→contain→ticket</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header do-header">Do</div>
+      <div class="sdc-item">
+        <div class="label">Investigate alert</div>
+        <div class="detail">Expand Wazuh event → agent principal + MITRE + scope</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Trigger manual revocation</div>
+        <div class="detail">ansible-playbook agent-revocation.yml -e agent_principal=X</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Inject test alert</div>
+        <div class="detail">curl POST to bridge :5001 — validate pipeline end-to-end</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Correlate across hosts</div>
+        <div class="detail">Wazuh filter by agent_realm → fleet-wide view</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Export OCSF for analysis</div>
+        <div class="detail">jq queries on /var/log/ocsf/ for incident response</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Validate SIEM intake</div>
+        <div class="detail">make validate-siem — confirms syslog path working</div>
+      </div>
+    </div>
+    <div class="sdc-column">
+      <div class="sdc-column-header configure-header">Configure</div>
+      <div class="sdc-item">
+        <div class="label">Falco detection rules</div>
+        <div class="detail">/etc/falco/rules.d/ — 7 agent-specific rules</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">MITRE ATT&CK mappings</div>
+        <div class="detail">Bridge classification table: rule→technique→tactic</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">EDA rulebook thresholds</div>
+        <div class="detail">Which alert types trigger automatic vs manual response</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">Wazuh custom rules</div>
+        <div class="detail">100100-100102: severity levels + MITRE tags</div>
+      </div>
+      <div class="sdc-item">
+        <div class="label">ServiceNow integration</div>
+        <div class="detail">SN_HOST, SN_USERNAME, SN_PASSWORD env vars</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-stories">
+    <h3>User Stories</h3>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want credential harvesting attempts to appear in my existing SIEM within 1 second of detection</div>
+      <div class="so-that">so that I can triage agent anomalies without learning a new tool or checking a separate dashboard.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Falco detects→bridge classifies→syslog delivers in &lt;1s</li>
+          <li>Wazuh alert includes: agent principal, MITRE technique, severity</li>
+          <li>Standard BSD syslog — works with Splunk/QRadar/Elastic too</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">SOC Analyst</div>
+      <div class="want">I want the 4-phase revocation to happen automatically for critical threats</div>
+      <div class="so-that">so that an agent exfiltrating credentials is contained before I finish reading the alert.</div>
+      <div class="acceptance">
+        <ul>
+          <li>EDA matches swarm/exfil/escalation/escape rules</li>
+          <li>Phase 1-3 complete in &lt;30s: IPA revoke→SSSD expire→contain</li>
+          <li>OCSF incident file written with full timeline</li>
+          <li>Phase 4 (ServiceNow ticket) fires if credentials configured</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Security Architect</div>
+      <div class="want">I want to add custom Falco rules for new agent behaviors without redeploying the full stack</div>
+      <div class="so-that">so that detection coverage evolves as agent capabilities and threat models change.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Drop YAML into /etc/falco/rules.d/ → systemctl reload falco</li>
+          <li>Bridge auto-classifies new rule names if they follow naming convention</li>
+          <li>EDA rulebook matches on alert_type field from bridge</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">Platform Admin</div>
+      <div class="want">I want a single make validate-siem command to confirm the detection pipeline is healthy</div>
+      <div class="so-that">so that I can verify all 3 services (Falco, bridge, EDA) + SIEM intake before a demo or deployment.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Checks systemd status for falco, falco-siem-bridge, eda-agent-anomaly</li>
+          <li>Sends test event through pipeline and confirms Wazuh receipt</li>
+          <li>Reports pass/fail per component</li>
+        </ul>
+      </div>
+    </div>
+    <div class="story">
+      <div class="as-a">CISO</div>
+      <div class="want">I want OCSF-formatted incident records with MITRE ATT&CK mappings</div>
+      <div class="so-that">so that incident reports use industry-standard formats and frameworks my board and auditors recognize.</div>
+      <div class="acceptance">
+        <ul>
+          <li>Every incident file validates against OCSF v1.4.0 schema</li>
+          <li>attacks[] array includes technique_uid and tactic (TA0006 etc.)</li>
+          <li>Compatible with AWS Security Lake, Splunk OCSF add-on</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CROSS-LAYER WORKFLOWS ═══ -->
+<section class="cross-layer" id="cross">
+  <div class="layer-header">
+    <h2>Cross-Layer Workflows</h2>
+  </div>
+
+  <!-- Workflow 1 -->
+  <div class="workflow-card">
+    <h3>1. New Agent Onboarding</h3>
+    <div class="trigger">Trigger: Developer requests AI agent deployment on fleet host</div>
+    <div class="workflow-steps">
+      <span class="workflow-step">L0 Keylime attest host</span>
+      <span class="workflow-step"><span class="arrow">→</span> L1 DARC enroll + kinit</span>
+      <span class="workflow-step"><span class="arrow">→</span> L2 ahdapa scoped token</span>
+      <span class="workflow-step"><span class="arrow">→</span> L3 Cedar policy bind</span>
+      <span class="workflow-step"><span class="arrow">→</span> L4 sandbox profile assign</span>
+      <span class="workflow-step"><span class="arrow">→</span> L5 Falco + bridge verify</span>
+    </div>
+    <div class="layer-tags">
+      <span class="layer-tag tag-l0">L0</span>
+      <span class="layer-tag tag-l1">L1</span>
+      <span class="layer-tag tag-l2">L2</span>
+      <span class="layer-tag tag-l3">L3</span>
+      <span class="layer-tag tag-l4">L4</span>
+      <span class="layer-tag tag-l5">L5</span>
+    </div>
+
+    <div class="user-stories" style="margin-top: 1rem;">
+      <div class="story">
+        <div class="as-a">Platform Admin</div>
+        <div class="want">I want a single onboarding workflow that enrolls an agent across all layers</div>
+        <div class="so-that">so that no layer is skipped and the agent starts with the correct trust tier from day one.</div>
+        <div class="acceptance">
+          <ul>
+            <li>Onboarding playbook checks L0 attestation before issuing L1 identity</li>
+            <li>Trust tier determines L2 scope ceiling, L3 policy set, L4 sandbox profile</li>
+            <li>L5 detection rules active before agent's first task</li>
+            <li>Failed attestation at L0 blocks the entire chain</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow 2 -->
+  <div class="workflow-card">
+    <h3>2. Incident Response — Detection to Containment</h3>
+    <div class="trigger">Trigger: Falco detects anomalous agent behavior (swarm, exfil, escalation, escape)</div>
+    <div class="workflow-steps">
+      <span class="workflow-step">L5 Falco detect</span>
+      <span class="workflow-step"><span class="arrow">→</span> Bridge classify + OCSF</span>
+      <span class="workflow-step"><span class="arrow">→</span> EDA match rule</span>
+      <span class="workflow-step"><span class="arrow">→</span> L1 IPA revoke + disable</span>
+      <span class="workflow-step"><span class="arrow">→</span> L2 SSSD cache expire</span>
+      <span class="workflow-step"><span class="arrow">→</span> L4 kill + contain</span>
+      <span class="workflow-step"><span class="arrow">→</span> SIEM + ServiceNow</span>
+    </div>
+    <div class="layer-tags">
+      <span class="layer-tag tag-l5">L5</span>
+      <span class="layer-tag tag-l1">L1</span>
+      <span class="layer-tag tag-l2">L2</span>
+      <span class="layer-tag tag-l4">L4</span>
+    </div>
+
+    <div class="user-stories" style="margin-top: 1rem;">
+      <div class="story">
+        <div class="as-a">SOC Analyst</div>
+        <div class="want">I want detection-to-containment to complete in under 30 seconds without human intervention</div>
+        <div class="so-that">so that a credential-harvesting agent is stopped before it can exfiltrate to an external server.</div>
+        <div class="acceptance">
+          <ul>
+            <li>Falco→bridge→EDA→IPA revoke→SSSD expire→kill: &lt;30s total</li>
+            <li>OCSF incident file records full timeline with timestamps</li>
+            <li>SOC analyst sees alert + "contained" status in Wazuh</li>
+            <li>ServiceNow ticket auto-created if configured</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow 3 -->
+  <div class="workflow-card">
+    <h3>3. Trust Tier Change</h3>
+    <div class="trigger">Trigger: Security architect promotes or demotes an agent's trust tier</div>
+    <div class="workflow-steps">
+      <span class="workflow-step">L1 Update HBAC group</span>
+      <span class="workflow-step"><span class="arrow">→</span> L2 Adjust scope ceiling</span>
+      <span class="workflow-step"><span class="arrow">→</span> L3 Rebind Cedar policy</span>
+      <span class="workflow-step"><span class="arrow">→</span> L4 Swap sandbox profile</span>
+      <span class="workflow-step"><span class="arrow">→</span> L2 SSSD cache expire</span>
+      <span class="workflow-step"><span class="arrow">→</span> L5 OCSF audit event</span>
+    </div>
+    <div class="layer-tags">
+      <span class="layer-tag tag-l1">L1</span>
+      <span class="layer-tag tag-l2">L2</span>
+      <span class="layer-tag tag-l3">L3</span>
+      <span class="layer-tag tag-l4">L4</span>
+      <span class="layer-tag tag-l5">L5</span>
+    </div>
+
+    <div class="user-stories" style="margin-top: 1rem;">
+      <div class="story">
+        <div class="as-a">Security Architect</div>
+        <div class="want">I want tier changes to propagate atomically across all layers</div>
+        <div class="so-that">so that an agent promoted to Verified immediately gets broader scope AND the matching sandbox profile, not one without the other.</div>
+        <div class="acceptance">
+          <ul>
+            <li>Single playbook updates L1 group + L2 ceiling + L4 profile</li>
+            <li>Rollback on partial failure (e.g., L4 profile missing → revert L1+L2)</li>
+            <li>OCSF audit event records old tier→new tier with admin identity</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow 4 -->
+  <div class="workflow-card">
+    <h3>4. Post-Incident Restore</h3>
+    <div class="trigger">Trigger: SOC analyst clears incident and approves agent re-enrollment</div>
+    <div class="workflow-steps">
+      <span class="workflow-step">L0 Re-attest host</span>
+      <span class="workflow-step"><span class="arrow">→</span> L1 Re-enable user</span>
+      <span class="workflow-step"><span class="arrow">→</span> L2 Issue new token (demoted tier)</span>
+      <span class="workflow-step"><span class="arrow">→</span> L4 Assign restricted profile</span>
+      <span class="workflow-step"><span class="arrow">→</span> L5 OCSF restore event</span>
+    </div>
+    <div class="layer-tags">
+      <span class="layer-tag tag-l0">L0</span>
+      <span class="layer-tag tag-l1">L1</span>
+      <span class="layer-tag tag-l2">L2</span>
+      <span class="layer-tag tag-l4">L4</span>
+      <span class="layer-tag tag-l5">L5</span>
+    </div>
+
+    <div class="user-stories" style="margin-top: 1rem;">
+      <div class="story">
+        <div class="as-a">SOC Analyst</div>
+        <div class="want">I want restored agents to start at Untrusted tier regardless of their pre-incident tier</div>
+        <div class="so-that">so that a previously compromised agent must re-earn trust through demonstrated good behavior.</div>
+        <div class="acceptance">
+          <ul>
+            <li>Re-enable assigns Untrusted group (not original tier)</li>
+            <li>Attestation must pass before identity is re-enabled</li>
+            <li>OCSF event links restore to original incident_id</li>
+            <li>Promotion back to original tier requires separate approval</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow 5 -->
+  <div class="workflow-card">
+    <h3>5. Fleet Posture Report</h3>
+    <div class="trigger">Trigger: CISO requests weekly/monthly compliance posture summary</div>
+    <div class="workflow-steps">
+      <span class="workflow-step">L0 Attestation coverage %</span>
+      <span class="workflow-step"><span class="arrow">→</span> L1 Agent inventory by tier</span>
+      <span class="workflow-step"><span class="arrow">→</span> L4 Sandbox compliance %</span>
+      <span class="workflow-step"><span class="arrow">→</span> L5 Incident summary + MTTR</span>
+      <span class="workflow-step"><span class="arrow">→</span> Combined posture score</span>
+    </div>
+    <div class="layer-tags">
+      <span class="layer-tag tag-l0">L0</span>
+      <span class="layer-tag tag-l1">L1</span>
+      <span class="layer-tag tag-l4">L4</span>
+      <span class="layer-tag tag-l5">L5</span>
+    </div>
+
+    <div class="user-stories" style="margin-top: 1rem;">
+      <div class="story">
+        <div class="as-a">CISO</div>
+        <div class="want">I want a single posture dashboard combining attestation, identity, confinement, and detection metrics</div>
+        <div class="so-that">so that I can answer "how secure is our AI agent fleet?" with data, not anecdotes.</div>
+        <div class="acceptance">
+          <ul>
+            <li>Attestation: % hosts with passing Keylime quotes</li>
+            <li>Identity: agent count by trust tier, over-privileged flag count</li>
+            <li>Confinement: % hosts with correct sandbox profiles deployed</li>
+            <li>Detection: incidents this period, MTTR, top MITRE techniques</li>
+            <li>Single composite score: 0-100 with red/amber/green thresholds</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+</body>
+</html>
