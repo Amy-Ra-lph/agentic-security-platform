@@ -179,7 +179,7 @@ sudo journalctl -u falco-siem-bridge --no-pager -n 3 --since "30s ago" --output=
 sudo journalctl -u eda-agent-anomaly --no-pager -n 30 --since "60s ago" --output=cat
 ```
 
-**SAY:** "EDA matched the swarm rule and launched the revocation playbook. It SSHs to the IPA server and attempts to revoke the agent's OAuth2 token via ahdapa and disable the principal in IPA. The key point: detection to remediation is fully automated — no human in the loop for critical threats."
+**SAY:** "EDA matched the swarm rule and launched the revocation playbook. Four phases: first, it SSHs to the IPA server and revokes the agent's OAuth2 token and disables the principal. Second, it expires SSSD caches on all enrolled clients so the lockout propagates immediately. Third, it kills the agent process and writes an OCSF incident file. Fourth, if ServiceNow is configured, it creates a security incident ticket automatically. Detection to containment — fully automated, no human in the loop for critical threats."
 
 ### Verify SIEM Correlation
 
@@ -203,13 +203,13 @@ sudo grep "agentic-security" /var/ossec/logs/alerts/alerts.log | tail -5
 
 **SAY:** "So what we've shown is three layers of the enforcement stack working together:
 
-1. **L0 Attestation (Keylime)** — the agent proves the system hasn't been tampered with by providing TPM-backed quotes. The verifier on the server validates these continuously.
+1. **L0 Attestation (Keylime)** — the platform proves its integrity via TPM-backed quotes. The verifier validates these continuously.
 
 2. **L4b Blastwall (SELinux)** — mandatory access control compartmentalizes processes. Each service runs in its own domain with least-privilege policies.
 
-3. **L5 Audit + Response (Falco → EDA → Wazuh)** — behavioral anomaly detection triggers automated identity revocation through IPA AND provides SOC visibility through Wazuh with MITRE ATT&CK mapping.
+3. **L5 Audit + Response (Falco → EDA → Wazuh)** — behavioral anomaly detection triggers a four-phase automated response: identity revocation through IPA, SSSD cache expiry, agent containment with OCSF incident filing, and optionally a ServiceNow ticket. Wazuh provides SOC visibility with MITRE ATT&CK mapping.
 
-The chain is: Falco detects → bridge classifies with MITRE mapping → dual path: EDA matches rule and revokes the agent's identity in IPA, AND syslog delivers to Wazuh for SOC correlation. Detection to response in seconds, not hours. And because it flows through IPA, the revocation propagates to every enrolled host via SSSD — the agent loses access everywhere, not just the box where the anomaly was detected."
+The chain is: Falco detects → bridge classifies with MITRE mapping and emits OCSF-structured events → dual path: EDA matches rule and runs the four-phase revocation playbook, AND syslog delivers to Wazuh for SOC correlation. Detection to containment in seconds, not hours. And because it flows through IPA, the revocation propagates to every enrolled host via SSSD — the agent loses access everywhere, not just the box where the anomaly was detected."
 
 ---
 

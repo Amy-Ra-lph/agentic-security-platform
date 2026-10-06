@@ -125,19 +125,25 @@ OCSF_EVENT=$(cat <<OCSF
 {
   "class_uid": 6003,
   "class_name": "API Activity",
+  "category_uid": 6,
+  "category_name": "Application Activity",
   "severity_id": 1,
   "severity": "Informational",
-  "activity_name": "agent.task.complete",
+  "activity_id": 1,
+  "activity_name": "Create",
+  "status_id": 1,
   "status": "Success",
   "actor": {
     "user": {"name": "governed-agent", "type": "service"},
     "session": {"uid": "$(uuidgen 2>/dev/null || echo demo-session-001)"}
   },
   "resources": [
-    {"type": "agent", "name": "governed-agent"},
+    {"type": "agent", "name": "governed-agent", "domain": "DEMO.AGENTIC.TEST"},
     {"type": "sandbox", "name": "${SANDBOX_TOOL}"}
   ],
   "metadata": {
+    "version": "1.4.0",
+    "product": {"name": "agentic-security-platform", "vendor_name": "Red Hat"},
     "trust_tier": "verified",
     "assessment": "pass",
     "confinement": "${SANDBOX_TOOL}",

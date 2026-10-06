@@ -16,6 +16,7 @@ fi
 
 SERVER="${SERVER:-system1}"
 CLIENT="${CLIENT:-system2}"
+SIEM="${SIEM:-}"
 
 TOOLKIT_IMAGE="${TOOLKIT_IMAGE:-quay.io/rhn_support_afarley/rhel-security-toolkit:latest}"
 

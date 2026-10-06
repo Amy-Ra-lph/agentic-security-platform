@@ -7,8 +7,8 @@
 ## Before You Start
 
 Open three windows side-by-side:
-1. **Terminal** — SSH to runner VM (`root@hpe-dl80gen9-01.khw.eng.rdu2.dc.redhat.com`)
-2. **Wazuh Dashboard** — `https://kvm-03-guest21.lab.eng.rdu2.dc.redhat.com:443` (admin / see credentials file)
+1. **Terminal** — SSH to runner VM (CLIENT from `setup/inventory.env`)
+2. **Wazuh Dashboard** — `https://<SIEM>:443` (admin / see credentials file)
 3. **Split-view HTML** — Open `demo/split-view-edr.html` in browser (local)
 
 Pre-flight checks (run from laptop):
@@ -113,7 +113,7 @@ journalctl -u falco-modern-bpf --no-pager --since "1 min ago" | grep "EXFIL"
 
 > "Detection without response is just a log nobody reads. Here's where it gets interesting."
 
-> "Falco sends the alert directly to our bridge via HTTP webhook. The bridge does three things: enriches the event with agent identity and MITRE mapping, forwards to Event-Driven Ansible for automated response, and sends to your SIEM via standard syslog."
+> "Falco sends the alert directly to our bridge via HTTP webhook. The bridge enriches the event with agent identity, MITRE ATT&CK mapping, and wraps it in OCSF format — the Linux Foundation standard used by AWS Security Lake, Splunk, and CrowdStrike. Then it dual-routes: Event-Driven Ansible for automated response, and standard syslog to your SIEM."
 
 ### What to do — show the pipeline:
 
@@ -135,7 +135,7 @@ Navigate to:
 
 > "Your SIEM received the enriched alert in under a second. Same syslog your SOC already monitors. No new tools, no new dashboards — it lands in your existing workflow."
 
-> "And this isn't Wazuh-specific. We emit standard RFC 5424 syslog with structured data. Swap Wazuh for Splunk, QRadar, or Elastic — change one IP address."
+> "And this isn't Wazuh-specific. We emit standard BSD syslog with OCSF-structured payloads. Swap Wazuh for Splunk, QRadar, or Elastic — change one IP address."
 
 ---
 
@@ -183,7 +183,7 @@ curl -sk https://idm.demo.agentic.test/idp/.well-known/openid-configuration | py
 
 > "30 seconds from 'run this agent' to 'your credentials are gone.' That's the reality of ungoverned AI agents on enterprise Linux."
 
-> "Five layers stop it: identity enrollment through FreeIPA and ahdapa, HBAC policy gates, OpenShell runtime sandboxing, Falco behavioral detection, and now — automated revocation with SOC visibility through your existing SIEM."
+> "Five layers stop it: identity enrollment through FreeIPA and ahdapa, HBAC policy gates, OpenShell runtime sandboxing, Falco behavioral detection, and now — four-phase automated revocation with OCSF incident filing, ServiceNow ticketing, and SOC visibility through your existing SIEM."
 
 > "The agent doesn't get a second request. The SOC knows before the developer does. And it works with your existing security stack — standard syslog, standard MITRE mapping, standard SIEM."
 
@@ -205,14 +205,15 @@ curl -sk https://idm.demo.agentic.test/idp/.well-known/openid-configuration | py
 
 | System | URL | User | Password |
 |--------|-----|------|----------|
-| Wazuh Dashboard | `https://kvm-03-guest21.lab.eng.rdu2.dc.redhat.com:443` | admin | `?kz34UYm5fjSJZLpxkB+EsT.xm+.zBmI` |
+| Wazuh Dashboard | `https://<SIEM from inventory.env>:443` | admin | See `/var/ossec/.wazuh-admin-password` on SIEM VM |
 | IPA | `https://idm.demo.agentic.test` | admin | See `~/.demo-credentials` on server |
+| VMs | See `setup/inventory.env` | engineer | Demo2026! |
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Bridge shows syslog send failed | Check SIEM VM is up: `ssh root@kvm-03-guest21... "systemctl is-active wazuh-manager"` |
+| Bridge shows syslog send failed | Check SIEM VM is up: `ssh root@<SIEM> "systemctl is-active wazuh-manager"` |
 | EDA returns 401 | Token mismatch. Check `/opt/demo/ansible/vars.yml` matches bridge `--eda-token` flag |
 | No Falco alerts | `systemctl restart falco-modern-bpf` — check `/etc/falco/rules.d/` has rules file and `/etc/falco/config.d/http-output.yaml` points to bridge :5001 |
 | Wazuh shows no custom alerts | `systemctl restart wazuh-manager` — check custom decoders/rules deployed |
