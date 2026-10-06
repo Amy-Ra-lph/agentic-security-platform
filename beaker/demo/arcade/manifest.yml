@@ -147,3 +147,25 @@ acts:
       - "Phase 2: SSSD cache expire on all clients"
       - "Phase 3: contain processes + OCSF incident file"
       - "Phase 4: ServiceNow ticket (optional)"
+
+  # ── Act 14: SOC Dashboard (screenshots) ──
+  - title: "SOC Dashboard"
+    description: "Wazuh SIEM with custom agentic security dashboard"
+    gallery: galleries/wazuh-soc/
+    icon: shield
+    accent: "#0EA5E9"
+    key_points:
+      - "68 agentic security alerts across swarm, exfiltration, escalation"
+      - "MITRE ATT&CK mapping: T1059.006, T1552.001, T1078.003"
+      - "Real-time alert feed with severity, rule, and source IP"
+
+  # ── Act 15: IPA Management (screenshots) ──
+  - title: "IPA Agent Management"
+    description: "FreeIPA WebUI showing enrolled agents and HBAC policy"
+    gallery: galleries/ipa-management/
+    icon: server
+    accent: "#8B5CF6"
+    key_points:
+      - "Agent principal enrolled with Kerberos keytab"
+      - "HBAC rules bind agents to allowed services"
+      - "deny-unknown rule blocks unregistered agents"

@@ -1,0 +1,13 @@
+{
+  "title": "IPA Agent Management",
+  "steps": [
+    {
+      "file": "01-service-show.png",
+      "caption": "ipa service-show — agent principal enrolled with Kerberos keytab, managed by FreeIPA"
+    },
+    {
+      "file": "02-hbacrule-show.png",
+      "caption": "ipa hbacrule-show — HBAC rule binding agent to allowed services, deny-unknown blocks unregistered agents"
+    }
+  ]
+}

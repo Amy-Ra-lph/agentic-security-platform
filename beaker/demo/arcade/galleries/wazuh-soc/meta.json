@@ -1,0 +1,17 @@
+{
+  "title": "Wazuh SOC Dashboard",
+  "steps": [
+    {
+      "file": "01-overview.png",
+      "caption": "Wazuh Overview — 1 high, 5 medium, 199 low severity alerts across endpoints"
+    },
+    {
+      "file": "02-agentic-dashboard.png",
+      "caption": "Agentic Security Dashboard — 68 alerts, MITRE ATT&CK mapped (T1059.006, T1552.001, T1078.003), 91% swarm detection"
+    },
+    {
+      "file": "03-dashboard-full.png",
+      "caption": "Full dashboard view — alerts over time, severity levels, rule breakdown, recent alert feed with source IPs"
+    }
+  ]
+}
