@@ -44,6 +44,17 @@ MITRE_MAP = {
 
 OCSF_CLASS_UID = 2001  # Security Finding
 
+SEVERITY_MAP = {
+    "emergency": (6, "Fatal"),
+    "alert": (5, "Critical"),
+    "critical": (5, "Critical"),
+    "error": (4, "High"),
+    "warning": (3, "Medium"),
+    "notice": (2, "Low"),
+    "informational": (1, "Informational"),
+    "debug": (0, "Unknown"),
+}
+
 
 def extract_agent_principal(output_fields: dict, output: str) -> str:
     user = output_fields.get("user.name", "")
@@ -56,6 +67,12 @@ def extract_agent_principal(output_fields: dict, output: str) -> str:
 
 
 def transform(falco_event: dict) -> dict:
+    """Transform Falco alert into OCSF Security Finding (class_uid 2001).
+
+    Returns an OCSF-structured dict that also includes flat top-level
+    fields for backward compatibility with EDA rulebook conditions
+    (event.payload.alert_type, event.payload.rule, etc.).
+    """
     tags = falco_event.get("tags", [])
     output_fields = falco_event.get("output_fields", {})
     output = falco_event.get("output", "")
@@ -69,21 +86,61 @@ def transform(falco_event: dict) -> dict:
             alert_type = TAG_TO_ALERT_TYPE[tag]
 
     mitre_id = MITRE_MAP.get(rule_id, "")
+    priority = falco_event.get("priority", "").lower()
+    sev_id, sev_name = SEVERITY_MAP.get(priority, (0, "Unknown"))
+    now = datetime.now(timezone.utc)
+    agent_principal = extract_agent_principal(output_fields, output)
+    source_host = output_fields.get("container.name", "host")
 
     return {
+        # OCSF envelope (class_uid 2001: Security Finding)
+        "class_uid": OCSF_CLASS_UID,
+        "class_name": "Security Finding",
+        "category_uid": 2,
+        "category_name": "Findings",
+        "severity_id": sev_id,
+        "severity": sev_name,
+        "activity_id": 1,
+        "activity_name": "Create",
+        "status_id": 1,
+        "status": "New",
+        "time": now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "finding_info": {
+            "title": f"{alert_type.upper()}: {falco_event.get('rule', '')}",
+            "uid": f"{rule_id}-{now.strftime('%Y%m%dT%H%M%SZ')}",
+            "types": [alert_type],
+            "desc": output,
+            "src_url": "falco",
+        },
+        "attacks": [{"technique": {"uid": mitre_id, "name": rule_id}}] if mitre_id else [],
+        "resources": [
+            {"type": "agent", "name": agent_principal, "domain": "DEMO.AGENTIC.TEST"},
+            {"type": "host", "name": source_host},
+        ],
+        "process": {
+            "pid": output_fields.get("proc.pid", ""),
+            "cmd_line": output_fields.get("proc.cmdline", ""),
+            "name": output_fields.get("proc.name", ""),
+        },
+        "metadata": {
+            "version": "1.4.0",
+            "product": {"name": "falco-siem-bridge", "vendor_name": "Red Hat"},
+        },
+        # Flat fields for EDA rulebook backward compatibility
         "alert_type": alert_type,
         "rule": rule_id,
-        "agent_principal": extract_agent_principal(output_fields, output),
+        "agent_principal": agent_principal,
         "agent_realm": "DEMO.AGENTIC.TEST",
-        "timestamp": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "timestamp": now.strftime("%Y%m%dT%H%M%SZ"),
         "falco_priority": falco_event.get("priority", ""),
         "falco_rule": falco_event.get("rule", ""),
         "falco_output": output,
-        "source_host": output_fields.get("container.name", "host"),
+        "source_host": source_host,
         "pid": output_fields.get("proc.pid", ""),
         "cmdline": output_fields.get("proc.cmdline", ""),
         "mitre_id": mitre_id,
         "ocsf_class_uid": OCSF_CLASS_UID,
+        "incident_id": f"INC-{alert_type.upper()}-{now.strftime('%Y%m%dT%H%M%SZ')}",
     }
 
 

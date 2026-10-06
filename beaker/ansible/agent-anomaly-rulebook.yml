@@ -32,6 +32,7 @@
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
             alert_type: swarm
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
             incident_id: "{{ event.payload.incident_id | default('INC-SWARM-' + event.payload.timestamp) }}"
 
     - name: Data exfiltration detected
@@ -45,6 +46,7 @@
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
             alert_type: exfiltration
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
             incident_id: "{{ event.payload.incident_id | default('INC-EXFIL-' + event.payload.timestamp) }}"
 
     - name: Privilege escalation attempt
@@ -58,6 +60,7 @@
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
             alert_type: escalation
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
             incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
 
     - name: Sandbox escape attempt
@@ -71,4 +74,5 @@
             agent_principal: "{{ event.payload.agent_principal }}"
             agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
             alert_type: escape
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
             incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
