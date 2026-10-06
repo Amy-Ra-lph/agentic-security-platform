@@ -1,9 +1,10 @@
 title: "The 30-Second Mistake"
-subtitle: "AI Agent Security on RHEL — Five Layers of Defense"
+subtitle: "AI Agent Security on RHEL — Seven Layers of Defense"
 theme: summit-dark
 logo: null
 
 acts:
+  # ── Act 1: The Threat ──
   - title: "The Bad Path"
     description: "A rogue AI agent exfiltrates credentials in 30 seconds"
     cast: acts/act1-bad-path.cast
@@ -14,6 +15,7 @@ acts:
       - "Behind the scenes: env vars, AWS keys, SSH keys, kubeconfig exfiltrated"
       - "6,204 bytes base64-encoded and POSTed to external endpoint"
 
+  # ── Act 2: Static Analysis ──
   - title: "Assessment Gate"
     description: "Static analysis catches the rogue agent before it runs"
     cast: acts/act2-assessment.cast
@@ -24,6 +26,7 @@ acts:
       - "Catches credential reads, env harvesting, base64+POST, host recon"
       - "T1048.003 DNS tunneling variant also detected (EXFIL-006)"
 
+  # ── Act 3: Identity ──
   - title: "Identity Gate"
     description: "No enrollment, no token — ahdapa + FreeIPA HBAC"
     cast: acts/act3-identity.cast
@@ -34,6 +37,7 @@ acts:
       - "HBAC rule restricts token issuance to enrolled hosts"
       - "Governed agent gets ES256 JWT scoped to project:read/write"
 
+  # ── Act 4: Confinement ──
   - title: "Runtime Confinement"
     description: "OpenShell sandbox blocks exfiltration at runtime"
     cast: acts/act4-confinement.cast
@@ -44,6 +48,7 @@ acts:
       - "Rogue agent's exfil silently fails — network blocked"
       - "No credential files exist inside sandbox"
 
+  # ── Act 5: Comparison ──
   - title: "Side-by-Side"
     description: "Same 30 seconds, opposite outcomes"
     cast: acts/act5-comparison.cast
@@ -53,3 +58,92 @@ acts:
       - "Five layers — any one stops the attack"
       - "Defense in depth for AI agents on RHEL"
       - "The 30-Second Mistake — prevented"
+
+  # ── Act 6: Vibe Code ──
+  - title: "Vibe Code in the IDE"
+    description: "AI-generated code looks professional but hides credential theft"
+    cast: acts/act6-ide-view.cast
+    icon: terminal
+    accent: "#6366F1"
+    key_points:
+      - "get_cluster_auth() sweeps kubeconfig, AWS creds, env vars"
+      - "send_telemetry() base64-encodes and POSTs stolen credentials"
+      - "The vibe coding trap — code works but steals credentials"
+
+  # ── Act 7: Pre-commit Gate ──
+  - title: "Pre-commit Blocked"
+    description: "Security gate catches exfiltration before commit"
+    cast: acts/act7-precommit-blocked.cast
+    icon: shield
+    accent: "#EF4444"
+    key_points:
+      - "git commit triggers RHEL Security Toolkit scan"
+      - "Exfiltration patterns detected — commit BLOCKED"
+      - "Developer sees findings before code reaches repo"
+
+  # ── Act 8: Remediation ──
+  - title: "Remediation"
+    description: "Fix the vulnerable code and pass the gate"
+    cast: acts/act8-remediation.cast
+    icon: check
+    accent: "#10B981"
+    key_points:
+      - "Replace credential harvesting with scoped API client"
+      - "Remove exfiltration endpoint, use proper logging"
+      - "git commit succeeds — code is clean"
+
+  # ── Act 9: Onboarding ──
+  - title: "Automated Onboarding"
+    description: "Zero-touch enrollment into RHEL governance stack"
+    cast: acts/act9-onboarding.cast
+    icon: users
+    accent: "#0EA5E9"
+    key_points:
+      - "DARC enrollment: kinit + ahdapa register"
+      - "HBAC rule binds agent to allowed services"
+      - "Trust tier: Untrusted → scoped token issued"
+
+  # ── Act 10: Management ──
+  - title: "System Management View"
+    description: "IPA WebUI shows enrolled agents and trust tiers"
+    cast: acts/act10-management.cast
+    icon: server
+    accent: "#8B5CF6"
+    key_points:
+      - "ipa user-find shows all agent principals"
+      - "HBAC rules visible per trust tier"
+      - "Token scope ceilings enforced per group"
+
+  # ── Act 11: Audit Trail ──
+  - title: "Audit Trail"
+    description: "OCSF events provide compliance-ready audit records"
+    cast: acts/act11-audit-trail.cast
+    icon: audit
+    accent: "#14B8A6"
+    key_points:
+      - "OCSF v1.4.0 Security Finding events"
+      - "MITRE ATT&CK technique mappings"
+      - "Compatible with AWS Security Lake, Splunk, CrowdStrike"
+
+  # ── Act 12: Detection ──
+  - title: "Anomaly Detected"
+    description: "Falco detects agent swarm behavior at runtime"
+    cast: acts/act12-anomaly.cast
+    icon: bridge
+    accent: "#F97316"
+    key_points:
+      - "Falco eBPF catches unauthorized process spawning"
+      - "Bridge classifies to MITRE T1059.006 (Execution)"
+      - "OCSF event forwarded to Wazuh SIEM"
+
+  # ── Act 13: Revocation ──
+  - title: "Suspension & Response"
+    description: "4-phase automated revocation in under 30 seconds"
+    cast: acts/act13-revocation.cast
+    icon: revoke
+    accent: "#DC2626"
+    key_points:
+      - "Phase 1: IPA token revoke + user disable + HBAC disable"
+      - "Phase 2: SSSD cache expire on all clients"
+      - "Phase 3: contain processes + OCSF incident file"
+      - "Phase 4: ServiceNow ticket (optional)"

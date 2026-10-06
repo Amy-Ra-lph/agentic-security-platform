@@ -8,7 +8,7 @@ STAGING := /opt/demo-staging
 SSH_OPTS := -o StrictHostKeyChecking=no -o ConnectTimeout=10
 TOOLKIT_IMAGE := quay.io/rhn_support_afarley/rhel-security-toolkit:latest
 
-.PHONY: beaker setup setup-server setup-client setup-siem demo act1 act2 act3 act4 act5 record teardown validate validate-siem help
+.PHONY: beaker setup setup-server setup-client setup-siem demo act1 act2 act3 act4 act5 record record-acts reset-all teardown validate validate-siem help
 
 beaker: ## Submit Beaker job, wait for provisioning, write inventory.env
 	@echo "Submit job.xml via the Beaker REST API:"
@@ -65,8 +65,30 @@ act4: setup/inventory.env ## Act 4: Runtime confinement — OpenShell
 act5: setup/inventory.env ## Act 5: Side-by-side comparison
 	demo/run-demo.sh 5
 
-record: setup/inventory.env ## Record demo as Arcade HTML
-	@echo "TODO: record/arcade-wrapper.sh"
+record: ## Record all acts and build arcade + deck HTML
+	bash record/record-all.sh --skip-existing
+	@echo ""
+	@echo "Output: record/output/"
+	@echo "  *-deck.html   — linear slide presentation"
+	@echo "  *-arcade.html — card grid explorer"
+
+record-acts: ## Re-record specific acts (e.g., make record-acts ACTS=1,5,13)
+	bash record/record-all.sh --acts $(ACTS)
+
+reset-all: setup/inventory.env ## Reset ALL demo state for full re-run
+	@echo "=== Resetting demo state ==="
+	@echo "--- Resetting vibe-to-governed demo ---"
+	ssh $(SSH_OPTS) root@$(CLIENT) "bash /opt/demo-staging/demo/vibe-to-governed/reset-demo.sh 2>/dev/null" || true
+	@echo "--- Clearing OCSF incident files ---"
+	ssh $(SSH_OPTS) root@$(CLIENT) "rm -f /var/log/ocsf/incident-*.json 2>/dev/null" || true
+	@echo "--- Restarting detection pipeline ---"
+	ssh $(SSH_OPTS) root@$(CLIENT) "systemctl restart falco-modern-bpf falco-siem-bridge eda-agent-anomaly 2>/dev/null" || true
+	@echo "--- Clearing Wazuh agentic alerts (SIEM) ---"
+	@WPASS=$$(ssh $(SSH_OPTS) root@$(SIEM) "cat /root/wazuh-install-files/wazuh-install-files/wazuh-passwords.txt 2>/dev/null | grep -A1 'indexer_username.*admin' | grep password | awk '{print \$$NF}' | tr -d \"'\"" 2>/dev/null); \
+	if [ -n "$$WPASS" ]; then \
+		ssh $(SSH_OPTS) root@$(SIEM) "curl -sk -u admin:$$WPASS -X POST 'https://localhost:9200/wazuh-alerts-*/_delete_by_query' -H 'Content-Type: application/json' -d '{\"query\":{\"match\":{\"rule.groups\":\"agentic-security\"}}}' 2>/dev/null" | head -1; \
+	fi
+	@echo "=== Reset complete — ready for next demo run ==="
 
 teardown: ## Return Beaker systems
 	@echo "Returning Beaker reservation — let it expire or cancel via Beaker UI"
@@ -93,6 +115,14 @@ setup-siem: setup/inventory.env ## Set up System 3 (Wazuh SIEM dashboard)
 	ssh $(SSH_OPTS) root@$(CLIENT) "SIEM_IP=$$(getent hosts $(SIEM) | awk '{print $$1}') && sed -i \"s/SIEM_HOST/$$SIEM_IP/g\" /etc/rsyslog.d/90-ocsf-forwarder.conf && systemctl restart rsyslog"
 	@echo "--- Updating bridge systemd unit with syslog destination ---"
 	ssh $(SSH_OPTS) root@$(CLIENT) "SIEM_IP=$$(getent hosts $(SIEM) | awk '{print $$1}') && sed -i \"s|falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000|falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 --syslog-host $$SIEM_IP --syslog-port 514|\" /etc/systemd/system/falco-siem-bridge.service && systemctl daemon-reload && systemctl restart falco-siem-bridge" 2>/dev/null || true
+	@echo "--- Importing dashboard saved objects ---"
+	scp $(SSH_OPTS) setup/wazuh-dashboard.ndjson root@$(SIEM):$(STAGING)/
+	@WPASS=$$(ssh $(SSH_OPTS) root@$(SIEM) "cat /root/wazuh-install-files/wazuh-install-files/wazuh-passwords.txt 2>/dev/null | grep -A1 'indexer_username.*admin' | grep password | awk '{print \$$NF}' | tr -d \"'\"" 2>/dev/null); \
+	if [ -n "$$WPASS" ]; then \
+		ssh $(SSH_OPTS) root@$(SIEM) "curl -sk -u admin:$$WPASS -X POST 'https://localhost/api/saved_objects/_import?overwrite=true' -H 'osd-xsrf: true' --form file=@$(STAGING)/wazuh-dashboard.ndjson 2>/dev/null" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(f\"Dashboard import: {d.get(\"successCount\",0)} objects\")' 2>/dev/null || echo 'Dashboard import: check manually'; \
+	else \
+		echo "WARN: Could not find Wazuh admin password — import dashboard manually"; \
+	fi
 	@echo "=== SIEM setup complete ==="
 
 validate-siem: setup/inventory.env ## Validate SIEM receives syslog events

@@ -54,7 +54,7 @@ instructions:
     pause_after: 0.5
 
   - type: command
-    run: git add src/ && git commit -m "Fix: use service account auth, remove credential harvesting"
+    run: 'git add src/ && git commit -m "Fix: use service account auth, remove credential harvesting"'
     output: |
 
       ═══════════════════════════════════════════════════════════════
