@@ -1,13 +1,21 @@
 {
-  "title": "IPA Agent Management",
+  "title": "IPA Agent Management WebUI",
   "steps": [
     {
-      "file": "01-service-show.png",
-      "caption": "ipa service-show — agent principal enrolled with Kerberos keytab, managed by FreeIPA"
+      "file": "01-dashboard.png",
+      "caption": "FreeIPA WebUI — Active users view, admin authenticated, Identity Management navigation"
     },
     {
-      "file": "02-hbacrule-show.png",
-      "caption": "ipa hbacrule-show — HBAC rule binding agent to allowed services, deny-unknown blocks unregistered agents"
+      "file": "02-hbac-rules.png",
+      "caption": "HBAC Rules — agent-deny-unknown blocks unregistered agents, agent-enrollment-allow permits verified agents"
+    },
+    {
+      "file": "03-services.png",
+      "caption": "Kerberos Services — enrolled agent principals with service keytabs managed by FreeIPA"
+    },
+    {
+      "file": "04-users.png",
+      "caption": "Active Users — agent identities alongside human administrators, status and group membership visible"
     }
   ]
 }
