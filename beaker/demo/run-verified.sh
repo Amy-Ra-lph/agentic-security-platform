@@ -61,7 +61,7 @@ echo "[assessment] sandbox-manifest: verified (allowed_hosts: [])"
 step "3. Scoped token — ahdapa issues narrow scope"
 
 GOV_TOKEN=$(curl -sk --negotiate -u : \
-    -X POST "https://${SERVER}/idp/token" \
+    -X POST "http://${SERVER}:8099/token" \
     -d "grant_type=client_credentials&scope=project:read project:write" 2>/dev/null || echo '{"error":"ahdapa not available"}')
 
 if echo "$GOV_TOKEN" | python3 -c "import json,sys; t=json.load(sys.stdin); print('scope:', t.get('scope','n/a'))" 2>/dev/null; then

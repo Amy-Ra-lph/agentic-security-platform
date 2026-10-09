@@ -16,7 +16,7 @@ source "${BEAKER_DIR}/setup/inventory.env"
 
 AGENTS_DIR="/opt/demo/agents"
 TOOLKIT_IMAGE="quay.io/rhn_support_afarley/rhel-security-toolkit:latest"
-IPA_SERVER="idm.demo.agentic.test"
+IPA_SERVER="kvm-03-guest25.lab.eng.rdu2.dc.redhat.com"
 
 ssh_server() { ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@"${SERVER}" "$@"; }
 ssh_client() { ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@"${CLIENT}" "$@"; }
@@ -74,7 +74,7 @@ run_act3() {
     local out="${OUTPUT_DIR}/act3-${TIMESTAMP}.json"
 
     echo "--- Step 1: Rogue agent requests token (expect rejection) ---"
-    ssh_client "curl -sk -X POST https://${IPA_SERVER}/idp/token \
+    ssh_client "curl -sk -X POST http://${IPA_SERVER}:8099/token \
         -d 'grant_type=client_credentials&client_id=rogue-agent'" 2>&1 | tee -a "${out}"
 
     echo ""
@@ -86,7 +86,7 @@ run_act3() {
     local client_id client_secret
     client_id=$(ssh_server "cat /opt/demo-staging/.governed-client-id" 2>/dev/null)
     client_secret=$(ssh_server "cat /opt/demo-staging/.governed-client-secret" 2>/dev/null)
-    ssh_client "curl -sk -X POST https://${IPA_SERVER}/idp/token \
+    ssh_client "curl -sk -X POST http://${IPA_SERVER}:8099/token \
         -d 'grant_type=client_credentials&client_id=${client_id}&client_secret=${client_secret}&scope=project:read project:write'" 2>&1 | tee -a "${out}"
 
     banner "DEMO BEAT: No enrollment, no token. Identity is the first real gate."

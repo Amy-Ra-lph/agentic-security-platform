@@ -7,7 +7,7 @@ header "ACT 3: IDENTITY GATE (GAUNTLET STAGE 2)"
 
 step "1. Rogue agent requests token (no IPA enrollment)"
 ROGUE_TOKEN=$(curl -sk -w "\n%{http_code}" \
-    -X POST "https://${SERVER}/idp/token" \
+    -X POST "http://${SERVER}:8099/token" \
     -d "grant_type=client_credentials&client_id=rogue-agent" 2>/dev/null)
 HTTP_CODE=$(echo "$ROGUE_TOKEN" | tail -1)
 BODY=$(echo "$ROGUE_TOKEN" | sed '$d')
@@ -20,13 +20,14 @@ ipa hbacrule-show agent-enrollment-allow 2>/dev/null || echo "(IPA not available
 step "3. Governed agent enrolls via DARC"
 echo "NOTE: DARC enrollment requires interactive browser approval."
 echo "For automated demo, use pre-obtained keytab:"
-echo "  kinit -kt /etc/krb5.keytab governed-agent/$(hostname -f)@DEMO.AGENTIC.TEST"
+echo "  kinit -kt /etc/krb5.keytab governed-agent/$(hostname -f)@BKR.EXAMPLE.COM"
 
-step "4. Governed agent gets scoped token"
-GOV_TOKEN=$(curl -sk --negotiate -u : \
-    -X POST "https://${SERVER}/idp/token" \
-    -d "grant_type=client_credentials&scope=project:read project:write" 2>/dev/null || echo '{"error":"ahdapa not available"}')
+step "4. Governed agent gets scoped token (mcp-agent client)"
+GOV_TOKEN=$(curl -s \
+    -X POST "http://${SERVER}:8099/token" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=client_credentials&client_id=mcp-agent&client_secret=mcp-agent-poc-secret" 2>/dev/null)
 echo "$GOV_TOKEN" | python3 -m json.tool 2>/dev/null || echo "$GOV_TOKEN"
 save_output 3 governed-token "$GOV_TOKEN"
 
-header "ACT 3 COMPLETE: No enrollment, no token"
+header "ACT 3 COMPLETE: No enrollment, no token. Registered agent gets ES256 JWT."
