@@ -1,49 +1,143 @@
-# Agentic Security Enforcement Stack — Partner Deploy
+# Agentic Security Enforcement Stack
 
 Six-layer enforcement stack for AI agent fleet security on RHEL.
+Deploys a 3-node lab with identity management, runtime confinement,
+behavioral detection, automated response, and SIEM correlation.
 
 ## Architecture
 
 | Layer | Component | Purpose |
 |-------|-----------|---------|
-| L0 | Keylime + TPM | Platform attestation |
-| L1 | FreeIPA + ahdapa | Identity gate (HBAC) |
-| L2 | OAuth2 OBO tokens | Scoped credentials with delegation chains |
-| L3/L4 | Trust-tier sandboxes | Runtime confinement (untrusted/verified/sovereign) |
-| L5 | Falco + EDA + Wazuh | Detection, automated response, SIEM |
+| L0 | Keylime + TPM | Platform attestation — proves host integrity before anything runs |
+| L1 | FreeIPA + ahdapa | Identity gate — no IPA enrollment, no token. HBAC at directory level |
+| L2 | OAuth2 OBO tokens | Scoped credentials with delegation chains for full attribution |
+| L3/L4 | Trust-tier sandboxes | Runtime confinement — untrusted/verified/sovereign profiles |
+| L5 | Falco + EDA + Wazuh | eBPF detection → MITRE classification → automated revocation + SIEM |
 
-## Prerequisites
+## Install Guide
 
-- Vagrant 2.3+ with libvirt or VirtualBox provider
-- Ansible 2.14+
-- 16GB RAM (3 VMs: 6GB + 4GB + 6GB)
-- 80GB disk
+### 1. Host machine requirements
+
+| Resource | Minimum |
+|----------|---------|
+| RAM | 16 GB free (3 VMs use ~16 GB total) |
+| Disk | 80 GB free |
+| CPU | 4+ cores (VMs share via KVM/VirtualBox) |
+| OS | Linux (Fedora, RHEL, Ubuntu) or macOS |
+| Network | Internet access during setup (packages, container images) |
+
+### 2. Install dependencies
+
+**Fedora / RHEL / CentOS:**
 
 ```bash
-# libvirt provider (recommended)
+# Vagrant + libvirt
+sudo dnf install -y vagrant libvirt qemu-kvm virt-manager
+sudo systemctl enable --now libvirtd
 vagrant plugin install vagrant-libvirt
+
+# Ansible
+sudo dnf install -y ansible-core
+pip3 install ansible --user    # if ansible-core < 2.14
 
 # Ansible collections
 ansible-galaxy collection install containers.podman
 ```
 
-## Quick Start
+**Ubuntu / Debian:**
 
 ```bash
-cd deploy/
+# Vagrant + libvirt
+sudo apt install -y vagrant libvirt-daemon-system qemu-kvm
+vagrant plugin install vagrant-libvirt
 
-# 1. Start VMs
+# Ansible
+sudo apt install -y ansible
+ansible-galaxy collection install containers.podman
+```
+
+**macOS (VirtualBox):**
+
+```bash
+brew install --cask vagrant virtualbox
+brew install ansible
+ansible-galaxy collection install containers.podman
+```
+
+### 3. Clone and deploy
+
+```bash
+git clone https://github.com/Amy-Ra-lph/agentic-security-platform.git
+cd agentic-security-platform/deploy
+
+# Start 3 VMs (downloads CentOS Stream 10 box on first run, ~2 GB)
 make up
 
-# 2. Deploy full stack
+# Deploy full 6-layer stack (~20-30 min on first run)
 make setup
 
-# 3. Validate
+# Verify all components
 make validate
+```
 
-# 4. Run demo
+### 4. Run the demo
+
+```bash
 make demo
 ```
+
+Or run individual acts — see [Demo Walkthrough](#demo-walkthrough) below.
+
+### 5. Access web UIs
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| IPA WebUI | https://192.168.56.10 | admin / (printed during setup) |
+| Wazuh Dashboard | https://192.168.56.12:443 | admin / (printed during setup) |
+
+Add to your laptop's `/etc/hosts` if you want to use hostnames:
+```
+192.168.56.10 idm.demo.agentic.test
+192.168.56.12 siem.demo.agentic.test
+```
+
+### Troubleshooting install
+
+| Problem | Fix |
+|---------|-----|
+| `vagrant up` fails with permission error | `sudo usermod -aG libvirt $USER` then log out/in |
+| CentOS box download hangs | Check internet; or manually: `vagrant box add centos/stream10` |
+| Ansible "unreachable" | `vagrant ssh server` works? Check `vagrant status` shows running |
+| IPA install fails | Ensure hostname resolves: `vagrant ssh server -c "hostname -f"` should show `idm.demo.agentic.test` |
+| Wazuh install slow | Normal — Wazuh all-in-one downloads ~1 GB. Takes 10-15 min |
+| Out of memory | Close other VMs. Edit `Vagrantfile` to reduce memory (min 3GB per VM) |
+| `make setup` fails mid-run | Safe to re-run — all roles are idempotent |
+
+### Tear down
+
+```bash
+make destroy    # removes all 3 VMs
+```
+
+## What gets installed
+
+| Component | Where | What |
+|-----------|-------|------|
+| FreeIPA server + DNS | server | Identity management, Kerberos, HBAC rules, 4 trust-tier groups |
+| ahdapa | server | OAuth2/OIDC identity provider integrated with IPA |
+| Exfil receiver | server | Demo prop — logs exfiltrated data on :9443 |
+| Keylime verifier | server | TPM-based remote attestation server |
+| FreeIPA client | client | Kerberos enrollment, SSSD cache |
+| Rogue agent | client | Demo — credential exfiltration script |
+| Governed agent | client | Demo — well-behaved agent for comparison |
+| Honeypot credentials | client | Fake AWS/SSH/kube creds for exfil demo |
+| 3 sandbox profiles | client | untrusted/verified/sovereign confinement specs |
+| Falco (eBPF) | client | 7 custom agent security detection rules |
+| falco-siem-bridge | client | MITRE ATT&CK classification + OCSF formatting |
+| EDA (ansible-rulebook) | client | 4-phase automated revocation playbook |
+| enforcement-mcp | client | SELinux/fapolicyd/MLS/AIDE policy MCP server (sovereign tier) |
+| Keylime agent + swtpm | client | Software TPM for attestation demo |
+| Wazuh all-in-one | siem | Manager + indexer + dashboard + custom decoders/rules |
 
 ## Lab Systems
 
