@@ -52,9 +52,20 @@ New tools are vetted before they touch any data:
 - **Integrity attestation:** Supply chain verification (Sigstore) + platform attestation (Keylime/TPM) + workload identity (SPIFFE) feeds tier classification
 - **Detection-to-containment pipeline:** Syscall monitoring → MITRE ATT&CK classification → automated identity revocation + SIEM correlation
 
+## Try It
+
+**[Deploy Guide →](deploy/README.md)** — Stand up the full 6-layer stack on your laptop with Vagrant + Ansible. Three CentOS Stream 10 VMs, ~30 minutes from clone to demo. No special access required.
+
+```bash
+git clone https://github.com/Amy-Ra-lph/agentic-security-platform.git
+cd agentic-security-platform/deploy
+make up && make setup && make demo
+```
+
 ## Structure
 
 ```
+deploy/          Partner-buildable lab (Vagrant + Ansible) ← start here
 daemon/          Token lifecycle daemon with tier awareness
 policy/          Cedar policy rules + sidecar
 audit/           OCSF pipeline, anomaly detector, circuit breaker
@@ -64,7 +75,6 @@ profiles/        Agent role profiles + sandbox configurations
 demo/            7-act demo runner
 tests/           Test harness + benchmarks
 docs/            Design specs, architecture, standards mapping
-beaker/          Live PoC on Beaker VMs (attestation, SELinux, detection pipeline, SIEM)
 ```
 
 ## Standards Alignment
