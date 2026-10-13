@@ -1,0 +1,29 @@
+---
+- name: Enable ahdapa COPR repo
+  ansible.builtin.command: dnf copr enable abbra/modrnizer-darc -y
+  register: copr_enable
+  changed_when: copr_enable.rc == 0
+  failed_when: false
+
+- name: Install ahdapa
+  ansible.builtin.dnf:
+    name: ahdapa
+    state: present
+
+- name: Ensure ahdapa service is started
+  ansible.builtin.systemd:
+    name: ahdapa
+    state: started
+    enabled: true
+  failed_when: false
+
+- name: Verify ahdapa OIDC endpoint
+  ansible.builtin.uri:
+    url: "https://localhost/idp/.well-known/openid-configuration"
+    validate_certs: false
+    return_content: true
+  register: oidc_check
+  retries: 3
+  delay: 5
+  until: oidc_check.status == 200
+  failed_when: false

@@ -1,0 +1,16 @@
+---
+- name: Create profiles directory
+  ansible.builtin.file:
+    path: /opt/demo/profiles
+    state: directory
+    mode: "0755"
+
+- name: Deploy sandbox profiles
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /opt/demo/profiles/
+    mode: "0644"
+  loop:
+    - untrusted.profile
+    - verified.profile
+    - sovereign.profile

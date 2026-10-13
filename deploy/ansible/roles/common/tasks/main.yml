@@ -1,0 +1,28 @@
+---
+- name: Configure /etc/hosts entries
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.name }}"
+    regexp: "{{ item.name }}"
+  loop:
+    - { ip: "{{ server_ip }}", name: "{{ server_hostname }}" }
+    - { ip: "{{ client_ip }}", name: "{{ client_hostname }}" }
+    - { ip: "{{ siem_ip }}", name: "{{ siem_hostname }}" }
+
+- name: Install common packages
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-pip
+      - podman
+      - openssl
+      - strace
+    state: present
+
+- name: Create engineer user
+  ansible.builtin.user:
+    name: "{{ engineer_user }}"
+    groups: wheel
+    append: true
+    password: "{{ engineer_password | password_hash('sha512') }}"
+    state: present

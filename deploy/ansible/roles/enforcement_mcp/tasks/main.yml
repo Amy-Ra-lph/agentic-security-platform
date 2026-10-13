@@ -1,0 +1,52 @@
+---
+- name: Install enforcement-mcp prerequisites
+  ansible.builtin.dnf:
+    name:
+      - setools-console
+      - fapolicyd
+      - aide
+      - policycoreutils-python-utils
+    state: present
+  failed_when: false
+
+- name: Generate SSH key for enforcement-mcp
+  ansible.builtin.command: >
+    ssh-keygen -t ed25519 -f /root/.ssh/enforcement-mcp
+    -N "" -C "enforcement-mcp-deploy"
+  args:
+    creates: /root/.ssh/enforcement-mcp
+
+- name: Add enforcement-mcp key to authorized_keys
+  ansible.builtin.shell: cat /root/.ssh/enforcement-mcp.pub >> /root/.ssh/authorized_keys
+  changed_when: false
+
+- name: Create world-readable key copy for container bind mount
+  ansible.builtin.copy:
+    src: /root/.ssh/enforcement-mcp
+    dest: /tmp/enforcement-key
+    remote_src: true
+    mode: "0644"
+
+- name: Pull enforcement-mcp container
+  containers.podman.podman_image:
+    name: "{{ enforcement_mcp_image }}"
+  failed_when: false
+
+- name: Deploy sovereign profile
+  ansible.builtin.copy:
+    src: sovereign.profile
+    dest: /opt/demo/profiles/sovereign.profile
+
+- name: Verify enforcement-mcp prerequisites
+  ansible.builtin.shell: |
+    podman run -i --rm \
+      -e ENFORCEMENT_MCP_TARGET=localhost \
+      -e ENFORCEMENT_MCP_KEY_FILE=/opt/app-root/src/.ssh/id_ed25519 \
+      -e ENFORCEMENT_MCP_SSH_HOST_KEY_POLICY=auto \
+      -v /tmp/enforcement-key:/opt/app-root/src/.ssh/id_ed25519:ro,z \
+      --network=host \
+      {{ enforcement_mcp_image }} \
+      check localhost
+  register: emcp_check
+  changed_when: false
+  failed_when: false

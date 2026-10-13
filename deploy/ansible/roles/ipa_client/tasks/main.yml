@@ -1,0 +1,37 @@
+---
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ client_hostname }}"
+
+- name: Install IPA client
+  ansible.builtin.dnf:
+    name: ipa-client
+    state: present
+
+- name: Read server credentials
+  ansible.builtin.slurp:
+    src: /root/.demo-credentials
+  register: server_creds
+  delegate_to: server
+
+- name: Parse admin password
+  ansible.builtin.set_fact:
+    admin_password: "{{ (server_creds.content | b64decode) | regex_search('ADMIN_PASSWORD=(\\S+)', '\\1') | first }}"
+
+- name: Check if IPA client enrolled
+  ansible.builtin.command: ipa env
+  register: ipa_enrolled
+  changed_when: false
+  failed_when: false
+
+- name: Enroll IPA client
+  ansible.builtin.command: >
+    ipa-client-install
+    --domain={{ domain }}
+    --server={{ server_hostname }}
+    --hostname={{ client_hostname }}
+    --principal=admin
+    --password={{ admin_password }}
+    --unattended
+    --force-join
+  when: ipa_enrolled.rc != 0

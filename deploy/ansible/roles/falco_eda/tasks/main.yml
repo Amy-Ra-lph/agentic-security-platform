@@ -1,0 +1,150 @@
+---
+- name: Add Falco RPM repo
+  ansible.builtin.copy:
+    content: |
+      [falcosecurity]
+      name=Falco Security
+      baseurl=https://download.falco.org/packages/rpm/
+      gpgcheck=1
+      gpgkey=https://falco.org/repo/falcosecurity-packages.asc
+      enabled=1
+    dest: /etc/yum.repos.d/falcosecurity.repo
+
+- name: Install Falco
+  ansible.builtin.dnf:
+    name: falco
+    state: present
+  failed_when: false
+
+- name: Deploy Falco agent security rules
+  ansible.builtin.template:
+    src: falco-rules-agent-security.yaml.j2
+    dest: /etc/falco/rules.d/falco-rules-agent-security.yaml
+
+- name: Configure Falco HTTP output
+  ansible.builtin.copy:
+    content: |
+      http_output:
+        enabled: true
+        url: "http://localhost:5001"
+      json_output: true
+      json_include_output_property: true
+      json_include_tags_property: true
+    dest: /etc/falco/config.d/http-output.yaml
+
+- name: Deploy Falco-SIEM bridge
+  ansible.builtin.copy:
+    src: falco_siem_bridge.py
+    dest: /opt/demo/bridge/falco_siem_bridge.py
+    mode: "0755"
+
+- name: Create bridge directory
+  ansible.builtin.file:
+    path: /opt/demo/bridge
+    state: directory
+
+- name: Install EDA dependencies
+  ansible.builtin.dnf:
+    name:
+      - java-21-openjdk
+      - python3-pip
+    state: present
+  failed_when: false
+
+- name: Install ansible-rulebook via pip
+  ansible.builtin.pip:
+    name:
+      - ansible
+      - ansible-rulebook
+    state: present
+  failed_when: false
+
+- name: Install Ansible collections
+  ansible.builtin.command: "ansible-galaxy collection install {{ item }}"
+  loop:
+    - ansible.eda
+    - servicenow.itsm
+  changed_when: false
+  failed_when: false
+
+- name: Deploy EDA playbooks
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /opt/demo/ansible/
+  loop:
+    - agent-anomaly-rulebook.yml
+    - agent-revocation.yml
+
+- name: Create EDA ansible directory
+  ansible.builtin.file:
+    path: /opt/demo/ansible
+    state: directory
+
+- name: Generate EDA webhook token
+  ansible.builtin.set_fact:
+    eda_token: "{{ lookup('password', '/dev/null chars=hexdigits length=32') }}"
+
+- name: Deploy EDA vars
+  ansible.builtin.copy:
+    content: |
+      ---
+      eda_webhook_token: "{{ eda_token }}"
+    dest: /opt/demo/ansible/vars.yml
+    mode: "0600"
+
+- name: Deploy EDA inventory
+  ansible.builtin.template:
+    src: eda-inventory.yml.j2
+    dest: /opt/demo/ansible/inventory.yml
+
+- name: Deploy bridge systemd unit
+  ansible.builtin.template:
+    src: falco-siem-bridge.service.j2
+    dest: /etc/systemd/system/falco-siem-bridge.service
+
+- name: Deploy EDA systemd unit
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Event-Driven Ansible — Agent Anomaly Rulebook
+      After=network.target
+
+      [Service]
+      Type=simple
+      WorkingDirectory=/opt/demo/ansible
+      ExecStart=/usr/local/bin/ansible-rulebook --rulebook agent-anomaly-rulebook.yml -i inventory.yml --vars vars.yml
+      Restart=on-failure
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/eda-agent-anomaly.service
+
+- name: Create OCSF log directory
+  ansible.builtin.file:
+    path: /var/log/ocsf
+    state: directory
+    mode: "0750"
+
+- name: Deploy rsyslog OCSF forwarder
+  ansible.builtin.template:
+    src: rsyslog-ocsf-forwarder.conf.j2
+    dest: /etc/rsyslog.d/90-ocsf-forwarder.conf
+  notify: restart rsyslog
+
+- name: Start detection pipeline services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - falco-siem-bridge
+    - eda-agent-anomaly
+  failed_when: false
+
+handlers:
+  - name: restart rsyslog
+    ansible.builtin.systemd:
+      name: rsyslog
+      state: restarted

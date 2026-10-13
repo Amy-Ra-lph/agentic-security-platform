@@ -1,0 +1,21 @@
+---
+all:
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+  children:
+    ipa_servers:
+      hosts:
+        {{ server_hostname }}:
+          ansible_host: {{ server_ip }}
+
+    ipa_clients:
+      hosts:
+        {{ client_hostname }}:
+          ansible_host: {{ client_ip }}
+
+    agent_runners:
+      hosts:
+        {{ client_hostname }}:
+          ansible_host: {{ client_ip }}

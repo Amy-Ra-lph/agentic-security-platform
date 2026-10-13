@@ -1,0 +1,14 @@
+[Unit]
+Description=Falco to EDA + SIEM Webhook Bridge
+After=network.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/demo/bridge/falco_siem_bridge.py --port 5001 --eda-url http://localhost:5000 --eda-token {{ eda_token }} --syslog-host {{ siem_ip }} --syslog-port 514 --syslog-proto udp
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

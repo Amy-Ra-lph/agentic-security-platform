@@ -1,0 +1,88 @@
+---
+- name: Check if Wazuh installed
+  ansible.builtin.stat:
+    path: /var/ossec
+  register: wazuh_dir
+
+- name: Download Wazuh installer
+  ansible.builtin.get_url:
+    url: https://packages.wazuh.com/4.11/wazuh-install.sh
+    dest: /tmp/wazuh-install.sh
+    mode: "0755"
+  when: not wazuh_dir.stat.exists
+
+- name: Install Wazuh all-in-one
+  ansible.builtin.command: bash /tmp/wazuh-install.sh -a -i
+  when: not wazuh_dir.stat.exists
+
+- name: Configure syslog intake
+  ansible.builtin.blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    insertbefore: "</ossec_config>"
+    marker: "<!-- {mark} ANSIBLE MANAGED SYSLOG -->"
+    block: |
+      <remote>
+        <connection>syslog</connection>
+        <port>514</port>
+        <protocol>udp</protocol>
+        <allowed-ips>0.0.0.0/0</allowed-ips>
+      </remote>
+
+- name: Enable logall
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: "<logall>no</logall>"
+    replace: "<logall>yes</logall>"
+
+- name: Disable vulnerability detector (prevents disk bloat)
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: "(<vulnerability-detector>[\\s\\S]*?)<enabled>yes</enabled>"
+    replace: "\\1<enabled>no</enabled>"
+  when: wazuh_disable_vd | default(true)
+
+- name: Clean vd_updater cache
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/ossec/queue/vd_updater
+    - /var/ossec/queue/vd
+  when: wazuh_disable_vd | default(true)
+
+- name: Deploy custom decoders
+  ansible.builtin.copy:
+    src: wazuh-decoders.xml
+    dest: /var/ossec/etc/decoders/agentic-security-decoder.xml
+    owner: wazuh
+    group: wazuh
+
+- name: Deploy custom rules
+  ansible.builtin.copy:
+    src: wazuh-rules.xml
+    dest: /var/ossec/etc/rules/agentic-security-rules.xml
+    owner: wazuh
+    group: wazuh
+
+- name: Restart Wazuh manager
+  ansible.builtin.systemd:
+    name: wazuh-manager
+    state: restarted
+
+- name: Extract Wazuh credentials
+  ansible.builtin.shell: |
+    if [ -f wazuh-install-files.tar ]; then
+      mkdir -p /root/wazuh-install-files
+      tar -xf wazuh-install-files.tar -C /root/wazuh-install-files/ 2>/dev/null || true
+    fi
+    grep -A1 'indexer_username.*admin' /root/wazuh-install-files/wazuh-passwords.txt 2>/dev/null | grep password | awk '{print $NF}' | tr -d "'" | head -1
+  register: wazuh_admin_pass
+  changed_when: false
+  failed_when: false
+
+- name: Show Wazuh dashboard credentials
+  ansible.builtin.debug:
+    msg: |
+      Wazuh Dashboard: https://{{ siem_ip }}:443
+      User: admin
+      Password: {{ wazuh_admin_pass.stdout | default('check /root/wazuh-install-files/') }}

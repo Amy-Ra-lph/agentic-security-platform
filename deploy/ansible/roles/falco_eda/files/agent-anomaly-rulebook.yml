@@ -1,0 +1,78 @@
+---
+# Event-Driven Ansible Rulebook — Agent Anomaly Response
+#
+# Listens for anomaly events from the Falco SIEM bridge and triggers
+# the revocation playbook.
+#
+# Bridge sends flat JSON (no payload wrapper) to EDA webhook.
+# EDA webhook source puts POST body under event.payload.
+# So fields are: event.payload.alert_type, event.payload.rule, etc.
+#
+# Run:
+#   ansible-rulebook --rulebook agent-anomaly-rulebook.yml \
+#     -i inventory.yml --vars vars.yml
+
+- name: Agent anomaly detection and response
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+        token: "{{ eda_webhook_token }}"
+
+  rules:
+    - name: Swarm behavior — unauthorized process spawning
+      condition: >-
+        event.payload.alert_type == "swarm" or
+        event.payload.rule in ["SWARM-001", "SWARM-002"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: swarm
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
+            incident_id: "{{ event.payload.incident_id | default('INC-SWARM-' + event.payload.timestamp) }}"
+
+    - name: Data exfiltration detected
+      condition: >-
+        event.payload.alert_type == "exfiltration" or
+        event.payload.rule in ["EXFIL-001", "EXFIL-002", "EXFIL-003"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: exfiltration
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
+            incident_id: "{{ event.payload.incident_id | default('INC-EXFIL-' + event.payload.timestamp) }}"
+
+    - name: Privilege escalation attempt
+      condition: >-
+        event.payload.alert_type == "escalation" or
+        event.payload.rule in ["SCOPE-001", "PRIV-001"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: escalation
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
+            incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"
+
+    - name: Sandbox escape attempt
+      condition: >-
+        event.payload.alert_type == "escape" or
+        event.payload.rule in ["SBX-001", "SBX-002"]
+      action:
+        run_playbook:
+          name: agent-revocation.yml
+          extra_vars:
+            agent_principal: "{{ event.payload.agent_principal }}"
+            agent_realm: "{{ event.payload.agent_realm | default('DEMO.AGENTIC.TEST') }}"
+            alert_type: escape
+            mitre_id: "{{ event.payload.mitre_id | default('') }}"
+            incident_id: "{{ event.payload.incident_id | default('INC-ESC-' + event.payload.timestamp) }}"

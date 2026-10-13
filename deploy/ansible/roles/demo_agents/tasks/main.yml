@@ -1,0 +1,78 @@
+---
+- name: Create demo directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /opt/demo/agents
+    - /opt/demo/output
+
+- name: Deploy agent scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /opt/demo/agents/
+    mode: "0755"
+  loop:
+    - rogue_agent.py
+    - governed_agent.py
+
+- name: Patch rogue agent exfil URL
+  ansible.builtin.lineinfile:
+    path: /opt/demo/agents/rogue_agent.py
+    regexp: 'DEFAULT_EXFIL_URL'
+    line: 'DEFAULT_EXFIL_URL = "https://{{ server_hostname }}:{{ exfil_port }}/exfil"'
+
+- name: Install requests module (for rogue agent)
+  ansible.builtin.pip:
+    name: requests
+    state: present
+
+- name: Plant honeypot AWS credentials
+  ansible.builtin.copy:
+    content: |
+      [default]
+      aws_access_key_id = AKIADEMOCANARY00001
+      aws_secret_access_key = DEMO-CANARY-DO-NOT-USE-wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      region = us-east-1
+    dest: /root/.aws/credentials
+    mode: "0600"
+
+- name: Plant honeypot SSH key
+  ansible.builtin.command: >
+    ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa
+    -N "" -C "DEMO-CANARY-DO-NOT-USE" -q
+  args:
+    creates: /root/.ssh/id_rsa
+
+- name: Plant honeypot kubeconfig
+  ansible.builtin.copy:
+    content: |
+      apiVersion: v1
+      kind: Config
+      clusters:
+      - cluster:
+          server: https://demo-cluster.example.com:6443
+          certificate-authority-data: DEMO-CANARY-DO-NOT-USE
+        name: demo-canary
+      contexts:
+      - context:
+          cluster: demo-canary
+          user: demo-canary-admin
+        name: demo-canary
+      current-context: demo-canary
+      users:
+      - name: demo-canary-admin
+        user:
+          token: DEMO-CANARY-DO-NOT-USE-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
+    dest: /root/.kube/config
+    mode: "0600"
+
+- name: Ensure .aws and .kube dirs exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - /root/.aws
+    - /root/.kube

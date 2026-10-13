@@ -1,0 +1,216 @@
+---
+# Agent Revocation Playbook — Event-Driven Ansible Compatible
+#
+# Triggered by EDA rulebook when anomaly detected. Best-effort
+# revocation: tries each step, logs result, always writes OCSF
+# incident regardless of individual failures.
+#
+# Expected extra_vars (from EDA or -e):
+#   agent_principal, alert_type, incident_id, agent_realm (optional)
+
+- name: "Phase 1: Revoke agent identity on IPA server"
+  hosts: ipa_servers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Revoke OAuth2 token via ahdapa (best-effort)
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}/idp/revoke"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          client_id: "{{ agent_principal }}"
+          token_type_hint: access_token
+        validate_certs: false
+        status_code: [200, 400, 404, 503]
+        timeout: 5
+      register: token_revoke
+      ignore_errors: true
+
+    - name: Check if agent principal exists in IPA
+      ansible.builtin.command:
+        cmd: ipa user-show {{ agent_principal }}
+      register: user_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Disable agent principal in IPA
+      ansible.builtin.command:
+        cmd: ipa user-disable {{ agent_principal }}
+      register: user_disable
+      when: user_exists.rc == 0
+      failed_when: false
+
+    - name: Check if HBAC rule exists
+      ansible.builtin.command:
+        cmd: "ipa hbacrule-show agent-{{ agent_principal }}"
+      register: hbac_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Disable HBAC rule for agent
+      ansible.builtin.command:
+        cmd: "ipa hbacrule-disable agent-{{ agent_principal }}"
+      register: hbac_disable
+      when: hbac_exists.rc == 0
+      failed_when: false
+
+    - name: Log revocation result
+      ansible.builtin.debug:
+        msg: >-
+          REVOCATION: principal={{ agent_principal }}
+          alert={{ alert_type | default('unknown') }}
+          token={{ token_revoke.status | default('skipped') }}
+          user_found={{ user_exists.rc == 0 }}
+          user_disabled={{ user_disable.changed | default(false) }}
+          hbac_disabled={{ hbac_disable.changed | default(false) }}
+          incident={{ incident_id }}
+
+
+- name: "Phase 2: Expire SSSD cache on enrolled clients"
+  hosts: ipa_clients
+  become: true
+  gather_facts: false
+  connection: local
+  strategy: free
+
+  tasks:
+    - name: Expire SSSD cache for revoked principal
+      ansible.builtin.command:
+        cmd: sss_cache -u {{ agent_principal }}
+      register: cache_user
+      changed_when: cache_user.rc == 0
+      failed_when: false
+
+    - name: Expire full SSSD cache
+      ansible.builtin.command:
+        cmd: sss_cache -E
+      register: cache_full
+      changed_when: cache_full.rc == 0
+      failed_when: false
+
+
+- name: "Phase 3: Contain agent and file incident"
+  hosts: agent_runners
+  become: true
+  gather_facts: false
+  connection: local
+
+  tasks:
+    - name: Find agent processes (excluding infrastructure)
+      ansible.builtin.shell: |
+        pgrep -f "{{ agent_principal }}" | while read pid; do
+          cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ')
+          case "$cmdline" in
+            *falco_siem_bridge*|*ansible*|*rulebook*) continue ;;
+          esac
+          echo "$pid"
+        done
+        true
+      register: agent_pids
+      changed_when: false
+      failed_when: false
+
+    - name: Kill agent processes
+      ansible.builtin.command:
+        cmd: kill -9 {{ item }}
+      loop: "{{ agent_pids.stdout_lines | default([]) }}"
+      when: agent_pids.stdout_lines | default([]) | length > 0
+      ignore_errors: true
+
+    - name: Stop agent container (best-effort)
+      ansible.builtin.shell: |
+        podman stop "sandbox-{{ agent_principal }}" 2>/dev/null
+        podman rm -f "sandbox-{{ agent_principal }}" 2>/dev/null
+        true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Ensure OCSF log directory exists
+      ansible.builtin.file:
+        path: /var/log/ocsf
+        state: directory
+        mode: "0750"
+
+    - name: Write OCSF incident event
+      ansible.builtin.copy:
+        content: |
+          {
+            "class_uid": 2001,
+            "class_name": "Security Finding",
+            "category_uid": 2,
+            "category_name": "Findings",
+            "severity_id": 5,
+            "severity": "Critical",
+            "activity_id": 2,
+            "activity_name": "Update",
+            "status_id": 2,
+            "status": "Suppressed",
+            "finding_info": {
+              "title": "Agent Revocation - {{ incident_id }}",
+              "uid": "{{ incident_id }}",
+              "types": ["{{ alert_type | default('unknown') }}"],
+              "desc": "Agent {{ agent_principal }} revoked via automated response."
+            },
+            "attacks": [
+              {"technique": {"uid": "{{ mitre_id | default('') }}", "name": "{{ alert_type | default('unknown') }}"}}
+            ],
+            "resources": [
+              {"type": "agent", "name": "{{ agent_principal }}", "domain": "DEMO.AGENTIC.TEST"}
+            ],
+            "remediation": {
+              "desc": "Automated: token revoke attempted, principal disable attempted, SSSD cache expired, agent processes killed."
+            },
+            "metadata": {
+              "version": "1.4.0",
+              "product": {"name": "agent-revocation", "vendor_name": "Red Hat"}
+            },
+            "time": "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          }
+        dest: "/var/log/ocsf/incident-{{ incident_id }}.json"
+        mode: "0644"
+
+    - name: Report incident filed
+      ansible.builtin.debug:
+        msg: "INCIDENT FILED: /var/log/ocsf/incident-{{ incident_id }}.json"
+
+
+- name: "Phase 4: Create ServiceNow incident (optional)"
+  hosts: agent_runners
+  become: false
+  gather_facts: false
+  connection: local
+
+  tasks:
+    - name: Check ServiceNow credentials available
+      ansible.builtin.set_fact:
+        snow_enabled: "{{ (lookup('env', 'SN_HOST') | length > 0) or (servicenow_host is defined) }}"
+
+    - name: Create ServiceNow security incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_host | default(lookup('env', 'SN_HOST')) }}"
+          username: "{{ servicenow_user | default(lookup('env', 'SN_USERNAME')) }}"
+          password: "{{ servicenow_pass | default(lookup('env', 'SN_PASSWORD')) }}"
+        state: new
+        caller: agentic.security
+        short_description: "Agent Revocation - {{ incident_id }}"
+        description: >-
+          Automated revocation triggered by {{ alert_type | default('unknown') }} detection.
+          Agent principal: {{ agent_principal }}.
+          MITRE ATT&CK: {{ mitre_id | default('N/A') }}.
+          OCSF incident: /var/log/ocsf/incident-{{ incident_id }}.json
+        impact: high
+        urgency: high
+        other:
+          category: Security
+          subcategory: "AI Agent Anomaly"
+      register: snow_incident
+      when: snow_enabled | bool
+      ignore_errors: true
+
+    - name: Log ServiceNow ticket
+      ansible.builtin.debug:
+        msg: "SNOW TICKET: {{ snow_incident.record.number | default('SKIPPED — no ServiceNow credentials') }}"
+      when: snow_enabled | bool

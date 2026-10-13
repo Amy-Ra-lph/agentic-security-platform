@@ -1,0 +1,31 @@
+---
+# Agentic Security PoC — configuration
+# Override any of these in your local inventory or -e flags.
+
+domain: demo.agentic.test
+realm: DEMO.AGENTIC.TEST
+
+server_hostname: idm.demo.agentic.test
+client_hostname: runner.demo.agentic.test
+siem_hostname: siem.demo.agentic.test
+
+server_ip: 192.168.56.10
+client_ip: 192.168.56.11
+siem_ip: 192.168.56.12
+
+engineer_user: engineer
+engineer_password: Demo2026!
+
+# ahdapa OAuth2 test client
+oauth2_client_id: mcp-agent
+oauth2_client_secret: mcp-agent-poc-secret
+
+# Exfil receiver port (demo prop)
+exfil_port: 9443
+
+# Container images (built locally if unavailable)
+toolkit_image: localhost/rhel-security-toolkit:latest
+enforcement_mcp_image: quay.io/rhel-security/enforcement-mcp:main
+
+# Wazuh vulnerability detector (disable to prevent disk bloat)
+wazuh_disable_vd: true

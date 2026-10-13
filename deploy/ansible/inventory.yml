@@ -1,0 +1,27 @@
+---
+all:
+  vars:
+    ansible_user: vagrant
+    ansible_become: true
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+  children:
+    ipa_servers:
+      hosts:
+        server:
+          ansible_host: 192.168.56.10
+
+    ipa_clients:
+      hosts:
+        client:
+          ansible_host: 192.168.56.11
+
+    agent_runners:
+      hosts:
+        client:
+          ansible_host: 192.168.56.11
+
+    siem:
+      hosts:
+        siem:
+          ansible_host: 192.168.56.12

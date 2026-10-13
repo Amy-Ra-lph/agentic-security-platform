@@ -1,0 +1,57 @@
+---
+- name: Install Keylime server components
+  ansible.builtin.dnf:
+    name:
+      - keylime-verifier
+      - keylime-registrar
+    state: present
+  failed_when: false
+
+- name: Configure registrar
+  ansible.builtin.copy:
+    content: |
+      [registrar]
+      ip = "0.0.0.0"
+      signed_attributes = ek_tpm,aik_tpm
+    dest: /etc/keylime/registrar.conf.d/poc.conf
+
+- name: Configure verifier
+  ansible.builtin.copy:
+    content: |
+      [verifier]
+      ip = "0.0.0.0"
+      registrar_ip = "0.0.0.0"
+    dest: /etc/keylime/verifier.conf.d/poc.conf
+
+- name: Configure tenant (no EK cert for swtpm)
+  ansible.builtin.copy:
+    content: |
+      [tenant]
+      require_ek_cert = false
+    dest: /etc/keylime/tenant.conf.d/poc.conf
+
+- name: Ensure config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - /etc/keylime/registrar.conf.d
+    - /etc/keylime/verifier.conf.d
+    - /etc/keylime/tenant.conf.d
+
+- name: Start Keylime services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - keylime_registrar
+    - keylime_verifier
+  failed_when: false
+
+- name: Export CV CA cert
+  ansible.builtin.copy:
+    src: /var/lib/keylime/cv_ca/cacert.crt
+    dest: /opt/demo/keylime-ca/cacert.crt
+    remote_src: true
+  failed_when: false

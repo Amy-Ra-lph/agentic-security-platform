@@ -1,0 +1,124 @@
+# Falco Rules — Agentic Security Detection
+# Auto-generated from deploy template
+
+- rule: Agent Swarm — Unauthorized Process Spawning
+  desc: AI agent process spawns unauthorized child processes.
+  condition: >-
+    spawned_process and
+    proc.pname in (python3, python, node) and
+    (proc.cmdline contains "agent_worker" or
+     proc.cmdline contains "--autonomous" or
+     proc.cmdline contains "--escalate" or
+     proc.cmdline contains "--exfil") and
+    not proc.pname in (ansible-playbook, pytest)
+  output: >-
+    SWARM: Agent spawned unauthorized child process
+    (agent=%proc.pname pid=%proc.pid parent=%proc.ppid
+    cmd=%proc.cmdline user=%user.name container=%container.name)
+  priority: CRITICAL
+  tags: [agentic-security, swarm, SWARM-001]
+  source: syscall
+
+- rule: Agent Swarm — Mass Process Fork
+  desc: Agent process spawns deeply nested child processes.
+  condition: >-
+    spawned_process and
+    proc.pname in (python3, python, node) and
+    proc.aname[2] in (python3, python, node) and
+    proc.aname[3] in (python3, python, node)
+  output: >-
+    SWARM-MASS: Agent fork amplification detected
+    (agent=%proc.pname pid=%proc.ppid user=%user.name)
+  priority: CRITICAL
+  tags: [agentic-security, swarm, SWARM-002]
+  source: syscall
+
+- rule: Agent Credential Harvesting
+  desc: Agent process reads sensitive credential files.
+  condition: >-
+    open_read and
+    proc.name in (python3, python, node) and
+    (fd.name endswith ".aws/credentials" or
+     fd.name endswith ".ssh/id_rsa" or
+     fd.name endswith ".ssh/id_ed25519" or
+     fd.name endswith ".kube/config" or
+     fd.name endswith "krb5.keytab" or
+     fd.name endswith ".netrc")
+  output: >-
+    EXFIL: Agent read credential file
+    (agent=%proc.name file=%fd.name pid=%proc.pid
+    user=%user.name container=%container.name)
+  priority: CRITICAL
+  tags: [agentic-security, exfiltration, EXFIL-002]
+  source: syscall
+
+- rule: Agent Data Exfiltration — Outbound POST
+  desc: Agent process makes outbound connection to non-allowlisted endpoint.
+  condition: >-
+    outbound and
+    proc.name in (python3, python, node) and
+    not fd.sip in (agent_allowed_hosts) and
+    fd.sport in (443, 8443, 9443)
+  output: >-
+    EXFIL: Agent outbound connection to external endpoint
+    (agent=%proc.name dest=%fd.sip:%fd.sport pid=%proc.pid
+    user=%user.name)
+  priority: CRITICAL
+  tags: [agentic-security, exfiltration, EXFIL-003]
+  source: syscall
+
+- rule: Agent SSL Verification Disabled
+  desc: Agent disables SSL verification.
+  condition: >-
+    spawned_process and
+    proc.pname in (python3, python) and
+    (proc.env contains "PYTHONHTTPSVERIFY=0" or
+     proc.env contains "CURL_CA_BUNDLE=" or
+     proc.cmdline contains "verify=False")
+  output: >-
+    NET: Agent disabled SSL verification
+    (agent=%proc.pname pid=%proc.pid user=%user.name)
+  priority: WARNING
+  tags: [agentic-security, network, NET-002]
+  source: syscall
+
+- rule: Agent Privilege Escalation — Scope Request
+  desc: Agent attempts to acquire tokens beyond policy ceiling.
+  condition: >-
+    outbound and
+    proc.name in (python3, python, node, curl) and
+    fd.sip in (ipa_server_ips) and
+    fd.sport = 443 and
+    proc.cmdline contains "scope=" and
+    (proc.cmdline contains "admin:" or
+     proc.cmdline contains "secrets:" or
+     proc.cmdline contains "write" and not proc.cmdline contains "code:write")
+  output: >-
+    SCOPE: Agent requested unauthorized scope escalation
+    (agent=%proc.name cmd=%proc.cmdline pid=%proc.pid
+    user=%user.name)
+  priority: WARNING
+  tags: [agentic-security, escalation, SCOPE-001]
+  source: syscall
+
+- rule: Agent Sandbox Escape Attempt
+  desc: Process inside agent sandbox attempts host namespace access.
+  condition: >-
+    container and
+    (evt.type in (setns, unshare, mount) or
+     (open_write and fd.name startswith "/proc/") or
+     (open_write and fd.name startswith "/sys/fs/cgroup")) and
+    proc.name in (python3, python, node, bash, sh)
+  output: >-
+    ESCAPE: Agent sandbox escape attempt
+    (agent=%proc.name action=%evt.type target=%fd.name
+    pid=%proc.pid container=%container.name)
+  priority: CRITICAL
+  tags: [agentic-security, sandbox-escape, SBX-002]
+  source: syscall
+
+- list: agent_allowed_hosts
+  items: []
+
+- list: ipa_server_ips
+  items: [{{ server_ip }}]

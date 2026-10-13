@@ -1,0 +1,98 @@
+---
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ server_hostname }}"
+
+- name: Install IPA server packages
+  ansible.builtin.dnf:
+    name:
+      - ipa-server
+      - ipa-server-dns
+    state: present
+
+- name: Generate IPA passwords
+  ansible.builtin.set_fact:
+    ds_password: "{{ lookup('password', '/tmp/ipa-ds-pass chars=ascii_letters,digits length=24') }}"
+    admin_password: "{{ lookup('password', '/tmp/ipa-admin-pass chars=ascii_letters,digits length=24') }}"
+
+- name: Check if IPA is installed
+  ansible.builtin.command: ipactl status
+  register: ipa_status
+  changed_when: false
+  failed_when: false
+
+- name: Capture upstream DNS forwarder
+  ansible.builtin.shell: grep -m1 '^nameserver' /etc/resolv.conf | awk '{print $2}'
+  register: upstream_dns
+  changed_when: false
+  when: ipa_status.rc != 0
+
+- name: Install IPA server
+  ansible.builtin.command: >
+    ipa-server-install
+    --domain={{ domain }}
+    --realm={{ realm }}
+    --ds-password={{ ds_password }}
+    --admin-password={{ admin_password }}
+    --hostname={{ server_hostname }}
+    --setup-dns --no-host-dns
+    {{ '--forwarder=' + upstream_dns.stdout if upstream_dns.stdout | default('') | length > 0 else '--auto-forwarders' }}
+    --allow-zone-overlap
+    --unattended
+  when: ipa_status.rc != 0
+
+- name: Save credentials
+  ansible.builtin.copy:
+    content: |
+      DS_PASSWORD={{ ds_password }}
+      ADMIN_PASSWORD={{ admin_password }}
+    dest: /root/.demo-credentials
+    mode: "0600"
+
+- name: Authenticate as admin
+  ansible.builtin.shell: echo "{{ admin_password }}" | kinit admin@{{ realm }}
+  changed_when: false
+
+- name: Add client DNS record
+  ansible.builtin.command: ipa dnsrecord-add {{ domain }} runner --a-rec={{ client_ip }}
+  register: dns_add
+  changed_when: dns_add.rc == 0
+  failed_when: false
+
+- name: Create trust tier groups
+  ansible.builtin.command: >
+    ipa group-add {{ item.name }} --desc="{{ item.desc }}"
+  loop:
+    - { name: agent-tier-sovereign, desc: "Full-trust agents" }
+    - { name: agent-tier-verified, desc: "Scoped-trust agents" }
+    - { name: agent-tier-untrusted, desc: "Read-only agents" }
+    - { name: agent-tier-blocked, desc: "Denied agents" }
+  register: group_add
+  changed_when: group_add.rc == 0
+  failed_when: false
+
+- name: Create agent service principal
+  ansible.builtin.shell: |
+    ipa host-add {{ client_hostname }} --force 2>/dev/null || true
+    ipa service-add governed-agent/{{ client_hostname }} --force 2>/dev/null || true
+    ipa group-add-member agent-tier-verified --services=governed-agent/{{ client_hostname }} 2>/dev/null || true
+  changed_when: false
+
+- name: Create HBAC service
+  ansible.builtin.command: ipa hbacsvc-add ahdapa-token --desc="ahdapa OAuth2 token endpoint"
+  register: hbacsvc
+  changed_when: hbacsvc.rc == 0
+  failed_when: false
+
+- name: Create HBAC enrollment rule
+  ansible.builtin.shell: |
+    ipa hbacrule-add agent-enrollment-allow --desc="Allow verified+ agents to obtain tokens" 2>/dev/null || true
+    ipa hbacrule-add-service agent-enrollment-allow --hbacsvcs=ahdapa-token 2>/dev/null || true
+    ipa hbacrule-add-host agent-enrollment-allow --hosts={{ client_hostname }} 2>/dev/null || true
+  changed_when: false
+
+- name: Create HBAC deny rule
+  ansible.builtin.command: ipa hbacrule-add agent-deny-unknown --desc="Deny unknown agents"
+  register: hbac_deny
+  changed_when: hbac_deny.rc == 0
+  failed_when: false

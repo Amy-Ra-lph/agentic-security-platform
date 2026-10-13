@@ -1,0 +1,42 @@
+---
+# Agentic Security Enforcement Stack — Full Deployment
+#
+# Usage:
+#   ansible-playbook -i inventory.yml site.yml
+#
+# Or run individual phases:
+#   ansible-playbook -i inventory.yml site.yml --tags server
+#   ansible-playbook -i inventory.yml site.yml --tags client
+#   ansible-playbook -i inventory.yml site.yml --tags siem
+
+- name: "Phase 1: IPA Server + ahdapa + exfil receiver"
+  hosts: ipa_servers
+  become: true
+  tags: [server]
+  roles:
+    - common
+    - ipa_server
+    - ahdapa
+    - exfil_receiver
+    - keylime_server
+
+- name: "Phase 2: IPA Client + agents + sandbox profiles"
+  hosts: ipa_clients
+  become: true
+  tags: [client]
+  roles:
+    - common
+    - ipa_client
+    - demo_agents
+    - sandbox_profiles
+    - falco_eda
+    - keylime_client
+    - enforcement_mcp
+
+- name: "Phase 3: Wazuh SIEM"
+  hosts: siem
+  become: true
+  tags: [siem]
+  roles:
+    - common
+    - wazuh

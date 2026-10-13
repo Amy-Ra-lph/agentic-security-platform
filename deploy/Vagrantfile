@@ -1,0 +1,67 @@
+# -*- mode: ruby -*-
+# Agentic Security Enforcement Stack — 3-node lab
+#
+# Prerequisites:
+#   - vagrant plugin install vagrant-libvirt   (or vagrant-virtualbox)
+#   - CentOS Stream 10 box (auto-downloaded)
+#
+# Usage:
+#   vagrant up
+#   make setup
+#   make demo
+
+DOMAIN = "demo.agentic.test"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "centos/stream10"
+  config.vm.box_url = "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-Vagrant-10-latest.x86_64.vagrant-libvirt.box"
+
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.memory = 4096
+    libvirt.cpus = 2
+    libvirt.driver = "kvm"
+  end
+
+  config.vm.provider :virtualbox do |vb|
+    vb.memory = 4096
+    vb.cpus = 2
+  end
+
+  # SERVER — FreeIPA + ahdapa + exfil receiver + Keylime verifier
+  config.vm.define "server" do |s|
+    s.vm.hostname = "idm.#{DOMAIN}"
+    s.vm.network :private_network, ip: "192.168.56.10"
+    s.vm.provider :libvirt do |lv|
+      lv.memory = 6144
+    end
+    s.vm.provider :virtualbox do |vb|
+      vb.memory = 6144
+    end
+  end
+
+  # CLIENT — Agent runner + Falco + EDA + enforcement-mcp
+  config.vm.define "client" do |c|
+    c.vm.hostname = "runner.#{DOMAIN}"
+    c.vm.network :private_network, ip: "192.168.56.11"
+  end
+
+  # SIEM — Wazuh manager + indexer + dashboard
+  config.vm.define "siem" do |w|
+    w.vm.hostname = "siem.#{DOMAIN}"
+    w.vm.network :private_network, ip: "192.168.56.12"
+    w.vm.provider :libvirt do |lv|
+      lv.memory = 6144
+      lv.machine_virtual_size = 80
+    end
+    w.vm.provider :virtualbox do |vb|
+      vb.memory = 6144
+    end
+  end
+
+  # Shared provisioning — /etc/hosts for all nodes
+  config.vm.provision "shell", inline: <<-HOSTS
+    grep -q "idm.#{DOMAIN}" /etc/hosts || echo "192.168.56.10 idm.#{DOMAIN}" >> /etc/hosts
+    grep -q "runner.#{DOMAIN}" /etc/hosts || echo "192.168.56.11 runner.#{DOMAIN}" >> /etc/hosts
+    grep -q "siem.#{DOMAIN}" /etc/hosts || echo "192.168.56.12 siem.#{DOMAIN}" >> /etc/hosts
+  HOSTS
+end
