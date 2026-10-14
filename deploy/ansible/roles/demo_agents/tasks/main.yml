@@ -8,6 +8,15 @@
     - /opt/demo/agents
     - /opt/demo/output
 
+- name: Ensure .aws and .kube dirs exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - /root/.aws
+    - /root/.kube
+
 - name: Deploy agent scripts
   ansible.builtin.copy:
     src: "{{ item }}"
@@ -67,12 +76,3 @@
           token: DEMO-CANARY-DO-NOT-USE-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
     dest: /root/.kube/config
     mode: "0600"
-
-- name: Ensure .aws and .kube dirs exist
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0700"
-  loop:
-    - /root/.aws
-    - /root/.kube

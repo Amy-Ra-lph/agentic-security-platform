@@ -32,16 +32,16 @@
       json_include_tags_property: true
     dest: /etc/falco/config.d/http-output.yaml
 
+- name: Create bridge directory
+  ansible.builtin.file:
+    path: /opt/demo/bridge
+    state: directory
+
 - name: Deploy Falco-SIEM bridge
   ansible.builtin.copy:
     src: falco_siem_bridge.py
     dest: /opt/demo/bridge/falco_siem_bridge.py
     mode: "0755"
-
-- name: Create bridge directory
-  ansible.builtin.file:
-    path: /opt/demo/bridge
-    state: directory
 
 - name: Install EDA dependencies
   ansible.builtin.dnf:
@@ -67,6 +67,11 @@
   changed_when: false
   failed_when: false
 
+- name: Create EDA ansible directory
+  ansible.builtin.file:
+    path: /opt/demo/ansible
+    state: directory
+
 - name: Deploy EDA playbooks
   ansible.builtin.copy:
     src: "{{ item }}"
@@ -74,11 +79,6 @@
   loop:
     - agent-anomaly-rulebook.yml
     - agent-revocation.yml
-
-- name: Create EDA ansible directory
-  ansible.builtin.file:
-    path: /opt/demo/ansible
-    state: directory
 
 - name: Generate EDA webhook token
   ansible.builtin.set_fact:
@@ -142,9 +142,3 @@
     - falco-siem-bridge
     - eda-agent-anomaly
   failed_when: false
-
-handlers:
-  - name: restart rsyslog
-    ansible.builtin.systemd:
-      name: rsyslog
-      state: restarted

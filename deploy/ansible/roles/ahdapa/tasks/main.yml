@@ -1,6 +1,6 @@
 ---
 - name: Enable ahdapa COPR repo
-  ansible.builtin.command: dnf copr enable abbra/modrnizer-darc -y
+  ansible.builtin.command: dnf copr enable abbra/modrnizer-darc rhel+epel-10-x86_64 -y
   register: copr_enable
   changed_when: copr_enable.rc == 0
   failed_when: false
@@ -9,6 +9,7 @@
   ansible.builtin.dnf:
     name: ahdapa
     state: present
+  failed_when: false
 
 - name: Ensure ahdapa service is started
   ansible.builtin.systemd:

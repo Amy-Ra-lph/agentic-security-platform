@@ -1,0 +1,104 @@
+title: "Agentic Security PoC"
+subtitle: "Identity → Authorization → Enforcement → Audit"
+theme: summit-dark
+
+acts:
+  - title: "OIDC Discovery & PQC"
+    description: "ahdapa IdP with ML-DSA post-quantum signing"
+    icon: shield
+    accent: "#37a3a3"
+    key_points:
+      - "OIDC-compliant discovery endpoint"
+      - "ML-DSA-44/65/87 post-quantum JWT signatures"
+      - "Six OAuth2 grant types including DARC device code"
+    cast: "output/act01-discovery.cast"
+
+  - title: "User Authentication"
+    description: "IPA users with tiered enforcement groups"
+    icon: users
+    accent: "#4ecdc4"
+    key_points:
+      - "Alice: enforce-diagnose + enforce-remediate (full access)"
+      - "Bob: enforce-diagnose only (read-only)"
+      - "Carol: no enforcement groups (zero access)"
+    cast: "output/act02-identity.cast"
+
+  - title: "Diagnose Operations"
+    description: "Read-only enforcement tools gated by enforce-diagnose"
+    icon: check
+    accent: "#2ecc71"
+    key_points:
+      - "SELinux status, AVC denials, security posture"
+      - "Alice and Bob allowed — Carol blocked before execution"
+      - "13 enforcement-mcp tools in the diagnose tier"
+    cast: "output/act03-diagnose.cast"
+
+  - title: "Remediate Operations"
+    description: "Write operations gated by enforce-remediate"
+    icon: lock
+    accent: "#e74c3c"
+    key_points:
+      - "SELinux booleans, policy modules, file contexts"
+      - "Alice allowed — Bob and Carol blocked before execution"
+      - "11 enforcement-mcp tools in the remediate tier"
+    cast: "output/act04-remediate.cast"
+
+  - title: "OBO Token Delegation"
+    description: "RFC 8693 token exchange with chained delegation"
+    icon: delegation
+    accent: "#9b59b6"
+    key_points:
+      - "Gateway exchanges user token for agent service token"
+      - "Chain: alice → gateway → sovereign → data-agent"
+      - "Identity preserved through every delegation hop"
+    cast: "output/act05-obo.cast"
+
+  - title: "Host-Based Narrowing"
+    description: "HBAC narrows privileges per host — same user, different access"
+    icon: hbac
+    accent: "#e67e22"
+    key_points:
+      - "Alice: full access on server, diagnose-only on client"
+      - "IPA HBAC rules enforce host-scoped tool authorization"
+      - "Same user + same tool + different host = different outcome"
+    cast: "output/act07-hbac-hosts.cast"
+
+  - title: "Agent-to-Agent OBO Chain"
+    description: "linux-mcp delegates to enforcement-mcp via OBO token exchange"
+    icon: delegation
+    accent: "#3498db"
+    key_points:
+      - "linux-mcp scans runner, discovers boolean drift"
+      - "OBO exchange: alice → linux-mcp → enforcement-mcp"
+      - "Token introspection shows nested act{} delegation chain"
+    cast: "output/act08-agent-chain.cast"
+
+  - title: "EDA Reactive Remediation"
+    description: "Automated drift response: OCSF event → EDA rulebook → enforcement-mcp"
+    icon: automation
+    accent: "#1abc9c"
+    key_points:
+      - "linux-mcp emits OCSF Security Finding on boolean drift"
+      - "EDA rulebook matches severity ≥ High, dispatches playbook"
+      - "Full loop: drift → detect → remediate → audit in under 3 seconds"
+    cast: "output/act09-eda-reactive.cast"
+
+  - title: "Containment Boundary"
+    description: "Four-layer defense: caller identity, tool inventory, scope ceiling, host HBAC"
+    icon: shield
+    accent: "#c0392b"
+    key_points:
+      - "24 tools only — SELinux, fapolicyd, MLS, AIDE"
+      - "Prompt injection is a type error, not a shell command"
+      - "Three containment layers: tool inventory + HBAC + scope ceiling"
+    cast: "output/act10-scope-boundaries.cast"
+
+  - title: "Audit Trail"
+    description: "Structured JSON log of every authorization decision"
+    icon: audit
+    accent: "#f39c12"
+    key_points:
+      - "28 decisions: 16 allowed, 12 denied"
+      - "Every tool invocation logged with user, decision, reason"
+      - "Complete accountability chain for compliance"
+    cast: "output/act06-audit.cast"

@@ -1,0 +1,178 @@
+settings:
+  title: "Act 9 — EDA Reactive Remediation"
+  width: 100
+  height: 35
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "Automated response: linux-mcp detects drift, EDA triggers enforcement-mcp"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Drift injection"
+
+  - type: comment
+    text: "Simulate drift: someone enables a dangerous boolean"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        setsebool httpd_can_network_connect on
+    output: ""
+    pause_after: 0.5
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        getsebool httpd_can_network_connect
+    output: |
+      httpd_can_network_connect --> on
+    pause_after: 1.5
+
+  - type: comment
+    text: "Boolean drift injected — httpd can now reach the network"
+    pause_after: 1.5
+
+  - type: marker
+    label: "OCSF event"
+
+  - type: comment
+    text: "linux-mcp periodic scan detects drift, emits OCSF event"
+    pause_after: 1.0
+
+  - type: command
+    run: "cat /var/log/ocsf-events.json | jq -c '.' | tail -1 | jq ."
+    output: |
+      {
+        "class_uid": 3001,
+        "class_name": "Security Finding",
+        "category_name": "Findings",
+        "severity_id": 4,
+        "severity": "High",
+        "activity_id": 1,
+        "activity_name": "Create",
+        "finding_info": {
+          "title": "SELinux Boolean Drift",
+          "desc": "httpd_can_network_connect=on (expected: off)",
+          "types": ["Policy Violation"],
+          "uid": "drift-2026-10-14-001"
+        },
+        "resources": [
+          {
+            "type": "Host",
+            "name": "runner.demo.agentic.test"
+          }
+        ],
+        "metadata": {
+          "product": { "name": "linux-mcp", "version": "0.4.0" },
+          "version": "1.3.0"
+        },
+        "time": 1728907229
+      }
+    pause_after: 2.5
+
+  - type: marker
+    label: "EDA rulebook"
+
+  - type: comment
+    text: "EDA rulebook matches the OCSF event"
+    pause_after: 1.0
+
+  - type: command
+    run: "cat /opt/demo/eda-rulebook-enforcement.yml"
+    output: |
+      ---
+      - name: SELinux Drift Response
+        hosts: all
+        sources:
+          - ansible.eda.webhook:
+              host: 0.0.0.0
+              port: 5000
+        rules:
+          - name: Boolean drift detected
+            condition: >-
+              event.finding_info.title == "SELinux Boolean Drift"
+              and event.severity_id >= 4
+            action:
+              run_playbook:
+                name: enforce-remediate.yml
+                extra_vars:
+                  target_host: "{{ event.resources[0].name }}"
+                  boolean_name: "httpd_can_network_connect"
+                  expected_value: "off"
+                  finding_uid: "{{ event.finding_info.uid }}"
+    pause_after: 3.0
+
+  - type: marker
+    label: "Auto-remediation"
+
+  - type: comment
+    text: "EDA dispatches enforcement-mcp with scoped service token"
+    pause_after: 1.0
+
+  - type: command
+    run: "ansible-rulebook --rulebook eda-rulebook-enforcement.yml --event drift-2026-10-14-001"
+    output: |
+      [EDA] Rulebook match: SELinux Boolean Drift (severity: High)
+      [EDA] Acquiring service token for enforcement-mcp...
+      [EDA] Token acquired (scope: enforce-diagnose enforce-remediate)
+      [EDA] Target: runner.demo.agentic.test
+      [EDA] Executing playbook: enforce-remediate.yml
+    pause_after: 2.0
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        setsebool httpd_can_network_connect off
+    output: ""
+    pause_after: 0.5
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        getsebool httpd_can_network_connect
+    output: |
+      httpd_can_network_connect --> off
+    pause_after: 1.5
+
+  - type: comment
+    text: "Auto-remediated in under 5 seconds — no human intervention"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Audit trail"
+
+  - type: command
+    run: |-
+      tail -4 /var/log/agentic-security-demo.json \
+        | jq -c '{ts,user,tool,trigger,decision}'
+    output: |
+      {"ts":"2026-10-14T11:45:01Z","user":"linux-mcp","tool":"scan_booleans","trigger":"periodic","decision":"allow"}
+      {"ts":"2026-10-14T11:45:01Z","user":"linux-mcp","tool":"emit_ocsf","trigger":"drift_detected","decision":"allow"}
+      {"ts":"2026-10-14T11:45:02Z","user":"eda-service","tool":"acquire_token","trigger":"rulebook_match","decision":"allow"}
+      {"ts":"2026-10-14T11:45:02Z","user":"eda-service","tool":"set_boolean","trigger":"auto_remediate","decision":"allow"}
+    pause_after: 2.5
+
+  - type: comment
+    text: "Full chain: drift -> OCSF -> EDA -> enforcement-mcp -> remediated"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Comparison"
+
+  - type: command
+    run: "cat /opt/demo/response-comparison.txt"
+    output: |
+      Flow              Trigger     Identity        Time
+      --------          ---------   ------------    ------
+      Act 4 Manual      User CLI    alice (human)   ~30s
+      Act 8 Agent-Agent OBO chain   alice->agents   ~5s
+      Act 9 EDA React   OCSF event  service token   <3s
+    pause_after: 3.0
+
+  - type: comment
+    text: "Three response models — same enforcement-mcp, three authorization paths"
+    pause_after: 2.0

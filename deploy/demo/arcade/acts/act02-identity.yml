@@ -1,0 +1,87 @@
+settings:
+  title: "Act 2 — User Authentication & Groups"
+  width: 100
+  height: 30
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "Authenticate three users against ahdapa — each gets different IPA groups"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      curl -sk -X POST https://idm.demo.agentic.test/idp/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"alice","password":"********"}'
+    output: |
+      {"ok": true}
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      curl -sk -b /tmp/alice.cookies \
+        https://idm.demo.agentic.test/idp/api/auth/profile \
+        | python3 -m json.tool
+    output: |
+      {
+          "username": "alice",
+          "groups": [
+              "agent-operators",
+              "enforce-diagnose",
+              "enforce-remediate",
+              "ipausers"
+          ]
+      }
+    pause_after: 2.0
+
+  - type: comment
+    text: "Alice has enforce-diagnose AND enforce-remediate → full enforcement access"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      curl -sk -X POST https://idm.demo.agentic.test/idp/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"bob","password":"********"}'
+    output: |
+      {"ok": true}
+    pause_after: 0.5
+
+  - type: command
+    run: |-
+      curl -sk -b /tmp/bob.cookies \
+        https://idm.demo.agentic.test/idp/api/auth/profile \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'user: {d[\"username\"]}'); print(f'groups: {d[\"groups\"]}')"
+    output: |
+      user: bob
+      groups: ['agent-operators', 'enforce-diagnose', 'ipausers']
+    pause_after: 1.5
+
+  - type: comment
+    text: "Bob has enforce-diagnose only → can read, cannot remediate"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      curl -sk -X POST https://idm.demo.agentic.test/idp/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"carol","password":"********"}'
+    output: |
+      {"ok": true}
+    pause_after: 0.5
+
+  - type: command
+    run: |-
+      curl -sk -b /tmp/carol.cookies \
+        https://idm.demo.agentic.test/idp/api/auth/profile \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'user: {d[\"username\"]}'); print(f'groups: {d[\"groups\"]}')"
+    output: |
+      user: carol
+      groups: ['ipausers']
+    pause_after: 1.5
+
+  - type: comment
+    text: "Carol has NO enforcement groups → all MCP tools blocked"
+    pause_after: 2.0

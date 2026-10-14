@@ -1,0 +1,164 @@
+settings:
+  title: "Act 8 — Agent-to-Agent OBO Chain"
+  width: 100
+  height: 35
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "linux-mcp discovers drift, delegates to enforcement-mcp via OBO chain"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Alice token"
+
+  - type: comment
+    text: "Alice authenticates to linux-mcp via ahdapa"
+    pause_after: 1.0
+
+  - type: command
+    run: "source /etc/ahdapa/clients/demo.env"
+    hidden: true
+
+  - type: command
+    run: |-
+      ALICE_TOKEN=$(curl -sk -X POST $TOKEN_ENDPOINT \
+        -u "$GATEWAY_CLIENT_ID:$GATEWAY_CLIENT_SECRET" \
+        -d "grant_type=password&username=alice&password=$ALICE_PASSWORD" \
+        -d "scope=openid+profile+groups" | jq -r .access_token)
+    hidden: true
+
+  - type: command
+    run: "ahdapa-cli token --user alice --scope 'openid profile groups'"
+    output: |
+      token_type: Bearer
+      expires_in: 900
+      groups: agent-operators enforce-diagnose enforce-remediate
+      token: eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0K0...
+    pause_after: 1.5
+
+  - type: marker
+    label: "linux-mcp scan"
+
+  - type: comment
+    text: "linux-mcp scans runner host — discovers boolean drift"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        getsebool httpd_can_network_connect
+    output: |
+      httpd_can_network_connect --> on
+    pause_after: 1.5
+
+  - type: comment
+    text: "Policy violation: httpd_can_network_connect should be off"
+    pause_after: 1.5
+
+  - type: marker
+    label: "OBO exchange"
+
+  - type: comment
+    text: "linux-mcp exchanges Alice's token for enforcement-mcp scope"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ENFORCE_TOKEN=$(curl -sk -X POST $TOKEN_ENDPOINT \
+        -u "$SOVEREIGN_CLIENT_ID:$SOVEREIGN_CLIENT_SECRET" \
+        -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+        -d "subject_token=$ALICE_TOKEN" \
+        -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+        -d "scope=enforce-diagnose+enforce-remediate" \
+        -d "audience=$SOVEREIGN_CLIENT_ID" | jq -r .access_token)
+    hidden: true
+
+  - type: command
+    run: "ahdapa-cli obo-exchange --subject alice --target enforcement-mcp"
+    output: |
+      grant_type: token-exchange (RFC 8693)
+      subject: alice (via linux-mcp gateway)
+      target: enforcement-mcp (sovereign)
+      scope: enforce-diagnose enforce-remediate
+      token: eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0K0...
+    pause_after: 1.5
+
+  - type: comment
+    text: "OBO chain: alice -> linux-mcp (gateway) -> enforcement-mcp (sovereign)"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Delegated remediation"
+
+  - type: comment
+    text: "enforcement-mcp remediates using the delegated token"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        setsebool httpd_can_network_connect off
+    output: ""
+    pause_after: 0.5
+
+  - type: command
+    run: |-
+      ssh runner.demo.agentic.test \
+        getsebool httpd_can_network_connect
+    output: |
+      httpd_can_network_connect --> off
+    pause_after: 1.5
+
+  - type: comment
+    text: "Remediation applied on runner via delegated authority"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Token introspection"
+
+  - type: comment
+    text: "Introspect shows the full delegation chain"
+    pause_after: 1.0
+
+  - type: command
+    run: "ahdapa-cli introspect --token $ENFORCE_TOKEN"
+    output: |
+      {
+        "sub": "alice",
+        "act": {
+          "sub": "c144e13f-fbf7-45a5-8841-be8724915a00",
+          "act": {
+            "sub": "aa199a47-6610-4000-b91c-fc4693264cbd"
+          }
+        },
+        "scope": "enforce-diagnose enforce-remediate",
+        "groups": [
+          "agent-operators",
+          "enforce-diagnose",
+          "enforce-remediate"
+        ]
+      }
+    pause_after: 2.5
+
+  - type: comment
+    text: "alice -> gateway (linux-mcp) -> sovereign (enforcement-mcp)"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Audit"
+
+  - type: command
+    run: |-
+      tail -3 /var/log/agentic-security-demo.json \
+        | jq -c '{user,tool,via,decision}'
+    output: |
+      {"user":"alice","tool":"scan_host","via":"linux-mcp","decision":"allow"}
+      {"user":"alice","tool":"obo_exchange","via":"linux-mcp->enforcement-mcp","decision":"allow"}
+      {"user":"alice","tool":"set_boolean","via":"enforcement-mcp(delegated)","decision":"allow"}
+    pause_after: 2.5
+
+  - type: comment
+    text: "Every hop logged — full accountability from human to remediation"
+    pause_after: 2.0

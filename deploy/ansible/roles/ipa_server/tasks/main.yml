@@ -27,6 +27,12 @@
   changed_when: false
   when: ipa_status.rc != 0
 
+- name: Capture DNS forwarder from IPA config
+  ansible.builtin.shell: grep -oP 'forwarders\s*{\s*\K[0-9.]+' /etc/named.conf 2>/dev/null || echo '8.8.8.8'
+  register: ipa_forwarder
+  changed_when: false
+  when: ipa_status.rc == 0
+
 - name: Install IPA server
   ansible.builtin.command: >
     ipa-server-install
@@ -40,6 +46,24 @@
     --allow-zone-overlap
     --unattended
   when: ipa_status.rc != 0
+
+- name: Fix DNSSEC validation for lab forwarders
+  ansible.builtin.lineinfile:
+    path: /etc/named/ipa-options-ext.conf
+    regexp: 'dnssec-validation'
+    line: 'dnssec-validation no;'
+  notify: restart named
+
+- name: Configure global DNS forwarder
+  ansible.builtin.shell: |
+    echo "{{ admin_password }}" | kinit admin@{{ realm }} 2>/dev/null
+    ipa dnsconfig-mod --forwarder={{ upstream_dns.stdout | default(ipa_forwarder.stdout | default('8.8.8.8')) }} --forward-policy=only 2>/dev/null || true
+  changed_when: false
+
+- name: Restart named to apply DNSSEC fix
+  ansible.builtin.systemd:
+    name: named
+    state: restarted
 
 - name: Save credentials
   ansible.builtin.copy:

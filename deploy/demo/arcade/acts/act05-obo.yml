@@ -1,0 +1,93 @@
+settings:
+  title: "Act 5 — OBO Token Delegation"
+  width: 100
+  height: 30
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "RFC 8693 On-Behalf-Of token exchange — chained agent delegation"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Service token"
+
+  - type: comment
+    text: "Get a sovereign agent service token via client_credentials"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      source /etc/ahdapa/clients/demo.env
+      SOV_TOKEN=$(curl -sk -X POST $TOKEN_ENDPOINT \
+        -u "$SOVEREIGN_CLIENT_ID:$SOVEREIGN_CLIENT_SECRET" \
+        -d "grant_type=client_credentials&scope=openid+profile+groups" \
+        | jq -r .access_token)
+      echo "token_type: Bearer"
+      echo "expires_in: 900"
+      echo "token: ${SOV_TOKEN:0:40}..."
+    output: |
+      token_type: Bearer
+      expires_in: 900
+      token: eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0K0...
+    pause_after: 1.5
+
+  - type: marker
+    label: "OBO exchange"
+
+  - type: comment
+    text: "Exchange sovereign token for an OBO token — delegated authority"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      OBO_RESP=$(curl -sk -X POST $TOKEN_ENDPOINT \
+        -u "$SOVEREIGN_CLIENT_ID:$SOVEREIGN_CLIENT_SECRET" \
+        -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+        -d "subject_token=$SOV_TOKEN" \
+        -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+        -d "scope=openid+profile" \
+        -d "audience=$SOVEREIGN_CLIENT_ID")
+      echo "$OBO_RESP" | jq '{issued_token_type, token_type, expires_in}'
+    output: |
+      {
+        "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "token_type": "Bearer",
+        "expires_in": 900
+      }
+    pause_after: 2.0
+
+  - type: marker
+    label: "Chain delegation"
+
+  - type: comment
+    text: "Chain: alice → gateway → sovereign → data-agent"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      OBO_TOKEN=$(echo "$OBO_RESP" | jq -r .access_token)
+      CHAIN=$(curl -sk -X POST $TOKEN_ENDPOINT \
+        -u "$DATA_AGENT_CLIENT_ID:$DATA_AGENT_CLIENT_SECRET" \
+        -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+        -d "subject_token=$OBO_TOKEN" \
+        -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+        -d "scope=openid+profile" \
+        -d "audience=$DATA_AGENT_CLIENT_ID")
+      echo "$CHAIN" | jq '{issued_token_type, token_type, expires_in}'
+      echo ""
+      echo "✓ Chain: alice → gateway → sovereign → data-agent"
+    output: |
+      {
+        "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "token_type": "Bearer",
+        "expires_in": 900
+      }
+
+      ✓ Chain: alice → gateway → sovereign → data-agent
+    pause_after: 2.5
+
+  - type: comment
+    text: "Every hop in the delegation chain is logged — full audit trail"
+    pause_after: 2.0

@@ -1,0 +1,166 @@
+settings:
+  title: "Act 7 — Host-Based Privilege Narrowing"
+  width: 100
+  height: 35
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "IPA HBAC narrows enforcement access per host — same user, different privileges"
+    pause_after: 1.5
+
+  - type: marker
+    label: "HBAC rules"
+
+  - type: command
+    run: ipa hbacrule-show enforce-server-full
+    output: |
+      Rule name: enforce-server-full
+      Description: Alice: full enforcement access on IPA server
+      Enabled: True
+      Users: alice
+      Hosts: idm.demo.agentic.test
+      HBAC Service Groups: enforce-all
+    pause_after: 2.0
+
+  - type: command
+    run: ipa hbacrule-show enforce-client-readonly
+    output: |
+      Rule name: enforce-client-readonly
+      Description: Alice: diagnose-only on client hosts
+      Enabled: True
+      Users: alice
+      Hosts: runner.demo.agentic.test
+      HBAC Services: enforce-diagnose
+    pause_after: 2.0
+
+  - type: comment
+    text: "Alice has full access on the server, but only diagnose on the client"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Server tests"
+
+  - type: comment
+    text: "Test: Alice on server (idm.demo.agentic.test)"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ipa hbactest --user=alice \
+        --host=idm.demo.agentic.test \
+        --service=enforce-diagnose
+    output: |
+      --------------------
+      Access granted: True
+      --------------------
+        Matched rules: enforce-server-full
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      ipa hbactest --user=alice \
+        --host=idm.demo.agentic.test \
+        --service=enforce-remediate
+    output: |
+      --------------------
+      Access granted: True
+      --------------------
+        Matched rules: enforce-server-full
+    pause_after: 1.5
+
+  - type: comment
+    text: "Alice: diagnose + remediate on server"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Client tests"
+
+  - type: comment
+    text: "Test: Alice on client (runner.demo.agentic.test)"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ipa hbactest --user=alice \
+        --host=runner.demo.agentic.test \
+        --service=enforce-diagnose
+    output: |
+      --------------------
+      Access granted: True
+      --------------------
+        Matched rules: enforce-client-readonly
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      ipa hbactest --user=alice \
+        --host=runner.demo.agentic.test \
+        --service=enforce-remediate
+    output: |
+      ---------------------
+      Access granted: False
+      ---------------------
+        Not matched rules: enforce-client-readonly
+        Not matched rules: enforce-server-full
+    pause_after: 2.0
+
+  - type: comment
+    text: "Alice: diagnose only on client — HBAC narrows the scope"
+    pause_after: 2.0
+
+  - type: marker
+    label: "Live demo"
+
+  - type: comment
+    text: "Alice runs set_boolean on server → ALLOWED"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Target: idm.demo.agentic.test (server)"
+    hidden: true
+
+  - type: command
+    run: "setsebool httpd_can_network_connect off && getsebool httpd_can_network_connect"
+    output: |
+      httpd_can_network_connect --> off
+    pause_after: 1.5
+
+  - type: comment
+    text: "Alice runs set_boolean on client → DENIED by HBAC"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Target: runner.demo.agentic.test (client)"
+    hidden: true
+
+  - type: command
+    run: |-
+      enforce-mcp --user alice \
+        --host runner.demo.agentic.test \
+        set_boolean httpd_can_network_connect=off
+    output: |
+      DENIED: alice set_boolean on runner
+        No rule grants enforce-remediate on this host
+        enforce-client-readonly: enforce-diagnose only
+    pause_after: 2.5
+
+  - type: comment
+    text: "Same user, same tool, different host = different outcome"
+    pause_after: 2.0
+
+  - type: marker
+    label: "Matrix"
+
+  - type: command
+    run: "cat /opt/demo/hbac-matrix.txt"
+    output: |
+      User   Host       Diagnose  Remediate
+      -----  ---------  --------  ---------
+      alice  server     yes       yes
+      alice  client     yes       NO (HBAC)
+      bob    server     yes       NO
+      bob    client     yes       NO
+      carol  (any)      NO        NO
+    pause_after: 3.0

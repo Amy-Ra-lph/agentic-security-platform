@@ -1,0 +1,52 @@
+settings:
+  title: "Act 1 — OIDC Discovery & PQC"
+  width: 100
+  height: 28
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "Verify the ahdapa identity provider is online and advertising PQC signing"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      curl -sk https://idm.demo.agentic.test/idp/.well-known/openid-configuration \
+        | python3 -m json.tool | head -20
+    output: |
+      {
+          "issuer": "https://idm.demo.agentic.test/idp",
+          "authorization_endpoint": "https://idm.demo.agentic.test/idp/authorize",
+          "token_endpoint": "https://idm.demo.agentic.test/idp/token",
+          "introspection_endpoint": "https://idm.demo.agentic.test/idp/introspect",
+          "revocation_endpoint": "https://idm.demo.agentic.test/idp/revoke",
+          "device_authorization_endpoint": "https://idm.demo.agentic.test/idp/device_authorization",
+          "registration_endpoint": "https://idm.demo.agentic.test/idp/register",
+          "jwks_uri": "https://idm.demo.agentic.test/idp/jwks",
+          "grant_types_supported": [
+              "authorization_code",
+              "refresh_token",
+              "client_credentials",
+              "urn:ietf:params:oauth:grant-type:device_code",
+              "urn:ietf:params:oauth:grant-type:token-exchange",
+              "urn:ietf:params:oauth:grant-type:jwt-bearer"
+          ],
+    pause_after: 2.0
+
+  - type: comment
+    text: "Check PQC signing algorithms — ML-DSA (CRYSTALS-Dilithium) for post-quantum JWT signatures"
+    pause_after: 1.5
+
+  - type: command
+    run: |-
+      curl -sk https://idm.demo.agentic.test/idp/.well-known/openid-configuration \
+        | python3 -c "import sys,json; algs=json.load(sys.stdin)['id_token_signing_alg_values_supported']; print('\n'.join(algs))"
+    output: |
+      ES256
+      ES384
+      EdDSA
+      ML-DSA-44
+      ML-DSA-65
+      ML-DSA-87
+    pause_after: 2.5

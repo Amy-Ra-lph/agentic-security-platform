@@ -1,0 +1,97 @@
+settings:
+  title: "Act 4 — Remediate Operations"
+  width: 100
+  height: 30
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "enforcement-mcp REMEDIATE tools — gated by enforce-remediate group"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Alice remediates"
+
+  - type: comment
+    text: "Alice (enforce-remediate ✓) → set_boolean"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Alice: set_boolean httpd_can_network_connect=off → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: setsebool httpd_can_network_connect off
+    output: ""
+    pause_after: 0.5
+
+  - type: command
+    run: getsebool httpd_can_network_connect
+    output: |
+      httpd_can_network_connect --> off
+    pause_after: 1.5
+
+  - type: comment
+    text: "Security hardening applied — httpd can no longer initiate outbound connections"
+    pause_after: 1.5
+
+  - type: command
+    run: "# Alice: generate_module → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: |-
+      ausearch -m avc --start recent 2>/dev/null \
+        | audit2allow -M demo-hardening
+    output: |
+      Nothing to do
+      No AVCs — module generation skipped (clean system)
+    pause_after: 1.5
+
+  - type: marker
+    label: "Bob denied"
+
+  - type: comment
+    text: "Bob (enforce-diagnose only, no enforce-remediate) → DENIED"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Bob: set_boolean → DENIED"
+    hidden: true
+
+  - type: command
+    run: "enforce-mcp --user bob set_boolean httpd_can_network_connect=off"
+    output: |
+      ⊘ DENIED: bob → set_boolean
+        Missing group: enforce-remediate
+        Token groups: [agent-operators, enforce-diagnose, ipausers]
+        Note: operation blocked BEFORE execution
+    pause_after: 2.0
+
+  - type: command
+    run: "# Bob: load_module → DENIED"
+    hidden: true
+
+  - type: command
+    run: "enforce-mcp --user bob load_module demo-hardening.pp"
+    output: |
+      ⊘ DENIED: bob → load_module
+        Missing group: enforce-remediate
+        Token groups: [agent-operators, enforce-diagnose, ipausers]
+    pause_after: 2.0
+
+  - type: marker
+    label: "Carol denied"
+
+  - type: comment
+    text: "Carol (no enforcement groups) → DENIED for both diagnose and remediate"
+    pause_after: 1.0
+
+  - type: command
+    run: "enforce-mcp --user carol set_boolean httpd_can_network_connect=on"
+    output: |
+      ⊘ DENIED: carol → set_boolean
+        Missing group: enforce-remediate
+        Token groups: [ipausers]
+    pause_after: 2.0

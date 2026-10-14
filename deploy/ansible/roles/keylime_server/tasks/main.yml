@@ -7,6 +7,15 @@
     state: present
   failed_when: false
 
+- name: Ensure config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - /etc/keylime/registrar.conf.d
+    - /etc/keylime/verifier.conf.d
+    - /etc/keylime/tenant.conf.d
+
 - name: Configure registrar
   ansible.builtin.copy:
     content: |
@@ -29,15 +38,6 @@
       [tenant]
       require_ek_cert = false
     dest: /etc/keylime/tenant.conf.d/poc.conf
-
-- name: Ensure config directories exist
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-  loop:
-    - /etc/keylime/registrar.conf.d
-    - /etc/keylime/verifier.conf.d
-    - /etc/keylime/tenant.conf.d
 
 - name: Start Keylime services
   ansible.builtin.systemd:

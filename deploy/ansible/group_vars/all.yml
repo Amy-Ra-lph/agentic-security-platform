@@ -9,9 +9,7 @@ server_hostname: idm.demo.agentic.test
 client_hostname: runner.demo.agentic.test
 siem_hostname: siem.demo.agentic.test
 
-server_ip: 192.168.56.10
-client_ip: 192.168.56.11
-siem_ip: 192.168.56.12
+# server_ip, client_ip, siem_ip: set per-inventory (inventory.yml or beaker-inventory.yml)
 
 engineer_user: engineer
 engineer_password: Demo2026!

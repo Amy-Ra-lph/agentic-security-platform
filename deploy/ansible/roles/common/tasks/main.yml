@@ -24,5 +24,8 @@
     name: "{{ engineer_user }}"
     groups: wheel
     append: true
-    password: "{{ engineer_password | password_hash('sha512') }}"
     state: present
+
+- name: Set engineer password
+  ansible.builtin.shell: echo "{{ engineer_user }}:{{ engineer_password }}" | chpasswd
+  changed_when: true

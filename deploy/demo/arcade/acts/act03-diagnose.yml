@@ -1,0 +1,111 @@
+settings:
+  title: "Act 3 — Diagnose Operations"
+  width: 100
+  height: 30
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "enforcement-mcp DIAGNOSE tools — gated by enforce-diagnose group"
+    pause_after: 1.5
+
+  - type: marker
+    label: "Alice diagnoses"
+
+  - type: comment
+    text: "Alice (enforce-diagnose ✓) → check_selinux_enabled"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Alice: check_selinux_enabled → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: getenforce
+    output: Enforcing
+    pause_after: 1.5
+
+  - type: command
+    run: "# Alice: host_posture → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: sestatus | grep -E "status|mode|policy"
+    output: |
+      SELinux status:                 enabled
+      Loaded policy name:             targeted
+      Current mode:                   enforcing
+      Policy MLS status:              enabled
+      Policy deny_unknown status:     allowed
+      Max kernel policy version:      33
+    pause_after: 1.5
+
+  - type: command
+    run: "# Alice: boolean_list → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: getsebool httpd_can_network_connect httpd_use_nfs container_use_cephfs
+    output: |
+      httpd_can_network_connect --> on
+      httpd_use_nfs --> off
+      container_use_cephfs --> off
+    pause_after: 1.5
+
+  - type: marker
+    label: "Bob diagnoses"
+
+  - type: comment
+    text: "Bob (enforce-diagnose ✓) → same read-only operations succeed"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Bob: check_selinux_enabled → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: getenforce
+    output: Enforcing
+    pause_after: 1.0
+
+  - type: command
+    run: "# Bob: avc_denials → ALLOWED"
+    hidden: true
+
+  - type: command
+    run: ausearch -m avc --start recent -i
+    output: |
+      <no matches>
+    pause_after: 1.5
+
+  - type: marker
+    label: "Carol blocked"
+
+  - type: comment
+    text: "Carol (no enforce-diagnose) → DENIED before execution"
+    pause_after: 1.0
+
+  - type: command
+    run: "# Carol: check_selinux_enabled → DENIED"
+    hidden: true
+
+  - type: command
+    run: "enforce-mcp --user carol check_selinux_enabled"
+    output: |
+      ⊘ DENIED: carol → check_selinux_enabled
+        Missing group: enforce-diagnose
+        Token groups: [ipausers]
+    pause_after: 2.0
+
+  - type: command
+    run: "# Carol: host_posture → DENIED"
+    hidden: true
+
+  - type: command
+    run: "enforce-mcp --user carol host_posture"
+    output: |
+      ⊘ DENIED: carol → host_posture
+        Missing group: enforce-diagnose
+        Token groups: [ipausers]
+    pause_after: 2.0

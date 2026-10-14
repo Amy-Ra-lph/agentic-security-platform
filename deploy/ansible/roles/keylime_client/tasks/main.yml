@@ -26,17 +26,30 @@
 
 - name: Fetch CV CA cert from server
   ansible.builtin.fetch:
-    src: /opt/demo/keylime-ca/cacert.crt
+    src: /var/lib/keylime/cv_ca/cacert.crt
     dest: /tmp/keylime-cv-ca.crt
     flat: true
   delegate_to: server
   failed_when: false
+  register: cv_ca_fetch
+
+- name: Ensure CV CA directory on client
+  ansible.builtin.file:
+    path: /var/lib/keylime/cv_ca
+    state: directory
+    mode: "0755"
 
 - name: Deploy CV CA cert
   ansible.builtin.copy:
     src: /tmp/keylime-cv-ca.crt
     dest: /var/lib/keylime/cv_ca/cacert.crt
+  when: cv_ca_fetch is succeeded and cv_ca_fetch is not skipped
   failed_when: false
+
+- name: Ensure agent config directory
+  ansible.builtin.file:
+    path: /etc/keylime/agent.conf.d
+    state: directory
 
 - name: Configure Keylime agent
   ansible.builtin.copy:
@@ -45,11 +58,6 @@
       registrar_ip = "{{ server_ip }}"
       tpm_ownerpassword = ""
     dest: /etc/keylime/agent.conf.d/poc.conf
-
-- name: Ensure agent config directory
-  ansible.builtin.file:
-    path: /etc/keylime/agent.conf.d
-    state: directory
 
 - name: Start Keylime agent
   ansible.builtin.systemd:

@@ -1,0 +1,60 @@
+settings:
+  title: "Act 6 — Audit Trail"
+  width: 110
+  height: 35
+  prompt: "[root@idm ~]# "
+  type_speed: 0.03
+
+instructions:
+  - type: comment
+    text: "Every authorization decision logged as structured JSON — who, what, when, why"
+    pause_after: 1.5
+
+  - type: command
+    run: cat /var/log/agentic-security-demo.json | python3 -m json.tool
+    output: |
+      {"ts":"2026-10-14T11:40:29Z","user":"alice","tool":"login","decision":"allow","reason":"groups=agent-operators enforce-diagnose enforce-remediate ipausers"}
+      {"ts":"2026-10-14T11:40:30Z","user":"bob","tool":"login","decision":"allow","reason":"groups=agent-operators enforce-diagnose ipausers"}
+      {"ts":"2026-10-14T11:40:31Z","user":"carol","tool":"login","decision":"allow","reason":"groups=ipausers"}
+      {"ts":"2026-10-14T11:40:31Z","user":"alice","tool":"check_selinux_enabled","decision":"allow","reason":"group_match"}
+      {"ts":"2026-10-14T11:40:31Z","user":"bob","tool":"check_selinux_enabled","decision":"allow","reason":"group_match"}
+      {"ts":"2026-10-14T11:40:31Z","user":"carol","tool":"check_selinux_enabled","decision":"deny","reason":"missing_group=enforce-diagnose"}
+      {"ts":"2026-10-14T11:40:31Z","user":"alice","tool":"host_posture","decision":"allow","reason":"group_match"}
+      {"ts":"2026-10-14T11:40:31Z","user":"bob","tool":"host_posture","decision":"allow","reason":"group_match"}
+      {"ts":"2026-10-14T11:40:31Z","user":"carol","tool":"host_posture","decision":"deny","reason":"missing_group=enforce-diagnose"}
+      {"ts":"2026-10-14T11:40:31Z","user":"alice","tool":"set_boolean","decision":"allow","reason":"group_match"}
+      {"ts":"2026-10-14T11:40:31Z","user":"bob","tool":"set_boolean","decision":"deny","reason":"missing_group=enforce-remediate"}
+      {"ts":"2026-10-14T11:40:31Z","user":"carol","tool":"set_boolean","decision":"deny","reason":"missing_group=enforce-remediate"}
+      {"ts":"2026-10-14T11:40:33Z","user":"alice","tool":"obo_exchange","decision":"allow","reason":"gateway→sovereign"}
+      {"ts":"2026-10-14T11:40:33Z","user":"alice","tool":"obo_chain","decision":"allow","reason":"gateway→sovereign→data-agent"}
+      {"ts":"2026-10-14T11:40:33Z","user":"bob","tool":"load_module","decision":"deny","reason":"missing_group=enforce-remediate"}
+      {"ts":"2026-10-14T11:40:33Z","user":"carol","tool":"avc_denials","decision":"deny","reason":"missing_group=enforce-diagnose"}
+    pause_after: 2.5
+
+  - type: marker
+    label: "Summary"
+
+  - type: command
+    run: |-
+      echo "Authorization decisions: $(wc -l < /var/log/agentic-security-demo.json)"
+      echo "  Allowed: $(grep -c '\"allow\"' /var/log/agentic-security-demo.json)"
+      echo "  Denied:  $(grep -c '\"deny\"' /var/log/agentic-security-demo.json)"
+    output: |
+      Authorization decisions: 28
+        Allowed: 16
+        Denied:  12
+    pause_after: 2.0
+
+  - type: comment
+    text: "Authorization model: IPA User → IPA Groups → ahdapa Token → Group Claims → Tool Gate"
+    pause_after: 1.5
+
+  - type: command
+    run: "cat /opt/demo/authz-matrix.txt"
+    output: |
+      User   Diagnose  Remediate  Access
+      -----  --------  ---------  ----------------
+      alice  yes       yes        Full access
+      bob    yes       NO         Read-only
+      carol  NO        NO         None
+    pause_after: 3.0
